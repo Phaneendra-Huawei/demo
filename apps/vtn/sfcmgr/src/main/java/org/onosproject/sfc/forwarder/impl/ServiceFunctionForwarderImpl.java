@@ -104,7 +104,7 @@ public class ServiceFunctionForwarderImpl implements ServiceFunctionForwarderSer
     private static final String PORT_CHAIN_ID_NOT_NULL = "Port-Chain-Id cannot be null";
     private static final String APP_ID_NOT_NULL = "Application-Id cannot be null";
     private static final int NULL = 0;
-
+    private static final int FORWARDER_PRIORITY = 0xffff;
     /**
      * Default constructor.
      */
@@ -129,19 +129,19 @@ public class ServiceFunctionForwarderImpl implements ServiceFunctionForwarderSer
     }
 
     @Override
-    public void installForwardingRule(PortChain portChain, NshServicePathId nshSPI) {
+    public void installForwardingRule(PortChain portChain, NshServicePathId nshSpi) {
         checkNotNull(portChain, PORT_CHAIN_NOT_NULL);
-        prepareServiceFunctionForwarder(portChain, nshSPI, Objective.Operation.ADD);
+        prepareServiceFunctionForwarder(portChain, nshSpi, Objective.Operation.ADD);
     }
 
     @Override
-    public void unInstallForwardingRule(PortChain portChain, NshServicePathId nshSPI) {
+    public void unInstallForwardingRule(PortChain portChain, NshServicePathId nshSpi) {
         checkNotNull(portChain, PORT_CHAIN_NOT_NULL);
-        prepareServiceFunctionForwarder(portChain, nshSPI, Objective.Operation.REMOVE);
+        prepareServiceFunctionForwarder(portChain, nshSpi, Objective.Operation.REMOVE);
     }
 
     @Override
-    public void prepareServiceFunctionForwarder(PortChain portChain, NshServicePathId nshSPI,
+    public void prepareServiceFunctionForwarder(PortChain portChain, NshServicePathId nshSpi,
                                                 Objective.Operation type) {
 
         // Go through the port pair group list
@@ -163,7 +163,7 @@ public class ServiceFunctionForwarderImpl implements ServiceFunctionForwarderSer
         PortPairGroup nextPortPairGroup = portPairGroupService.getPortPairGroup(portPairGrpId);
 
         // push SFF to OVS
-        pushServiceFunctionForwarder(currentPortPairGroup, nextPortPairGroup, listGrpIterator, nshSPI, type);
+        pushServiceFunctionForwarder(currentPortPairGroup, nextPortPairGroup, listGrpIterator, nshSpi, type);
     }
 
     /**
@@ -174,7 +174,7 @@ public class ServiceFunctionForwarderImpl implements ServiceFunctionForwarderSer
      * @param listGrpIterator pointer to port-pair-group list
      */
     public void pushServiceFunctionForwarder(PortPairGroup currentPortPairGroup, PortPairGroup nextPortPairGroup,
-            ListIterator<PortPairGroupId> listGrpIterator, NshServicePathId nshSPI, Objective.Operation type) {
+            ListIterator<PortPairGroupId> listGrpIterator, NshServicePathId nshSpi, Objective.Operation type) {
         DeviceId deviceId = null;
         DeviceId currentDeviceId = null;
         DeviceId nextDeviceId = null;
@@ -199,7 +199,7 @@ public class ServiceFunctionForwarderImpl implements ServiceFunctionForwarderSer
             }
 
             // pack traffic selector
-            TrafficSelector.Builder selector = packTrafficSelector(deviceId, portPair, nshSPI);
+            TrafficSelector.Builder selector = packTrafficSelector(deviceId, portPair, nshSpi);
 
             // Get the required information on port pairs from destination port
             // pair group
@@ -236,11 +236,11 @@ public class ServiceFunctionForwarderImpl implements ServiceFunctionForwarderSer
      *
      * @param deviceId device id
      * @param portPair port-pair
-     * @param nshSPI nsh spi
+     * @param nshSpi nsh spi
      * @return traffic treatment
      */
     public TrafficSelector.Builder packTrafficSelector(DeviceId deviceId,
-                                   PortPair portPair, NshServicePathId nshSPI) {
+                                   PortPair portPair, NshServicePathId nshSpi) {
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
         //selector.matchEthSrc(srcMacAddress);
         //selector.matchEthDst(dstMacAddress);
@@ -257,7 +257,7 @@ public class ServiceFunctionForwarderImpl implements ServiceFunctionForwarderSer
         ExtensionSelector nspSpiSelector = resolver.getExtensionSelector(NICIRA_MATCH_NSH_SPI.type());
 
         try {
-            nspSpiSelector.setPropertyValue("nshSpi", nshSPI);
+            nspSpiSelector.setPropertyValue("nshSpi", nshSpi);
         } catch (Exception e) {
             log.error("Failed to get extension instruction to set Nsh Spi Id {}", deviceId);
         }
@@ -310,7 +310,8 @@ public class ServiceFunctionForwarderImpl implements ServiceFunctionForwarderSer
         log.info("Selector: ", selector.toString());
         log.info("Treatment: ", treatment.toString());
         ForwardingObjective.Builder objective = DefaultForwardingObjective.builder().withTreatment(treatment.build())
-                .withSelector(selector.build()).fromApp(appId).makePermanent().withFlag(Flag.SPECIFIC);
+                .withSelector(selector.build()).fromApp(appId).makePermanent().withFlag(Flag.VERSATILE)
+                .withPriority(FORWARDER_PRIORITY);
         if (type.equals(Objective.Operation.ADD)) {
             log.debug("ADD");
             flowObjectiveService.forward(deviceId, objective.add());

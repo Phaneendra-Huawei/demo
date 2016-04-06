@@ -272,7 +272,17 @@ public class OpenVSwitchPipeline extends DefaultSingleTablePipeline
 
     private Collection<FlowRule> processVersatile(ForwardingObjective fwd) {
         log.debug("Processing versatile forwarding objective");
-        return Collections.emptyList();
+        TrafficSelector selector = fwd.selector();
+        TrafficTreatment tb = fwd.treatment();
+        FlowRule.Builder ruleBuilder = DefaultFlowRule.builder()
+                .fromApp(fwd.appId()).withPriority(fwd.priority())
+                .forDevice(deviceId).withSelector(selector)
+                .withTreatment(tb).makeTemporary(TIME_OUT);
+        ruleBuilder.withPriority(fwd.priority());
+        if (fwd.permanent()) {
+            ruleBuilder.makePermanent();
+        }
+        return Collections.singletonList(ruleBuilder.build());
     }
 
     private Collection<FlowRule> processSpecific(ForwardingObjective fwd) {

@@ -119,7 +119,7 @@ public class FlowClassifierInstallerImpl implements FlowClassifierInstallerServi
     private static final String FLOW_CLASSIFIER_ID_NOT_NULL = "Flow-Classifier-Id cannot be null";
     private static final String PORT_CHAIN_NOT_NULL = "Port-Chain cannot be null";
     private static final int NULL = 0;
-    private static final int FLOW_CLASSIFIER_PRIORITY = 0x7fff;
+    private static final int FLOW_CLASSIFIER_PRIORITY = 0xffff;
     private static final int NSH_SI_ID = 0xff;
 
     /**
@@ -186,7 +186,7 @@ public class FlowClassifierInstallerImpl implements FlowClassifierInstallerServi
     }
 
     @Override
-    public void prepareFlowClassification(FlowClassifier flowClassifier, PortPair portPair, NshServicePathId nshSPI,
+    public void prepareFlowClassification(FlowClassifier flowClassifier, PortPair portPair, NshServicePathId nshSpi,
             Operation type) {
         DeviceId deviceId = null;
         // device id if virtual ports are set in flow classifier.
@@ -196,12 +196,11 @@ public class FlowClassifierInstallerImpl implements FlowClassifierInstallerServi
         MacAddress srcMacAddress = null;
         // Vxlan tunnel port for NSH header(Vxlan + NSH).
         TpPort nshDstPort = TpPort.tpPort(6633);
-
+        deviceIdfromPp = vtnRscService.getSFToSFFMaping(VirtualPortId.portId(portPair.ingress()));
         if ((flowClassifier.srcPort() != null) && (!flowClassifier.srcPort().portId().isEmpty())) {
             deviceIdfromFc = vtnRscService.getSFToSFFMaping(flowClassifier.srcPort());
             deviceId = deviceIdfromFc;
         } else {
-            deviceIdfromPp = vtnRscService.getSFToSFFMaping(VirtualPortId.portId(portPair.ingress()));
             deviceId = deviceIdfromPp;
         }
         srcMacAddress = virtualPortService.getPort(VirtualPortId.portId(portPair.ingress())).macAddress();
@@ -211,7 +210,7 @@ public class FlowClassifierInstallerImpl implements FlowClassifierInstallerServi
 
         // Build traffic treatment.
         TrafficTreatment.Builder treatment = packTrafficTreatment(deviceId, srcMacAddress, nshDstPort, deviceIdfromFc,
-                deviceIdfromPp, nshSPI, flowClassifier);
+                deviceIdfromPp, nshSpi, flowClassifier);
 
         // Build forwarding objective and send to OVS.
         sendServiceFunctionForwarder(selector, treatment, deviceId, type);
@@ -299,12 +298,12 @@ public class FlowClassifierInstallerImpl implements FlowClassifierInstallerServi
      * @param nshDstPort vxlan tunnel port for nsh header
      * @param deviceIdfromFc device id if virtual ports are set in flow classifier.
      * @param deviceIdfromPp device id if port pair is used to fetch device id.
-     * @param nshSPI nsh spi
+     * @param nshSpi nsh spi
      * @param flowClassifier flow-classifier
      * @return traffic treatment
      */
     public TrafficTreatment.Builder packTrafficTreatment(DeviceId deviceId, MacAddress srcMacAddress,
-            TpPort nshDstPort, DeviceId deviceIdfromFc, DeviceId deviceIdfromPp, NshServicePathId nshSPI,
+            TpPort nshDstPort, DeviceId deviceIdfromFc, DeviceId deviceIdfromPp, NshServicePathId nshSpi,
             FlowClassifier flowClassifier) {
         TrafficTreatment.Builder treatmentBuilder = DefaultTrafficTreatment.builder();
 
@@ -334,7 +333,7 @@ public class FlowClassifierInstallerImpl implements FlowClassifierInstallerServi
         treatmentBuilder.setUdpDst(nshDstPort);
 
         try {
-            nspIdTreatment.setPropertyValue("nshSpi", nshSPI);
+            nspIdTreatment.setPropertyValue("nshSpi", nshSpi);
         } catch (Exception e) {
             log.error("Failed to get extension instruction to set Nsh Spi Id {}", deviceId);
         }
@@ -360,7 +359,7 @@ public class FlowClassifierInstallerImpl implements FlowClassifierInstallerServi
         log.info("Sending flow classifier. Treatement: ", treatment.toString());
         log.info("Selector: ", selector.toString());
         ForwardingObjective.Builder objective = DefaultForwardingObjective.builder().withTreatment(treatment.build())
-                .withSelector(selector.build()).fromApp(appId).makePermanent().withFlag(Flag.SPECIFIC)
+                .withSelector(selector.build()).fromApp(appId).makePermanent().withFlag(Flag.VERSATILE)
                 .withPriority(FLOW_CLASSIFIER_PRIORITY);
 
         if (type.equals(Objective.Operation.ADD)) {

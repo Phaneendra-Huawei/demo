@@ -192,18 +192,18 @@ public class SfcManager implements SfcService {
 
     @Override
     public void onPortChainCreated(PortChain portChain) {
-        NshServicePathId nshSPI;
+        NshServicePathId nshSpi;
         log.info("onPortChainCreated");
         if (nshSpiPortChainMap.containsKey(portChain.portChainId())) {
-            nshSPI = nshSpiPortChainMap.get(portChain.portChainId());
+            nshSpi = nshSpiPortChainMap.get(portChain.portChainId());
         } else {
-            nshSPI = NshServicePathId.of(NshSpiIdGenerators.create());
-            nshSpiPortChainMap.put(portChain.portChainId(), nshSPI);
+            nshSpi = NshServicePathId.of(NshSpiIdGenerators.create());
+            nshSpiPortChainMap.put(portChain.portChainId(), nshSpi);
         }
 
         // install in OVS.
-        flowClassifierInstallerService.installFlowClassifier(portChain, nshSPI);
-        serviceFunctionForwarderService.installForwardingRule(portChain, nshSPI);
+        flowClassifierInstallerService.installFlowClassifier(portChain, nshSpi);
+        serviceFunctionForwarderService.installForwardingRule(portChain, nshSpi);
     }
 
     @Override
@@ -213,12 +213,12 @@ public class SfcManager implements SfcService {
             throw new ItemNotFoundException("Unable to find NSH SPI");
         }
 
-        NshServicePathId nshSPI = nshSpiPortChainMap.get(portChain.portChainId());
+        NshServicePathId nshSpi = nshSpiPortChainMap.get(portChain.portChainId());
         // uninstall from OVS.
-        flowClassifierInstallerService.unInstallFlowClassifier(portChain, nshSPI);
-        serviceFunctionForwarderService.unInstallForwardingRule(portChain, nshSPI);
+        flowClassifierInstallerService.unInstallFlowClassifier(portChain, nshSpi);
+        serviceFunctionForwarderService.unInstallForwardingRule(portChain, nshSpi);
 
         // remove SPI. No longer it will be used.
-        nshSpiPortChainMap.remove(nshSPI);
+        nshSpiPortChainMap.remove(nshSpi);
     }
 }
