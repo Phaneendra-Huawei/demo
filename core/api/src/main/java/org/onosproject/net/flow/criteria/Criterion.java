@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ package org.onosproject.net.flow.criteria;
  */
 public interface Criterion {
 
+    static final String SEPARATOR = ":";
+
     /**
      * Types of fields to which the selection criterion may apply.
      */
@@ -38,8 +40,14 @@ public interface Criterion {
         /** Ethernet destination address. */
         ETH_DST,
 
+        /** Ethernet destination address with masking. */
+        ETH_DST_MASKED,
+
         /** Ethernet source address. */
         ETH_SRC,
+
+        /** Ethernet source address with masking. */
+        ETH_SRC_MASKED,
 
         /** Ethernet frame type. */
         ETH_TYPE,
@@ -49,6 +57,20 @@ public interface Criterion {
 
         /** VLAN priority. */
         VLAN_PCP,
+
+        /**
+         * Inner VLAN id.
+         *
+         * Note: Some drivers may not support this.
+         */
+        INNER_VLAN_VID,
+
+        /**
+         * Inner VLAN pcp.
+         *
+         * Note: Some drivers may not support this.
+         */
+        INNER_VLAN_PCP,
 
         /** IP DSCP (6 bits in ToS field). */
         IP_DSCP,
@@ -231,7 +253,7 @@ public interface Criterion {
         }
     }
 
-    enum TCPFlags {
+    enum TcpFlags {
 
         /** ECN-nonce concealment protection. */
         NS((short) (1 << 0)),
@@ -254,7 +276,7 @@ public interface Criterion {
 
         private short value;
 
-        TCPFlags(short value) {
+        TcpFlags(short value) {
             this.value = value;
         }
 

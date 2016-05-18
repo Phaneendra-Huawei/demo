@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ public class PortPairWebResource extends AbstractWebResource {
      *
      * @param stream port pair from JSON
      * @return status of the request - CREATED if the JSON is correct,
-     * BAD_REQUEST if the JSON is invalid
+     *         BAD_REQUEST if the JSON is invalid
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -127,7 +127,7 @@ public class PortPairWebResource extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     public Response updatePortPair(@PathParam("pair_id") String id,
-                                   final InputStream stream) {
+            final InputStream stream) {
         try {
             ObjectNode jsonTree = (ObjectNode) mapper().readTree(stream);
             JsonNode port = jsonTree.get("port_pair");
@@ -148,6 +148,7 @@ public class PortPairWebResource extends AbstractWebResource {
      */
     @Path("{pair_id}")
     @DELETE
+    @Consumes(MediaType.APPLICATION_JSON)
     public void deletePortPair(@PathParam("pair_id") String id) {
 
         PortPairId portPairId = PortPairId.of(id);

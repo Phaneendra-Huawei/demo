@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import java.util.Set;
 
 import org.onosproject.ovsdb.rfc.notation.Column;
 import org.onosproject.ovsdb.rfc.notation.Row;
-import org.onosproject.ovsdb.rfc.notation.UUID;
+import org.onosproject.ovsdb.rfc.notation.Uuid;
 import org.onosproject.ovsdb.rfc.schema.DatabaseSchema;
 import org.onosproject.ovsdb.rfc.tableservice.AbstractOvsdbTableService;
 import org.onosproject.ovsdb.rfc.tableservice.ColumnDescription;
@@ -75,7 +75,7 @@ public class Qos extends AbstractOvsdbTableService {
      * attributes.
      * @param queues the column data which column name is "queues"
      */
-    public void setQueues(Map<Long, UUID> queues) {
+    public void setQueues(Map<Long, Uuid> queues) {
         ColumnDescription columndesc = new ColumnDescription(QosColumn.QUEUES.columnName(), "setQueues",
                                                              VersionNum.VERSION100);
         super.setDataHandler(columndesc, queues);

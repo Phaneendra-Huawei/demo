@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class RoutingUniverseTlv implements PcepValueType {
 
     protected static final Logger log = LoggerFactory.getLogger(RoutingUniverseTlv.class);
 
-    public static final short TYPE = 14; // TODO:need to change TBD7
+    public static final short TYPE = (short) 65281;
     public static final short LENGTH = 8;
 
     private final long rawValue;

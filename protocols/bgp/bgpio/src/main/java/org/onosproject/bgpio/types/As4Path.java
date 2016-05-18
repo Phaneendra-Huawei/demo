@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,7 @@
  */
 package org.onosproject.bgpio.types;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-
+import com.google.common.base.MoreObjects;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.onosproject.bgpio.exceptions.BgpParseException;
 import org.onosproject.bgpio.util.Constants;
@@ -26,7 +23,9 @@ import org.onosproject.bgpio.util.Validation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.MoreObjects;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Provides Implementation of As4Path BGP Path Attribute.
@@ -35,6 +34,7 @@ public class As4Path implements BgpValueType {
     private static final Logger log = LoggerFactory.getLogger(AsPath.class);
     public static final byte AS4PATH_TYPE = 17;
     public static final byte ASNUM_SIZE = 4;
+    public static final byte FLAGS = (byte) 0x40;
 
     private List<Integer> as4pathSet;
     private List<Integer> as4pathSeq;
@@ -122,7 +122,7 @@ public class As4Path implements BgpValueType {
      *
      * @return list of ASNum in AS4path Sequence
      */
-    public List<Integer> as4PathSEQ() {
+    public List<Integer> as4PathSeq() {
         return this.as4pathSeq;
     }
 
@@ -131,7 +131,7 @@ public class As4Path implements BgpValueType {
      *
      * @return list of ASNum in AS4path Set
      */
-    public List<Integer> as4PathSET() {
+    public List<Integer> as4PathSet() {
         return this.as4pathSet;
     }
 
@@ -163,8 +163,27 @@ public class As4Path implements BgpValueType {
 
     @Override
     public int write(ChannelBuffer cb) {
-        //Not required to Implement as of now
-        return 0;
+
+        int iLenStartIndex = cb.writerIndex();
+
+        cb.writeByte(FLAGS);
+        cb.writeByte(getType());
+        if ((as4pathSet != null) && (as4pathSeq != null)) {
+            int iAsLenIndex = cb.writerIndex();
+            cb.writeByte(0);
+            cb.writeByte(AsPath.ASPATH_SEQ_TYPE);
+            cb.writeByte(as4pathSeq.size());
+
+            for (int j = 0; j < as4pathSeq.size(); j++) {
+                cb.writeInt(as4pathSeq.get(j));
+            }
+
+            int asLen = cb.writerIndex() - iAsLenIndex;
+            cb.setByte(iAsLenIndex, (byte) (asLen - 1));
+        } else {
+            cb.writeByte(0);
+        }
+        return cb.writerIndex() - iLenStartIndex;
     }
 
     @Override

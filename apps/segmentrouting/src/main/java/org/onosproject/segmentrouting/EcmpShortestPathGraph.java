@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -342,8 +342,13 @@ public class EcmpShortestPathGraph {
 
     private Link copyDefaultLink(Link link) {
         DefaultLink src = (DefaultLink) link;
-        DefaultLink defaultLink = new DefaultLink(src.providerId(), src.src(),
-                src.dst(), src.type(), src.annotations());
+        DefaultLink defaultLink = DefaultLink.builder()
+                .providerId(src.providerId())
+                .src(src.src())
+                .dst(src.dst())
+                .type(src.type())
+                .annotations(src.annotations())
+                .build();
 
         return defaultLink;
     }

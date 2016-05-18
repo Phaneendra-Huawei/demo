@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Mock codec context for use in codec unit tests.
  */
-public class AlarmCodecContext implements CodecContext {
+public final class AlarmCodecContext implements CodecContext {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final CodecManager codecManager = new CodecManager();

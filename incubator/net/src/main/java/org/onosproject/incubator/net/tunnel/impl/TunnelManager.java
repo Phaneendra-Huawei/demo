@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.onosproject.net.provider.AbstractListenerProviderRegistry;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.incubator.net.tunnel.DefaultTunnel;
 import org.onosproject.incubator.net.tunnel.Tunnel;
+import org.onosproject.incubator.net.tunnel.Tunnel.State;
 import org.onosproject.incubator.net.tunnel.Tunnel.Type;
 import org.onosproject.incubator.net.tunnel.TunnelAdminService;
 import org.onosproject.incubator.net.tunnel.TunnelDescription;
@@ -42,6 +43,7 @@ import org.onosproject.incubator.net.tunnel.TunnelStoreDelegate;
 import org.onosproject.incubator.net.tunnel.TunnelSubscription;
 import org.onosproject.net.Annotations;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.ElementId;
 import org.onosproject.net.Path;
 import org.onosproject.net.provider.AbstractProviderService;
 import org.onosproject.net.provider.ProviderId;
@@ -226,6 +228,18 @@ public class TunnelManager
     }
 
     @Override
+    public TunnelId setupTunnel(ApplicationId producerId, ElementId srcElementId, Tunnel tunnel, Path path) {
+        // TODO: Insert into store and trigger provider API.
+        return null;
+    }
+
+    @Override
+    public boolean downTunnel(ApplicationId producerId, TunnelId tunnelId) {
+        // TODO: Change the tunnel status and trigger provider API.
+        return false;
+    }
+
+    @Override
     public boolean returnTunnel(ApplicationId consumerId,
                                      TunnelId tunnelId, Annotations... annotations) {
         return store.returnTunnel(consumerId, tunnelId, annotations);
@@ -309,6 +323,20 @@ public class TunnelManager
         }
 
         @Override
+        public TunnelId tunnelAdded(TunnelDescription tunnel, State state) {
+            Tunnel storedTunnel = new DefaultTunnel(provider().id(),
+                                                    tunnel.src(), tunnel.dst(),
+                                                    tunnel.type(),
+                                                    state,
+                                                    tunnel.groupId(),
+                                                    tunnel.id(),
+                                                    tunnel.tunnelName(),
+                                                    tunnel.path(),
+                                                    tunnel.annotations());
+            return store.createOrUpdateTunnel(storedTunnel);
+        }
+
+        @Override
         public void tunnelUpdated(TunnelDescription tunnel) {
             Tunnel storedTunnel = new DefaultTunnel(provider().id(),
                                                     tunnel.src(), tunnel.dst(),
@@ -319,6 +347,20 @@ public class TunnelManager
                                                     tunnel.path(),
                                                     tunnel.annotations());
             store.createOrUpdateTunnel(storedTunnel);
+        }
+
+        @Override
+        public void tunnelUpdated(TunnelDescription tunnel, State state) {
+            Tunnel storedTunnel = new DefaultTunnel(provider().id(),
+                                                    tunnel.src(), tunnel.dst(),
+                                                    tunnel.type(),
+                                                    state,
+                                                    tunnel.groupId(),
+                                                    tunnel.id(),
+                                                    tunnel.tunnelName(),
+                                                    tunnel.path(),
+                                                    tunnel.annotations());
+            store.createOrUpdateTunnel(storedTunnel, state);
         }
 
         @Override

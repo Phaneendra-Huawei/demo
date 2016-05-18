@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,8 +42,8 @@ import org.onosproject.cfg.ComponentConfigAdapter;
 
 public class PcepTunnelProviderTest {
 
-    static final String PROVIDER_ID = "org.onosproject.provider.tunnel.pcep";
-    PcepTunnelProvider tunnelProvider = new PcepTunnelProvider();
+    private static final String PROVIDER_ID = "org.onosproject.provider.tunnel.pcep";
+    private PcepTunnelProvider tunnelProvider = new PcepTunnelProvider();
     private final TunnelProviderRegistryAdapter registry = new TunnelProviderRegistryAdapter();
     private final PcepClientControllerAdapter controller = new PcepClientControllerAdapter();
     private final PcepControllerAdapter ctl = new PcepControllerAdapter();
@@ -79,13 +79,14 @@ public class PcepTunnelProviderTest {
 
         ConnectPoint dst = new ConnectPoint(dstElementId, PortNumber.portNumber(10023));
 
-        Link link = new DefaultLink(pid, src, dst, Link.Type.DIRECT, EMPTY);
+        Link link = DefaultLink.builder().providerId(pid).src(src).dst(dst)
+                .type(Link.Type.DIRECT).build();
         links.add(link);
 
         path = new DefaultPath(pid, links, 10, EMPTY);
 
         tunnel = new DefaultTunnel(pid, ipTunnelEndPointSrc, ipTunnelEndPointDst, Tunnel.Type.MPLS,
-                                   new DefaultGroupId(0), TunnelId.valueOf(1), TunnelName.tunnelName("T123"),
+                                   new DefaultGroupId(0), TunnelId.valueOf("1"), TunnelName.tunnelName("T123"),
                                    path, EMPTY);
 
         tunnelProvider.setupTunnel(tunnel, path);

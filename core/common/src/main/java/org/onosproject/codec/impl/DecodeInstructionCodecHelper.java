@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,28 @@
  */
 package org.onosproject.codec.impl;
 
-import static org.onlab.util.Tools.nullIsIllegal;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.onlab.osgi.DefaultServiceDirectory;
+import org.onlab.osgi.ServiceDirectory;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.MplsLabel;
 import org.onlab.packet.TpPort;
 import org.onlab.packet.VlanId;
 import org.onlab.util.HexString;
+import org.onosproject.codec.ExtensionTreatmentCodec;
+import org.onosproject.core.DefaultGroupId;
+import org.onosproject.core.GroupId;
 import org.onosproject.net.ChannelSpacing;
+import org.onosproject.net.Device;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.GridType;
-import org.onosproject.net.Lambda;
 import org.onosproject.net.OchSignal;
 import org.onosproject.net.OduSignalId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.device.DeviceService;
+import org.onosproject.net.flow.instructions.ExtensionTreatment;
 import org.onosproject.net.flow.instructions.Instruction;
 import org.onosproject.net.flow.instructions.Instructions;
 import org.onosproject.net.flow.instructions.L0ModificationInstruction;
@@ -36,13 +44,17 @@ import org.onosproject.net.flow.instructions.L1ModificationInstruction;
 import org.onosproject.net.flow.instructions.L2ModificationInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction;
 import org.onosproject.net.flow.instructions.L4ModificationInstruction;
+import org.onosproject.net.meter.MeterId;
+import org.slf4j.Logger;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import static org.onlab.util.Tools.nullIsIllegal;
+import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Decoding portion of the instruction codec.
  */
 public final class DecodeInstructionCodecHelper {
+    protected static final Logger log = getLogger(DecodeInstructionCodecHelper.class);
     private final ObjectNode json;
 
     /**
@@ -145,12 +157,7 @@ public final class DecodeInstructionCodecHelper {
     private Instruction decodeL0() {
         String subType = json.get(InstructionCodec.SUBTYPE).asText();
 
-
-        if (subType.equals(L0ModificationInstruction.L0SubType.LAMBDA.name())) {
-            int lambda = nullIsIllegal(json.get(InstructionCodec.LAMBDA),
-                    InstructionCodec.LAMBDA + InstructionCodec.MISSING_MEMBER_MESSAGE).asInt();
-            return Instructions.modL0Lambda(Lambda.indexedLambda(lambda));
-        } else if (subType.equals(L0ModificationInstruction.L0SubType.OCH.name())) {
+        if (subType.equals(L0ModificationInstruction.L0SubType.OCH.name())) {
             String gridTypeString = nullIsIllegal(json.get(InstructionCodec.GRID_TYPE),
                     InstructionCodec.GRID_TYPE + InstructionCodec.MISSING_MEMBER_MESSAGE).asText();
             GridType gridType = GridType.valueOf(gridTypeString);
@@ -231,6 +238,71 @@ public final class DecodeInstructionCodecHelper {
     }
 
     /**
+     * Decodes a extension instruction.
+     *
+     * @return extension treatment
+     */
+    private Instruction decodeExtension() {
+        ObjectNode node = (ObjectNode) json.get(InstructionCodec.EXTENSION);
+        if (node != null) {
+            DeviceId deviceId = getDeviceId();
+
+            ServiceDirectory serviceDirectory = new DefaultServiceDirectory();
+            DeviceService deviceService = serviceDirectory.get(DeviceService.class);
+            Device device = deviceService.getDevice(deviceId);
+
+            if (device.is(ExtensionTreatmentCodec.class)) {
+                ExtensionTreatmentCodec treatmentCodec = device.as(ExtensionTreatmentCodec.class);
+                ExtensionTreatment treatment = treatmentCodec.decode(node, null);
+                return Instructions.extension(treatment, deviceId);
+            } else {
+                log.warn("There is no codec to decode extension for device {}", deviceId.toString());
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns device identifier.
+     *
+     * @return device identifier
+     * @throws IllegalArgumentException if the JSON is invalid
+     */
+    private DeviceId getDeviceId() {
+        JsonNode deviceIdNode = json.get(InstructionCodec.DEVICE_ID);
+        if (deviceIdNode != null) {
+            return DeviceId.deviceId(deviceIdNode.asText());
+        }
+        throw new IllegalArgumentException("Empty device identifier");
+    }
+
+    /**
+     * Extracts port number of the given json node.
+     *
+     * @param jsonNode json node
+     * @return port number
+     */
+    private PortNumber getPortNumber(ObjectNode jsonNode) {
+        PortNumber portNumber;
+        if (jsonNode.get(InstructionCodec.PORT).isLong() || jsonNode.get(InstructionCodec.PORT).isInt()) {
+            portNumber = PortNumber
+                    .portNumber(nullIsIllegal(jsonNode.get(InstructionCodec.PORT)
+                            .asLong(), InstructionCodec.PORT
+                            + InstructionCodec.MISSING_MEMBER_MESSAGE));
+        } else if (jsonNode.get(InstructionCodec.PORT).isTextual()) {
+            portNumber = PortNumber
+                    .fromString(nullIsIllegal(jsonNode.get(InstructionCodec.PORT)
+                            .textValue(), InstructionCodec.PORT
+                            + InstructionCodec.MISSING_MEMBER_MESSAGE));
+        } else {
+            throw new IllegalArgumentException("Port value "
+                    + jsonNode.get(InstructionCodec.PORT).toString()
+                    + " is not supported");
+        }
+        return portNumber;
+    }
+
+    /**
      * Decodes the JSON into an instruction object.
      *
      * @return Criterion object
@@ -240,25 +312,24 @@ public final class DecodeInstructionCodecHelper {
         String type = json.get(InstructionCodec.TYPE).asText();
 
         if (type.equals(Instruction.Type.OUTPUT.name())) {
-            PortNumber portNumber;
-            if (json.get(InstructionCodec.PORT).isLong() || json.get(InstructionCodec.PORT).isInt()) {
-                portNumber = PortNumber
-                        .portNumber(nullIsIllegal(json.get(InstructionCodec.PORT)
-                                                          .asLong(), InstructionCodec.PORT
-                                                          + InstructionCodec.MISSING_MEMBER_MESSAGE));
-            } else if (json.get(InstructionCodec.PORT).isTextual()) {
-                portNumber = PortNumber
-                        .fromString(nullIsIllegal(json.get(InstructionCodec.PORT)
-                                                          .textValue(), InstructionCodec.PORT
-                                                          + InstructionCodec.MISSING_MEMBER_MESSAGE));
-            } else {
-                throw new IllegalArgumentException("Port value "
-                                                           + json.get(InstructionCodec.PORT).toString()
-                                                           + " is not supported");
-            }
-            return Instructions.createOutput(portNumber);
-        } else if (type.equals(Instruction.Type.DROP.name())) {
-            return Instructions.createDrop();
+            return Instructions.createOutput(getPortNumber(json));
+        } else if (type.equals(Instruction.Type.NOACTION.name())) {
+            return Instructions.createNoAction();
+        } else if (type.equals(Instruction.Type.TABLE.name())) {
+            return Instructions.transition(nullIsIllegal(json.get(InstructionCodec.TABLE_ID)
+                    .asInt(), InstructionCodec.TABLE_ID + InstructionCodec.MISSING_MEMBER_MESSAGE));
+        } else if (type.equals(Instruction.Type.GROUP.name())) {
+            GroupId groupId = new DefaultGroupId(nullIsIllegal(json.get(InstructionCodec.GROUP_ID)
+                    .asInt(), InstructionCodec.GROUP_ID + InstructionCodec.MISSING_MEMBER_MESSAGE));
+            return Instructions.createGroup(groupId);
+        } else if (type.equals(Instruction.Type.METER.name())) {
+            MeterId meterId = MeterId.meterId(nullIsIllegal(json.get(InstructionCodec.METER_ID)
+                    .asLong(), InstructionCodec.METER_ID + InstructionCodec.MISSING_MEMBER_MESSAGE));
+            return Instructions.meterTraffic(meterId);
+        } else if (type.equals(Instruction.Type.QUEUE.name())) {
+            long queueId = nullIsIllegal(json.get(InstructionCodec.QUEUE_ID)
+                    .asLong(), InstructionCodec.QUEUE_ID + InstructionCodec.MISSING_MEMBER_MESSAGE);
+            return Instructions.setQueue(queueId, getPortNumber(json));
         } else if (type.equals(Instruction.Type.L0MODIFICATION.name())) {
             return decodeL0();
         } else if (type.equals(Instruction.Type.L1MODIFICATION.name())) {
@@ -269,9 +340,10 @@ public final class DecodeInstructionCodecHelper {
             return decodeL3();
         } else if (type.equals(Instruction.Type.L4MODIFICATION.name())) {
             return decodeL4();
+        } else if (type.equals(Instruction.Type.EXTENSION.name())) {
+            return decodeExtension();
         }
         throw new IllegalArgumentException("Instruction type "
                 + type + " is not supported");
     }
-
 }

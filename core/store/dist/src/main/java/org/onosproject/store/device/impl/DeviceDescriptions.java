@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.onosproject.net.device.DeviceDescription;
 import org.onosproject.net.device.OchPortDescription;
 import org.onosproject.net.device.OduCltPortDescription;
 import org.onosproject.net.device.OmsPortDescription;
+import org.onosproject.net.device.OtuPortDescription;
 import org.onosproject.net.device.PortDescription;
 import org.onosproject.store.Timestamp;
 import org.onosproject.store.impl.Timestamped;
@@ -121,6 +122,13 @@ class DeviceDescriptions {
                     newOne = new Timestamped<>(
                             new OduCltPortDescription(
                                     ocDesc, ocDesc.signalType(), merged),
+                            newDesc.timestamp());
+                    break;
+                case OTU:
+                    OtuPortDescription otuDesc = (OtuPortDescription) (newDesc.value());
+                    newOne = new Timestamped<>(
+                            new OtuPortDescription(
+                                    otuDesc, otuDesc.signalType(), merged),
                             newDesc.timestamp());
                     break;
                 default:

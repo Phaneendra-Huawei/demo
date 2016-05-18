@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,6 @@
  */
 package org.onlab.util;
 
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.commons.lang3.tuple.Pair;
-
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.ByteBufferInput;
@@ -33,6 +25,17 @@ import com.esotericsoftware.kryo.pool.KryoFactory;
 import com.esotericsoftware.kryo.pool.KryoPool;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import org.apache.commons.lang3.tuple.Pair;
+import org.objenesis.strategy.StdInstantiatorStrategy;
+import org.slf4j.Logger;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Pool of Kryo instances, with classes pre-registered.
@@ -57,6 +60,8 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
      * Smallest ID free to use for user defined registrations.
      */
     public static final int INITIAL_ID = 11;
+
+    private static final Logger log = getLogger(KryoNamespace.class);
 
 
     private final KryoPool pool = new KryoPool.Builder(this)
@@ -101,6 +106,12 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
          */
         public Builder nextId(final int id) {
             if (!types.isEmpty()) {
+                if (id != FLOATING_ID && id < blockHeadId + types.size()) {
+
+                    log.warn("requested nextId {} could potentially overlap" +
+                             "with existing registrations {}+{} ",
+                             id, blockHeadId, types.size());
+                }
                 blocks.add(new RegistrationBlock(this.blockHeadId, types));
                 types = new ArrayList<>();
             }
@@ -370,6 +381,11 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
     public Kryo create() {
         Kryo kryo = new Kryo();
         kryo.setRegistrationRequired(registrationRequired);
+
+        // TODO rethink whether we want to use StdInstantiatorStrategy
+        kryo.setInstantiatorStrategy(
+                new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy()));
+
         for (RegistrationBlock block : registeredBlocks) {
             int id = block.begin();
             if (id == FLOATING_ID) {

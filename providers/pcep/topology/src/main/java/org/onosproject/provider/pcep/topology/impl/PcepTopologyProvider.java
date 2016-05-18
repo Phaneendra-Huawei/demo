@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.onosproject.net.OchPort;
 import org.onosproject.net.OduCltPort;
 import org.onosproject.net.OmsPort;
 import org.onosproject.net.Port;
+import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DefaultDeviceDescription;
 import org.onosproject.net.device.DefaultPortDescription;
 import org.onosproject.net.device.DeviceDescription;
@@ -80,8 +81,11 @@ import static org.onosproject.pcep.api.PcepDpid.uri;
 public class PcepTopologyProvider extends AbstractProvider
         implements LinkProvider, DeviceProvider {
 
+    /**
+     * Creates instance of PCEP topology provider.
+     */
     public PcepTopologyProvider() {
-        super(new ProviderId("pcep", "org.onosproject.provider.pcep"));
+        super(new ProviderId("l3", "org.onosproject.provider.pcep"));
     }
 
     private static final Logger log = LoggerFactory
@@ -278,7 +282,7 @@ public class PcepTopologyProvider extends AbstractProvider
         }
 
         @Override
-        public void handlePCEPlink(PcepLink link) {
+        public void handlePceplink(PcepLink link) {
 
             OperationType operType = link.getOperationType();
             LinkDescription ld = buildLinkDescription(link);
@@ -317,5 +321,11 @@ public class PcepTopologyProvider extends AbstractProvider
     public boolean isReachable(DeviceId deviceId) {
         // TODO Auto-generated method stub
         return true;
+    }
+
+    @Override
+    public void changePortState(DeviceId deviceId, PortNumber portNumber,
+                                boolean enable) {
+        // TODO Auto-generated method stub
     }
 }

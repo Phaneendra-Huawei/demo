@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ public class DefaultIpLink extends AbstractModel implements IpLink {
     /**
      * Constructor to initialize its parameters.
      *
+     * @param providerId     provider identification
      * @param src            link source termination point
      * @param dst            link destination termination point
      * @param linkIdentifier provides link identifier details

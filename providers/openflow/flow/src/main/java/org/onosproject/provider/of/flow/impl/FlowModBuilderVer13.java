@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import org.onosproject.net.flow.instructions.Instructions.GroupInstruction;
 import org.onosproject.net.flow.instructions.Instructions.OutputInstruction;
 import org.onosproject.net.flow.instructions.Instructions.SetQueueInstruction;
 import org.onosproject.net.flow.instructions.L0ModificationInstruction;
-import org.onosproject.net.flow.instructions.L0ModificationInstruction.ModLambdaInstruction;
 import org.onosproject.net.flow.instructions.L0ModificationInstruction.ModOchSignalInstruction;
 import org.onosproject.net.flow.instructions.L1ModificationInstruction;
 import org.onosproject.net.flow.instructions.L1ModificationInstruction.ModOduSignalIdInstruction;
@@ -47,17 +46,19 @@ import org.onosproject.net.flow.instructions.L2ModificationInstruction.ModVlanId
 import org.onosproject.net.flow.instructions.L2ModificationInstruction.ModVlanPcpInstruction;
 import org.onosproject.net.flow.instructions.L2ModificationInstruction.PushHeaderInstructions;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction;
-import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPInstruction;
-import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModArpIPInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModArpEthInstruction;
+import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModArpIPInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModArpOpInstruction;
+import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPv6FlowLabelInstruction;
 import org.onosproject.net.flow.instructions.L4ModificationInstruction;
 import org.onosproject.net.flow.instructions.L4ModificationInstruction.ModTransportPortInstruction;
 import org.onosproject.openflow.controller.ExtensionTreatmentInterpreter;
+import org.onosproject.provider.of.flow.util.NoMappingFoundException;
+import org.onosproject.provider.of.flow.util.OpenFlowValueMapper;
 import org.projectfloodlight.openflow.protocol.OFFactory;
 import org.projectfloodlight.openflow.protocol.OFFlowAdd;
-import org.projectfloodlight.openflow.protocol.OFFlowDelete;
+import org.projectfloodlight.openflow.protocol.OFFlowDeleteStrict;
 import org.projectfloodlight.openflow.protocol.OFFlowMod;
 import org.projectfloodlight.openflow.protocol.OFFlowModFlags;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
@@ -119,7 +120,7 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
     }
 
     @Override
-    public OFFlowAdd buildFlowAdd() {
+    public OFFlowMod buildFlowAdd() {
         Match match = buildMatch();
         List<OFAction> deferredActions = buildActions(treatment.deferred());
         List<OFAction> immediateActions = buildActions(treatment.immediate());
@@ -205,12 +206,12 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
     }
 
     @Override
-    public OFFlowDelete buildFlowDel() {
+    public OFFlowMod buildFlowDel() {
         Match match = buildMatch();
 
         long cookie = flowRule().id().value();
 
-        OFFlowDelete fm = factory().buildFlowDelete()
+        OFFlowDeleteStrict fm = factory().buildFlowDeleteStrict()
                 .setXid(xid)
                 .setCookie(U64.of(cookie))
                 .setBufferId(OFBufferId.NO_BUFFER)
@@ -232,7 +233,6 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
         List<OFAction> actions = new LinkedList<>();
         for (Instruction i : treatments) {
             switch (i.type()) {
-                case DROP:
                 case NOACTION:
                     return Collections.emptyList();
                 case L0MODIFICATION:
@@ -312,8 +312,6 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
         L0ModificationInstruction l0m = (L0ModificationInstruction) i;
         OFOxm<?> oxm = null;
         switch (l0m.subtype()) {
-            case LAMBDA:
-                return buildModLambdaInstruction((ModLambdaInstruction) i);
             case OCH:
                 try {
                     ModOchSignalInstruction modOchSignalInstruction = (ModOchSignalInstruction) l0m;
@@ -336,11 +334,6 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
             return factory().actions().buildSetField().setField(oxm).build();
         }
         return null;
-    }
-
-    private OFAction buildModLambdaInstruction(ModLambdaInstruction instruction) {
-        return factory().actions().circuit(factory().oxms().expOchSigId(
-                new CircuitSignalID((byte) 1, (byte) 2, instruction.lambda(), (short) 1)));
     }
 
     private OFAction buildModOchSignalInstruction(ModOchSignalInstruction instruction) {
@@ -413,7 +406,7 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
             case MPLS_LABEL:
                 ModMplsLabelInstruction mplsLabel =
                         (ModMplsLabelInstruction) l2m;
-                oxm = factory().oxms().mplsLabel(U32.of(mplsLabel.mplsLabel().toInt()));
+                oxm = factory().oxms().mplsLabel(U32.of(mplsLabel.label().toInt()));
                 break;
             case MPLS_BOS:
                 ModMplsBosInstruction mplsBos = (ModMplsBosInstruction) l2m;

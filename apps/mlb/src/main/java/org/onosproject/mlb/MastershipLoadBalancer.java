@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.onosproject.mlb;
 import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -54,6 +55,8 @@ public class MastershipLoadBalancer {
 
     private final Logger log = getLogger(getClass());
 
+    // TODO: parameterize via component config
+    private static final int SCHEDULE_PERIOD = 5;
     private static final String REBALANCE_MASTERSHIP = "rebalance/mastership";
 
     private NodeId localId;
@@ -105,10 +108,7 @@ public class MastershipLoadBalancer {
         log.info("Stopped");
     }
 
-    private synchronized void processLeadershipChange(NodeId newLeader) {
-        if (newLeader == null) {
-            return;
-        }
+    private synchronized void processLeaderChange(NodeId newLeader) {
         boolean currLeader = newLeader.equals(localId);
         if (isLeader.getAndSet(currLeader) != currLeader) {
             if (currLeader) {
@@ -122,8 +122,9 @@ public class MastershipLoadBalancer {
     private void scheduleBalance() {
         if (isLeader.get() && nextTask.get() == null) {
 
-            ListenableScheduledFuture task = executorService.schedule(mastershipAdminService::balanceRoles, 30,
-                    TimeUnit.SECONDS);
+            ListenableScheduledFuture task =
+                    executorService.schedule(mastershipAdminService::balanceRoles,
+                            SCHEDULE_PERIOD, TimeUnit.SECONDS);
             task.addListener(() -> {
                         log.info("Completed balance roles");
                         nextTask.set(null);
@@ -159,7 +160,7 @@ public class MastershipLoadBalancer {
 
         @Override
         public void event(LeadershipEvent event) {
-            processLeadershipChange(event.subject().leader());
+            processLeaderChange(event.subject().leaderNodeId());
         }
     }
 }

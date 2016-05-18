@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,13 +25,15 @@ import org.onosproject.pcepio.protocol.PcepOpenObject;
 import org.onosproject.pcepio.protocol.PcepType;
 import org.onosproject.pcepio.protocol.PcepVersion;
 import org.onosproject.pcepio.types.GmplsCapabilityTlv;
+import org.onosproject.pcepio.types.NodeAttributesTlv;
 import org.onosproject.pcepio.types.PceccCapabilityTlv;
 import org.onosproject.pcepio.types.PcepLabelDbVerTlv;
 import org.onosproject.pcepio.types.PcepObjectHeader;
 import org.onosproject.pcepio.types.PcepValueType;
+import org.onosproject.pcepio.types.SrPceCapabilityTlv;
 import org.onosproject.pcepio.types.StatefulLspDbVerTlv;
 import org.onosproject.pcepio.types.StatefulPceCapabilityTlv;
-import org.onosproject.pcepio.types.TedCapabilityTlv;
+import org.onosproject.pcepio.types.LsCapabilityTlv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -252,13 +254,13 @@ public class PcepOpenObjectVer1 implements PcepOpenObject {
                 long lValue = cb.readLong();
                 tlv = new StatefulLspDbVerTlv(lValue);
                 break;
-            case TedCapabilityTlv.TYPE:
-                log.debug("TedCapabilityTlv");
-                if (TedCapabilityTlv.LENGTH != hLength) {
-                    throw new PcepParseException("Invalid length received for TedCapabilityTlv.");
+            case LsCapabilityTlv.TYPE:
+                log.debug("LsCapabilityTlv");
+                if (LsCapabilityTlv.LENGTH != hLength) {
+                    throw new PcepParseException("Invalid length received for LsCapabilityTlv.");
                 }
                 iValue = cb.readInt();
-                tlv = new TedCapabilityTlv(iValue);
+                tlv = new LsCapabilityTlv(iValue);
                 break;
             case PcepLabelDbVerTlv.TYPE:
                 log.debug("PcepLabelDbVerTlv");
@@ -267,6 +269,20 @@ public class PcepOpenObjectVer1 implements PcepOpenObject {
                 }
                 lValue = cb.readLong();
                 tlv = new PcepLabelDbVerTlv(lValue);
+                break;
+            case NodeAttributesTlv.TYPE:
+                log.debug("NodeAttributesTlv");
+                if (cb.readableBytes() < hLength) {
+                    throw new PcepParseException("Invalid length for NodeAttributesTlv.");
+                }
+                tlv = NodeAttributesTlv.read(cb.readBytes(hLength), hLength);
+                break;
+            case SrPceCapabilityTlv.TYPE:
+                log.debug("SrPceCapabilityTlv");
+                if (SrPceCapabilityTlv.LENGTH != hLength) {
+                    throw new PcepParseException("Invalid length received for SrPceCapabilityTlv.");
+                }
+                tlv = SrPceCapabilityTlv.read(cb);
                 break;
             default:
                 log.debug("Unsupported TLV: " + hType);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,12 +51,13 @@ public class BgpConfig implements BgpCfg {
     private boolean largeAs = false;
     private int maxConnRetryTime;
     private int maxConnRetryCount;
-
+    private FlowSpec flowSpec = FlowSpec.NONE;
     private Ip4Address routerId = null;
     private TreeMap<String, BgpPeerCfg> bgpPeerTree = new TreeMap<>();
     private BgpConnectPeer connectPeer;
     private BgpPeerManagerImpl peerManager;
     private BgpController bgpController;
+    private boolean rpdCapability;
 
     /*
      * Constructor to initialize the values.
@@ -67,7 +68,6 @@ public class BgpConfig implements BgpCfg {
         this.holdTime = DEFAULT_HOLD_TIMER;
         this.maxConnRetryTime = DEFAULT_CONN_RETRY_TIME;
         this.maxConnRetryCount = DEFAULT_CONN_RETRY_COUNT;
-        this.lsCapability = true;
     }
 
     @Override
@@ -117,6 +117,26 @@ public class BgpConfig implements BgpCfg {
     @Override
     public void setLsCapability(boolean lsCapability) {
         this.lsCapability = lsCapability;
+    }
+
+    @Override
+    public FlowSpec flowSpecCapability() {
+        return this.flowSpec;
+    }
+
+    @Override
+    public void setFlowSpecCapability(FlowSpec flowSpec) {
+        this.flowSpec = flowSpec;
+    }
+
+    @Override
+    public boolean flowSpecRpdCapability() {
+        return this.rpdCapability;
+    }
+
+    @Override
+    public void setFlowSpecRpdCapability(boolean rpdCapability) {
+        this.rpdCapability = rpdCapability;
     }
 
     @Override
@@ -223,8 +243,9 @@ public class BgpConfig implements BgpCfg {
             if (disconnPeer != null) {
                 // TODO: send notification peer deconfigured
                 disconnPeer.disconnectPeer();
+            } else if (lspeer.connectPeer() != null) {
+                lspeer.connectPeer().disconnectPeer();
             }
-            lspeer.connectPeer().disconnectPeer();
             lspeer.setState(BgpPeerCfg.State.IDLE);
             lspeer.setSelfInnitConnection(false);
             log.debug("Disconnected : " + routerid + " successfully");

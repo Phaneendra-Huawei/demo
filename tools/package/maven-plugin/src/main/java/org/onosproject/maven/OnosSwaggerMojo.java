@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@ package org.onosproject.maven;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.base.Charsets;
+import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
+import com.google.gson.JsonParser;
 import com.thoughtworks.qdox.JavaProjectBuilder;
 import com.thoughtworks.qdox.model.DocletTag;
 import com.thoughtworks.qdox.model.JavaAnnotation;
@@ -36,6 +37,7 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -51,6 +53,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 @Mojo(name = "swagger", defaultPhase = LifecyclePhase.GENERATE_SOURCES)
 public class OnosSwaggerMojo extends AbstractMojo {
     private final ObjectMapper mapper = new ObjectMapper();
+    private final JsonParser jsonParser = new JsonParser();
 
     private static final String JSON_FILE = "swagger.json";
     private static final String GEN_SRC = "generated-sources";
@@ -209,7 +212,7 @@ public class OnosSwaggerMojo extends AbstractMojo {
     private JavaAnnotation getPathAnnotation(JavaClass javaClass) {
         Optional<JavaAnnotation> optional = javaClass.getAnnotations()
                 .stream().filter(a -> a.getType().getName().equals(PATH)).findAny();
-        return optional.isPresent() ? optional.get() : null;
+        return optional.orElse(null);
     }
 
     // Checks whether a class's methods are REST methods and then places all the
@@ -291,12 +294,12 @@ public class OnosSwaggerMojo extends AbstractMojo {
                 try {
                     File config = new File(definitionsDirectory.getAbsolutePath() + "/"
                                                    + param + ".json");
-                    String lines = Files.readLines(config, Charsets.UTF_8).stream().reduce((t, u) -> t + u).
-                            get();
-                    lines = lines.replaceAll("\\s+", "");
-                    definitions.putPOJO(param, lines);
+                    definitions.putPOJO(param, jsonParser.parse(new FileReader(config)));
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    getLog().error(String.format("Could not process %s in %s@%s: %s",
+                                  tag.getName(), tag.getContext(), tag.getLineNumber(),
+                                  e.getMessage()));
+                    throw Throwables.propagate(e);
                 }
             });
 
@@ -376,7 +379,7 @@ public class OnosSwaggerMojo extends AbstractMojo {
             Optional<JavaAnnotation> optional = javaParameter.getAnnotations().stream().filter(
                     annotation -> annotation.getType().getName().equals(PATH_PARAM) ||
                             annotation.getType().getName().equals(QUERY_PARAM)).findAny();
-            JavaAnnotation pathType = optional.isPresent() ? optional.get() : null;
+            JavaAnnotation pathType = optional.orElse(null);
 
             String annotationName = javaParameter.getName();
 

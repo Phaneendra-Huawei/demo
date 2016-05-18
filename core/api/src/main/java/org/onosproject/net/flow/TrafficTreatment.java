@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -208,16 +208,6 @@ public interface TrafficTreatment {
          *
          * @param etherType an ether type
          * @return a treatment builder
-         * @deprecated in Drake Release
-         */
-        @Deprecated
-        Builder popMpls(int etherType);
-
-        /**
-         * Pops MPLS ether type and set the new ethertype.
-         *
-         * @param etherType an ether type
-         * @return a treatment builder
          */
         Builder popMpls(EthType etherType);
 
@@ -243,16 +233,6 @@ public interface TrafficTreatment {
          * @return a treatment builder
          */
         Builder decMplsTtl();
-
-        /**
-         * Sets the optical channel ID or lambda.
-         *
-         * @param lambda optical channel ID
-         * @return a treatment builder
-         * @deprecated in Drake Release
-         */
-        @Deprecated
-        Builder setLambda(short lambda);
 
         /**
          * Sets the group ID.
@@ -356,28 +336,8 @@ public interface TrafficTreatment {
          *
          * @param port a port number
          * @return a treatment builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder setTcpSrc(short port);
-
-        /**
-         * Sets the src TCP port.
-         *
-         * @param port a port number
-         * @return a treatment builder
          */
         Builder setTcpSrc(TpPort port);
-
-        /**
-         * Sets the dst TCP port.
-         *
-         * @param port a port number
-         * @return a treatment builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder setTcpDst(short port);
 
         /**
          * Sets the dst TCP port.
@@ -392,28 +352,8 @@ public interface TrafficTreatment {
          *
          * @param port a port number
          * @return a treatment builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder setUdpSrc(short port);
-
-        /**
-         * Sets the src UDP port.
-         *
-         * @param port a port number
-         * @return a treatment builder
          */
         Builder setUdpSrc(TpPort port);
-
-        /**
-         * Sets the dst UDP port.
-         *
-         * @param port a port number
-         * @return a treatment builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder setUdpDst(short port);
 
         /**
          * Sets the dst UDP port.

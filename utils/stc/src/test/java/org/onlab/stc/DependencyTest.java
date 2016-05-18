@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ public class DependencyTest extends StepTest {
 
     protected Step step1, step2;
 
+    @Override
     @Before
     public void setUp() throws ConfigurationException {
         super.setUp();
@@ -52,6 +53,7 @@ public class DependencyTest extends StepTest {
         assertTrue("incorrect isSoft", soft.isSoft());
     }
 
+    @Override
     @Test
     public void equality() {
         Dependency d1 = new Dependency(step1, step2, false);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import org.onlab.packet.MplsLabel;
 import org.onlab.packet.TpPort;
 import org.onlab.packet.VlanId;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.IndexedLambda;
 import org.onosproject.net.Lambda;
 import org.onosproject.net.OchSignal;
 import org.onosproject.net.OchSignalType;
@@ -86,6 +85,17 @@ public final class Criteria {
     }
 
     /**
+     * Creates a masked match on ETH_DST field using the specified value and mask.
+     *
+     * @param mac MAC address value
+     * @param mask MAC address masking
+     * @return match criterion
+     */
+    public static Criterion matchEthDstMasked(MacAddress mac, MacAddress mask) {
+        return new EthCriterion(mac, mask, Type.ETH_DST_MASKED);
+    }
+
+    /**
      * Creates a match on ETH_SRC field using the specified value. This value
      * may be a wildcard mask.
      *
@@ -94,6 +104,17 @@ public final class Criteria {
      */
     public static Criterion matchEthSrc(MacAddress mac) {
         return new EthCriterion(mac, Type.ETH_SRC);
+    }
+
+    /**
+     * Creates a masked match on ETH_SRC field using the specified value and mask.
+     *
+     * @param mac MAC address value
+     * @param mask MAC address masking
+     * @return match criterion
+     */
+    public static Criterion matchEthSrcMasked(MacAddress mac, MacAddress mask) {
+        return new EthCriterion(mac, mask, Type.ETH_SRC_MASKED);
     }
 
     /**
@@ -127,6 +148,16 @@ public final class Criteria {
     }
 
     /**
+     * Creates a match on the inner VLAN ID field using the specified value.
+     *
+     * @param vlanId vlan id value
+     * @return match criterion
+     */
+    public static Criterion matchInnerVlanId(VlanId vlanId) {
+        return new VlanIdCriterion(vlanId, Type.INNER_VLAN_VID);
+    }
+
+    /**
      * Creates a match on VLAN PCP field using the specified value.
      *
      * @param vlanPcp vlan pcp value (3 bits)
@@ -134,6 +165,16 @@ public final class Criteria {
      */
     public static Criterion matchVlanPcp(byte vlanPcp) {
         return new VlanPcpCriterion(vlanPcp);
+    }
+
+    /**
+     * Creates a match on the inner VLAN PCP field using the specified value.
+     *
+     * @param vlanPcp vlan pcp value (3 bits)
+     * @return match criterion
+     */
+    public static Criterion matchInnerVlanPcp(byte vlanPcp) {
+        return new VlanPcpCriterion(vlanPcp, Type.INNER_VLAN_PCP);
     }
 
     /**
@@ -191,33 +232,9 @@ public final class Criteria {
      *
      * @param tcpPort TCP source port
      * @return match criterion
-     * @deprecated in Drake release
-     */
-    @Deprecated
-    public static Criterion matchTcpSrc(short tcpPort) {
-        return new TcpPortCriterion(TpPort.tpPort(tcpPort), Type.TCP_SRC);
-    }
-
-    /**
-     * Creates a match on TCP source port field using the specified value.
-     *
-     * @param tcpPort TCP source port
-     * @return match criterion
      */
     public static Criterion matchTcpSrc(TpPort tcpPort) {
         return new TcpPortCriterion(tcpPort, Type.TCP_SRC);
-    }
-
-    /**
-     * Creates a match on TCP destination port field using the specified value.
-     *
-     * @param tcpPort TCP destination port
-     * @return match criterion
-     * @deprecated in Drake release
-     */
-    @Deprecated
-    public static Criterion matchTcpDst(short tcpPort) {
-        return new TcpPortCriterion(TpPort.tpPort(tcpPort), Type.TCP_DST);
     }
 
     /**
@@ -245,33 +262,9 @@ public final class Criteria {
      *
      * @param udpPort UDP source port
      * @return match criterion
-     * @deprecated in Drake release
-     */
-    @Deprecated
-    public static Criterion matchUdpSrc(short udpPort) {
-        return new UdpPortCriterion(TpPort.tpPort(udpPort), Type.UDP_SRC);
-    }
-
-    /**
-     * Creates a match on UDP source port field using the specified value.
-     *
-     * @param udpPort UDP source port
-     * @return match criterion
      */
     public static Criterion matchUdpSrc(TpPort udpPort) {
         return new UdpPortCriterion(udpPort, Type.UDP_SRC);
-    }
-
-    /**
-     * Creates a match on UDP destination port field using the specified value.
-     *
-     * @param udpPort UDP destination port
-     * @return match criterion
-     * @deprecated in Drake release
-     */
-    @Deprecated
-    public static Criterion matchUdpDst(short udpPort) {
-        return new UdpPortCriterion(TpPort.tpPort(udpPort), Type.UDP_DST);
     }
 
     /**
@@ -289,34 +282,9 @@ public final class Criteria {
      *
      * @param sctpPort SCTP source port
      * @return match criterion
-     * @deprecated in Drake release
-     */
-    @Deprecated
-    public static Criterion matchSctpSrc(short sctpPort) {
-        return new SctpPortCriterion(TpPort.tpPort(sctpPort), Type.SCTP_SRC);
-    }
-
-    /**
-     * Creates a match on SCTP source port field using the specified value.
-     *
-     * @param sctpPort SCTP source port
-     * @return match criterion
      */
     public static Criterion matchSctpSrc(TpPort sctpPort) {
         return new SctpPortCriterion(sctpPort, Type.SCTP_SRC);
-    }
-
-    /**
-     * Creates a match on SCTP destination port field using the specified
-     * value.
-     *
-     * @param sctpPort SCTP destination port
-     * @return match criterion
-     * @deprecated in Drake release
-     */
-    @Deprecated
-    public static Criterion matchSctpDst(short sctpPort) {
-        return new SctpPortCriterion(TpPort.tpPort(sctpPort), Type.SCTP_DST);
     }
 
     /**
@@ -491,9 +459,7 @@ public final class Criteria {
      * @return match criterion
      */
     public static Criterion matchLambda(Lambda lambda) {
-        if (lambda instanceof IndexedLambda) {
-            return new IndexedLambdaCriterion((IndexedLambda) lambda);
-        } else if (lambda instanceof OchSignal) {
+        if (lambda instanceof OchSignal) {
             return new OchSignalCriterion((OchSignal) lambda);
         } else {
             throw new UnsupportedOperationException(String.format("Unsupported type of Lambda: %s", lambda));
@@ -595,9 +561,9 @@ public final class Criteria {
      *
      * @param extensionSelector extension selector
      * @param deviceId device ID
-     * @return match criterion
+     * @return match extension criterion
      */
-    public static Criterion extension(ExtensionSelector extensionSelector,
+    public static ExtensionCriterion extension(ExtensionSelector extensionSelector,
                                       DeviceId deviceId) {
         return new ExtensionCriterion(extensionSelector, deviceId);
     }

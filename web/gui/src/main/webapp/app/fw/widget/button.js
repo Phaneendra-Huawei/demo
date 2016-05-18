@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -240,7 +240,8 @@
         return {
             width: rsetWidth,
             selected: selected,
-            selectedIndex: selectedIndex
+            selectedIndex: selectedIndex,
+            size: function () { return rads.length; }
         }
     }
 

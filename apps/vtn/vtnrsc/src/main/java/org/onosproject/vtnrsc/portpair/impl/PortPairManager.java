@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Collections;
+import java.util.UUID;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -35,8 +36,10 @@ import org.onosproject.store.service.EventuallyConsistentMapListener;
 import org.onosproject.store.service.MultiValuedTimestamp;
 import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.WallClockTimestamp;
+import org.onosproject.vtnrsc.DefaultPortPair;
 import org.onosproject.vtnrsc.PortPair;
 import org.onosproject.vtnrsc.PortPairId;
+import org.onosproject.vtnrsc.TenantId;
 import org.onosproject.vtnrsc.portpair.PortPairEvent;
 import org.onosproject.vtnrsc.portpair.PortPairListener;
 import org.onosproject.vtnrsc.portpair.PortPairService;
@@ -48,7 +51,7 @@ import org.slf4j.Logger;
 @Component(immediate = true)
 @Service
 public class PortPairManager extends AbstractListenerManager<PortPairEvent, PortPairListener> implements
-        PortPairService {
+PortPairService {
 
     private static final String PORT_PAIR_ID_NULL = "PortPair ID cannot be null";
     private static final String PORT_PAIR_NULL = "PortPair cannot be null";
@@ -72,12 +75,12 @@ public class PortPairManager extends AbstractListenerManager<PortPairEvent, Port
         KryoNamespace.Builder serializer = KryoNamespace.newBuilder()
                 .register(KryoNamespaces.API)
                 .register(MultiValuedTimestamp.class)
-                .register(PortPair.class);
+                .register(PortPair.class, PortPairId.class, UUID.class, DefaultPortPair.class, TenantId.class);
 
         portPairStore = storageService.<PortPairId, PortPair>eventuallyConsistentMapBuilder()
                 .withName("portpairstore")
                 .withSerializer(serializer)
-                .withTimestampProvider((k, v) -> new WallClockTimestamp())
+                .withTimestampProvider((k, v) ->new WallClockTimestamp())
                 .build();
 
         portPairStore.addListener(portPairListener);
@@ -157,8 +160,8 @@ public class PortPairManager extends AbstractListenerManager<PortPairEvent, Port
     }
 
     private class InnerPortPairStoreListener
-            implements
-            EventuallyConsistentMapListener<PortPairId, PortPair> {
+    implements
+    EventuallyConsistentMapListener<PortPairId, PortPair> {
 
         @Override
         public void event(EventuallyConsistentMapEvent<PortPairId, PortPair> event) {
@@ -166,13 +169,13 @@ public class PortPairManager extends AbstractListenerManager<PortPairEvent, Port
             PortPair portPair = event.value();
             if (EventuallyConsistentMapEvent.Type.PUT == event.type()) {
                 notifyListeners(new PortPairEvent(
-                        PortPairEvent.Type.PORT_PAIR_PUT,
-                        portPair));
+                                                  PortPairEvent.Type.PORT_PAIR_PUT,
+                                                  portPair));
             }
             if (EventuallyConsistentMapEvent.Type.REMOVE == event.type()) {
                 notifyListeners(new PortPairEvent(
-                        PortPairEvent.Type.PORT_PAIR_DELETE,
-                        portPair));
+                                                  PortPairEvent.Type.PORT_PAIR_DELETE,
+                                                  portPair));
             }
         }
     }

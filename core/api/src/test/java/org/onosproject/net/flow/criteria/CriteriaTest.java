@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -138,17 +138,17 @@ public class CriteriaTest {
 
 
     int tcpFlags1 =
-        Criterion.TCPFlags.NS.getValue() |
-        Criterion.TCPFlags.CWR.getValue() |
-        Criterion.TCPFlags.ECE.getValue() |
-        Criterion.TCPFlags.URG.getValue() |
-        Criterion.TCPFlags.ACK.getValue() |
-        Criterion.TCPFlags.PSH.getValue() |
-        Criterion.TCPFlags.RST.getValue() |
-        Criterion.TCPFlags.SYN.getValue();
+        Criterion.TcpFlags.NS.getValue() |
+        Criterion.TcpFlags.CWR.getValue() |
+        Criterion.TcpFlags.ECE.getValue() |
+        Criterion.TcpFlags.URG.getValue() |
+        Criterion.TcpFlags.ACK.getValue() |
+        Criterion.TcpFlags.PSH.getValue() |
+        Criterion.TcpFlags.RST.getValue() |
+        Criterion.TcpFlags.SYN.getValue();
 
     int tcpFlags2 = tcpFlags1 |
-        Criterion.TCPFlags.FIN.getValue();
+        Criterion.TcpFlags.FIN.getValue();
 
     Criterion matchTcpFlags1 = Criteria.matchTcpFlags(tcpFlags1);
     Criterion sameAsmatchTcpFlags1 = Criteria.matchTcpFlags(tcpFlags1);
@@ -255,10 +255,6 @@ public class CriteriaTest {
     Criterion matchOchSignalType1 = Criteria.matchOchSignalType(OchSignalType.FIXED_GRID);
     Criterion sameAsMatchOchSignalType1 = Criteria.matchOchSignalType(OchSignalType.FIXED_GRID);
     Criterion matchOchSignalType2 = Criteria.matchOchSignalType(OchSignalType.FLEX_GRID);
-
-    Criterion matchIndexedLambda1 = Criteria.matchLambda(Lambda.indexedLambda(1));
-    Criterion sameAsMatchIndexedLambda1 = Criteria.matchLambda(Lambda.indexedLambda(1));
-    Criterion matchIndexedLambda2 = Criteria.matchLambda(Lambda.indexedLambda(2));
 
     Criterion matchOchSignal1 =
             Criteria.matchLambda(Lambda.ochSignal(GridType.DWDM, ChannelSpacing.CHL_100GHZ, 4, 8));
@@ -1143,14 +1139,6 @@ public class CriteriaTest {
                 .addEqualityGroup(matchIpv6ExthdrFlags1,
                                   sameAsMatchIpv6ExthdrFlags1)
                 .addEqualityGroup(matchIpv6ExthdrFlags2)
-                .testEquals();
-    }
-
-    @Test
-    public void testIndexedLambdaCriterionEquals() {
-        new EqualsTester()
-                .addEqualityGroup(matchIndexedLambda1, sameAsMatchIndexedLambda1)
-                .addEqualityGroup(matchIndexedLambda2)
                 .testEquals();
     }
 

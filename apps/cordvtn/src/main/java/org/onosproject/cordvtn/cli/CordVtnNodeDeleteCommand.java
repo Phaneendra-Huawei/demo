@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.onosproject.cordvtn.cli;
 import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
 import org.onosproject.cli.AbstractShellCommand;
-import org.onosproject.cordvtn.CordVtnService;
-import org.onosproject.cordvtn.CordVtnNode;
+import org.onosproject.cordvtn.impl.CordVtnNodeManager;
+import org.onosproject.cordvtn.api.CordVtnNode;
 
 import java.util.NoSuchElementException;
 
@@ -37,12 +37,12 @@ public class CordVtnNodeDeleteCommand extends AbstractShellCommand {
 
     @Override
     protected void execute() {
-        CordVtnService service = AbstractShellCommand.get(CordVtnService.class);
+        CordVtnNodeManager nodeManager = AbstractShellCommand.get(CordVtnNodeManager.class);
 
         for (String hostname : hostnames) {
             CordVtnNode node;
             try {
-                node = service.getNodes()
+                node = nodeManager.getNodes()
                         .stream()
                         .filter(n -> n.hostname().equals(hostname))
                         .findFirst().get();
@@ -51,7 +51,7 @@ public class CordVtnNodeDeleteCommand extends AbstractShellCommand {
                 continue;
             }
 
-            service.deleteNode(node);
+            nodeManager.deleteNode(node);
         }
     }
 }

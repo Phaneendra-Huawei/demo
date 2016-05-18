@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,13 @@ public interface BgpFactory {
      * @return builder object for notification message.
      */
     BgpNotificationMsg.Builder notificationMessageBuilder();
+
+    /**
+     * Gets the builder object for a update message.
+     *
+     * @return builder object for update message
+     */
+    BgpUpdateMsg.Builder updateMessageBuilder();
 
     /**
      * Gets the BGP message reader.

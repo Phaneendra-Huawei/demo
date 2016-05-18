@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,9 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
-import org.onlab.util.Tools;
 import org.onosproject.core.IdBlock;
 import org.onosproject.core.IdBlockStore;
 import org.onosproject.store.service.AtomicCounter;
-import org.onosproject.store.service.StorageException;
 import org.onosproject.store.service.StorageService;
 import org.slf4j.Logger;
 
@@ -41,9 +39,6 @@ import static org.slf4j.LoggerFactory.getLogger;
 @Component(immediate = true, enabled = true)
 @Service
 public class ConsistentIdBlockStore implements IdBlockStore {
-
-    private static final int MAX_TRIES = 5;
-    private static final int RETRY_DELAY_MS = 2_000;
 
     private final Logger log = getLogger(getClass());
     private final Map<String, AtomicCounter> topicCounters = Maps.newConcurrentMap();
@@ -65,15 +60,7 @@ public class ConsistentIdBlockStore implements IdBlockStore {
 
     @Override
     public IdBlock getIdBlock(String topic) {
-        AtomicCounter counter = topicCounters
-                .computeIfAbsent(topic,
-                                 name -> storageService.atomicCounterBuilder()
-                                         .withName(name)
-                                         .build());
-        Long blockBase = Tools.retryable(counter::getAndAdd,
-                StorageException.class,
-                MAX_TRIES,
-                RETRY_DELAY_MS).apply(DEFAULT_BLOCK_SIZE);
-        return new IdBlock(blockBase, DEFAULT_BLOCK_SIZE);
+        AtomicCounter counter = topicCounters.computeIfAbsent(topic, storageService::getAtomicCounter);
+        return new IdBlock(counter.getAndAdd(DEFAULT_BLOCK_SIZE), DEFAULT_BLOCK_SIZE);
     }
 }

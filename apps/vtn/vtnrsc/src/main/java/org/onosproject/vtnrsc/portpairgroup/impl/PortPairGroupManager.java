@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Collections;
+import java.util.UUID;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -35,8 +36,11 @@ import org.onosproject.store.service.EventuallyConsistentMapListener;
 import org.onosproject.store.service.MultiValuedTimestamp;
 import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.WallClockTimestamp;
+import org.onosproject.vtnrsc.DefaultPortPairGroup;
 import org.onosproject.vtnrsc.PortPairGroup;
 import org.onosproject.vtnrsc.PortPairGroupId;
+import org.onosproject.vtnrsc.PortPairId;
+import org.onosproject.vtnrsc.TenantId;
 import org.onosproject.vtnrsc.portpairgroup.PortPairGroupEvent;
 import org.onosproject.vtnrsc.portpairgroup.PortPairGroupListener;
 import org.onosproject.vtnrsc.portpairgroup.PortPairGroupService;
@@ -48,7 +52,7 @@ import org.slf4j.Logger;
 @Component(immediate = true)
 @Service
 public class PortPairGroupManager extends AbstractListenerManager<PortPairGroupEvent, PortPairGroupListener> implements
-        PortPairGroupService {
+PortPairGroupService {
 
     private static final String PORT_PAIR_GROUP_ID_NULL = "PortPairGroup ID cannot be null";
     private static final String PORT_PAIR_GROUP_NULL = "PortPairGroup cannot be null";
@@ -68,15 +72,17 @@ public class PortPairGroupManager extends AbstractListenerManager<PortPairGroupE
     @Activate
     public void activate() {
         eventDispatcher.addSink(PortPairGroupEvent.class, listenerRegistry);
-        KryoNamespace.Builder serializer = KryoNamespace.newBuilder()
+        KryoNamespace.Builder serializer = KryoNamespace
+                .newBuilder()
                 .register(KryoNamespaces.API)
                 .register(MultiValuedTimestamp.class)
-                .register(PortPairGroup.class);
+                .register(PortPairGroup.class, PortPairGroupId.class, UUID.class, DefaultPortPairGroup.class,
+                          TenantId.class, PortPairId.class);
 
         portPairGroupStore = storageService
                 .<PortPairGroupId, PortPairGroup>eventuallyConsistentMapBuilder()
                 .withName("portpairgroupstore").withSerializer(serializer)
-                .withTimestampProvider((k, v) -> new WallClockTimestamp()).build();
+                .withTimestampProvider((k, v) ->new WallClockTimestamp()).build();
 
         portPairGroupStore.addListener(portPairGroupListener);
 
@@ -119,7 +125,7 @@ public class PortPairGroupManager extends AbstractListenerManager<PortPairGroupE
         portPairGroupStore.put(portPairGroup.portPairGroupId(), portPairGroup);
         if (!portPairGroupStore.containsKey(portPairGroup.portPairGroupId())) {
             log.debug("The portPairGroup is created failed which identifier was {}", portPairGroup.portPairGroupId()
-                    .toString());
+                      .toString());
             return false;
         }
         return true;
@@ -158,10 +164,9 @@ public class PortPairGroupManager extends AbstractListenerManager<PortPairGroupE
         return true;
     }
 
-
     private class InnerPortPairGroupStoreListener
-            implements
-            EventuallyConsistentMapListener<PortPairGroupId, PortPairGroup> {
+    implements
+    EventuallyConsistentMapListener<PortPairGroupId, PortPairGroup> {
 
         @Override
         public void event(EventuallyConsistentMapEvent<PortPairGroupId, PortPairGroup> event) {
@@ -169,13 +174,13 @@ public class PortPairGroupManager extends AbstractListenerManager<PortPairGroupE
             PortPairGroup portPairGroup = event.value();
             if (EventuallyConsistentMapEvent.Type.PUT == event.type()) {
                 notifyListeners(new PortPairGroupEvent(
-                        PortPairGroupEvent.Type.PORT_PAIR_GROUP_PUT,
-                        portPairGroup));
+                                                       PortPairGroupEvent.Type.PORT_PAIR_GROUP_PUT,
+                                                       portPairGroup));
             }
             if (EventuallyConsistentMapEvent.Type.REMOVE == event.type()) {
                 notifyListeners(new PortPairGroupEvent(
-                        PortPairGroupEvent.Type.PORT_PAIR_GROUP_DELETE,
-                        portPairGroup));
+                                                       PortPairGroupEvent.Type.PORT_PAIR_GROUP_DELETE,
+                                                       portPairGroup));
             }
         }
     }

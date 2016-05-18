@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ public class DistributedProxyArpStore implements ProxyArpStore {
     private Map<HostId, ArpResponseMessage> pendingMessages = Maps.newConcurrentMap();
 
     private ExecutorService executor =
-            newFixedThreadPool(4, groupedThreads("onos/arp", "sender-%d"));
+            newFixedThreadPool(4, groupedThreads("onos/arp", "sender-%d", log));
 
     private NodeId localNodeId;
 

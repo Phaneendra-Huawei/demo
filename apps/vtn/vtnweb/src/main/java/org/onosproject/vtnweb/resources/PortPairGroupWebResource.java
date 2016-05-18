@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ public class PortPairGroupWebResource extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getPortPairGroup(@PathParam("group_id") String id) {
         PortPairGroup portPairGroup = nullIsNotFound(get(PortPairGroupService.class)
-                                                     .getPortPairGroup(PortPairGroupId.of(id)),
+                .getPortPairGroup(PortPairGroupId.of(id)),
                                                      PORT_PAIR_GROUP_NOT_FOUND);
 
         ObjectNode result = mapper().createObjectNode();
@@ -98,9 +98,9 @@ public class PortPairGroupWebResource extends AbstractWebResource {
     /**
      * Creates a new port pair group.
      *
-     * @param stream   port pair group from JSON
+     * @param stream port pair group from JSON
      * @return status of the request - CREATED if the JSON is correct,
-     * BAD_REQUEST if the JSON is invalid
+     *         BAD_REQUEST if the JSON is invalid
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -134,7 +134,7 @@ public class PortPairGroupWebResource extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     public Response updatePortPairGroup(@PathParam("group_id") String id,
-                                        final InputStream stream) {
+            final InputStream stream) {
         try {
             ObjectMapper mapper = new ObjectMapper();
             ObjectNode jsonTree = (ObjectNode) mapper.readTree(stream);
@@ -156,6 +156,7 @@ public class PortPairGroupWebResource extends AbstractWebResource {
      */
     @Path("{group_id}")
     @DELETE
+    @Consumes(MediaType.APPLICATION_JSON)
     public void deletePortPairGroup(@PathParam("group_id") String id) {
         log.debug("Deletes port pair group by identifier {}.", id);
         PortPairGroupId portPairGroupId = PortPairGroupId.of(id);

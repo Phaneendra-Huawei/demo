@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import org.onosproject.net.OchSignal;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.driver.HandlerBehaviour;
 
-import java.util.SortedSet;
+import java.util.Set;
 
 /**
  * A HandlerBehaviour to retrieve available wavelength resources.
@@ -29,12 +29,11 @@ import java.util.SortedSet;
 @Beta
 public interface LambdaQuery extends HandlerBehaviour {
 
-    // Currently returns set of FLEX GridType ochSignal instances
     /**
-     * Returns set of Lambda instances which can be used at the port.
+     * Returns set of OchSignal instances which can be used at the port.
      *
      * @param port to be checked for the available resources.
-     * @return Set of OchSignals which can be used at the port.
+     * @return set of OchSignals which can be used at the port.
      */
-    SortedSet<OchSignal> queryLambdas(PortNumber port);
+    Set<OchSignal> queryLambdas(PortNumber port);
 }

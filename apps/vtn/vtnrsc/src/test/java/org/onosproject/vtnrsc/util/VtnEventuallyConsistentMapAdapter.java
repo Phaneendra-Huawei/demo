@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,12 @@ import org.onosproject.store.service.EventuallyConsistentMapListener;
  * Testing adapter for EventuallyConsistentMap.
  */
 public class VtnEventuallyConsistentMapAdapter<K, V> implements EventuallyConsistentMap<K, V> {
+
+    @Override
+    public String name() {
+        return null;
+    }
+
     @Override
     public int size() {
         return 0;
@@ -104,11 +110,6 @@ public class VtnEventuallyConsistentMapAdapter<K, V> implements EventuallyConsis
 
     @Override
     public void removeListener(EventuallyConsistentMapListener<K, V> listener) {
-
-    }
-
-    @Override
-    public void destroy() {
 
     }
 }

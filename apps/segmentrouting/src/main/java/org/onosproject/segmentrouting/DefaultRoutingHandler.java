@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,10 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/**
+ * Default routing handler that is responsible for route computing and
+ * routing rule population.
+ */
 public class DefaultRoutingHandler {
 
     private static Logger log = LoggerFactory
@@ -512,8 +516,8 @@ public class DefaultRoutingHandler {
      */
     public void populatePortAddressingRules(DeviceId deviceId) {
         rulePopulator.populateRouterMacVlanFilters(deviceId);
+        rulePopulator.populateXConnectVlanFilters(deviceId);
         rulePopulator.populateRouterIpPunts(deviceId);
-        rulePopulator.populateArpPunts(deviceId);
     }
 
     /**
@@ -555,6 +559,13 @@ public class DefaultRoutingHandler {
             }
         } finally {
             statusLock.unlock();
+        }
+    }
+
+    public void purgeEcmpGraph(DeviceId deviceId) {
+        currentEcmpSpgMap.remove(deviceId);
+        if (updatedEcmpSpgMap != null) {
+            updatedEcmpSpgMap.remove(deviceId);
         }
     }
 }

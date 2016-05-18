@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class SuppressionRulesTest {
 
     @Before
     public void setUp() throws Exception {
-        rules = new SuppressionRules(ImmutableSet.of(Device.Type.ROADM),
+        rules = new SuppressionRules(ImmutableSet.of(Device.Type.ROADM, Device.Type.OTN),
                                ImmutableMap.of("no-lldp", SuppressionRules.ANY_VALUE,
                                                "sendLLDP", "false"));
     }

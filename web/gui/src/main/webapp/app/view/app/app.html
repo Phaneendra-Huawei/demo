@@ -1,5 +1,5 @@
 <!-- app partial HTML -->
-<div id="ov-app">
+<div id="ov-app" filedrop on-file-drop="appDropped()">
     <div class="tabular-header">
         <h2>Applications ({{tableData.length}} total)</h2>
         <div class="ctrl-btns">
@@ -14,6 +14,7 @@
                        type="file" size="50" accept=".oar"
                        file-model="appFile">
             </form>
+
             <div icon icon-size="36" icon-id="plus"
                  class="active" trigger-form
                  tooltip tt-msg="uploadTip">
@@ -41,10 +42,12 @@
             <table>
                 <tr>
                     <td colId="state" class="table-icon" sortable></td>
-                    <td colId="id" sortable>App ID </td>
-                    <td colId="version" sortable>Version </td>
+                    <td colId="icon" class="table-icon">Icon </td>
+                    <td colId="title" sortable col-width="240px">Title </td>
+                    <td colId="id" sortable col-width="240px">App ID </td>
+                    <td colId="version" sortable col-width="120px">Version </td>
+                    <td colId="category" sortable col-width="100px">Category </td>
                     <td colId="origin" sortable>Origin </td>
-                    <td colId="desc" col-width="475px">Description </td>
                 </tr>
             </table>
         </div>
@@ -53,7 +56,7 @@
             <table onos-flash-changes id-prop="id">
                 <tr ng-if="!tableData.length" class="no-data">
                     <td colspan="5">
-                        No Applications found
+                        {{annots.no_rows_msg}}
                     </td>
                 </tr>
 
@@ -64,14 +67,19 @@
                     <td class="table-icon">
                         <div icon icon-id="{{app._iconid_state}}"></div>
                     </td>
+                    <td><img data-ng-src="./rs/applications/{{app.icon}}/icon"
+                             height="28px" width="28px" /></td>
+                    <td>{{app.title}}</td>
                     <td>{{app.id}}</td>
                     <td>{{app.version}}</td>
+                    <td>{{app.category}}</td>
                     <td>{{app.origin}}</td>
-                    <td>{{app.desc}}</td>
                 </tr>
             </table>
         </div>
 
     </div>
+
+    <application-details-panel></application-details-panel>
 
 </div>

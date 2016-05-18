@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.onosproject.incubator.rpc.RemoteServiceContext;
 import org.onosproject.net.device.DeviceProviderRegistry;
+import org.onosproject.net.link.LinkProviderRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +50,7 @@ public class GrpcRemoteServiceContext implements RemoteServiceContext {
     public GrpcRemoteServiceContext(ManagedChannel channel) {
         this.channel = checkNotNull(channel);
         services.put(DeviceProviderRegistry.class, new DeviceProviderRegistryClientProxy(channel));
+        services.put(LinkProviderRegistry.class, new LinkProviderRegistryClientProxy(channel));
     }
 
 

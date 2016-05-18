@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import org.onlab.util.Frequency;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Implementation of OMS port (Optical Multiplexing Section).
@@ -49,9 +50,9 @@ public class OmsPort extends DefaultPort {
     public OmsPort(Element element, PortNumber number, boolean isEnabled,
                    Frequency minFrequency, Frequency maxFrequency, Frequency grid, Annotations... annotations) {
         super(element, number, isEnabled, Type.OMS, 0, annotations);
-        this.minFrequency = minFrequency;
-        this.maxFrequency = maxFrequency;
-        this.grid = grid;
+        this.minFrequency = checkNotNull(minFrequency);
+        this.maxFrequency = checkNotNull(maxFrequency);
+        this.grid = checkNotNull(grid);
     }
 
     /**
@@ -61,7 +62,7 @@ public class OmsPort extends DefaultPort {
      */
     public short totalChannels() {
         Frequency diff = maxFrequency.subtract(minFrequency);
-        return (short) (diff.asHz() / (grid.asHz() + 1));
+        return (short) (diff.asHz() / grid.asHz());
     }
 
     /**

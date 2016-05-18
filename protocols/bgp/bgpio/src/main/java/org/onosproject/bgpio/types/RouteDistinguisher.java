@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,6 +68,29 @@ public class RouteDistinguisher implements Comparable<RouteDistinguisher> {
             return 0;
         }
         return ((Long) (this.getRouteDistinguisher())).compareTo((Long) (rd.getRouteDistinguisher()));
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj instanceof RouteDistinguisher) {
+
+            RouteDistinguisher that = (RouteDistinguisher) obj;
+
+            if (this.routeDistinguisher == that.routeDistinguisher) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return Long.hashCode(routeDistinguisher);
     }
 
     @Override

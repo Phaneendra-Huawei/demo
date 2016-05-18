@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,8 +75,7 @@ public class FlowClassifierWebResource extends AbstractWebResource {
     /**
      * Get details of a flow classifier.
      *
-     * @param id
-     *            flow classifier id
+     * @param id flow classifier id
      * @return 200 OK , 404 if given identifier does not exist
      */
     @GET
@@ -84,7 +83,7 @@ public class FlowClassifierWebResource extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getFlowClassifier(@PathParam("flow_id") String id) {
         FlowClassifier flowClassifier = nullIsNotFound(get(FlowClassifierService.class)
-                                         .getFlowClassifier(FlowClassifierId.of(id)), FLOW_CLASSIFIER_NOT_FOUND);
+                .getFlowClassifier(FlowClassifierId.of(id)), FLOW_CLASSIFIER_NOT_FOUND);
 
         ObjectNode result = mapper().createObjectNode();
         result.set("flow_classifier", codec(FlowClassifier.class).encode(flowClassifier, this));
@@ -95,8 +94,7 @@ public class FlowClassifierWebResource extends AbstractWebResource {
     /**
      * Creates and stores a new flow classifier.
      *
-     * @param stream
-     *            flow classifier from JSON
+     * @param stream flow classifier from JSON
      * @return status of the request - CREATED if the JSON is correct,
      *         BAD_REQUEST if the JSON is invalid
      */
@@ -121,10 +119,8 @@ public class FlowClassifierWebResource extends AbstractWebResource {
     /**
      * Update details of a flow classifier.
      *
-     * @param id
-     *            flow classifier id
-     * @param stream
-     *            InputStream
+     * @param id flow classifier id
+     * @param stream InputStream
      * @return 200 OK, 404 if given identifier does not exist
      */
     @PUT
@@ -149,11 +145,11 @@ public class FlowClassifierWebResource extends AbstractWebResource {
     /**
      * Delete details of a flow classifier.
      *
-     * @param id
-     *            flow classifier id
+     * @param id flow classifier id
      */
     @Path("{flow_id}")
     @DELETE
+    @Consumes(MediaType.APPLICATION_JSON)
     public void deleteFlowClassifier(@PathParam("flow_id") String id) {
         log.debug("Deletes flow classifier by identifier {}.", id);
         FlowClassifierId flowClassifierId = FlowClassifierId.of(id);

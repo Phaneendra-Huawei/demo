@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class PcepFecObjectIPv4Ver1 implements PcepFecObjectIPv4 {
     protected static final Logger log = LoggerFactory.getLogger(PcepFecObjectIPv4Ver1.class);
 
     public static final byte FEC_OBJ_TYPE = 1;
-    public static final byte FEC_OBJ_CLASS = 63; //to be defined
+    public static final byte FEC_OBJ_CLASS = (byte) 226;
     public static final byte FEC_OBJECT_VERSION = 1;
     public static final short FEC_OBJ_MINIMUM_LENGTH = 8;
     public static final int MINIMUM_COMMON_HEADER_LENGTH = 4;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,24 +34,21 @@ public final class HexDump {
      * @param buff buffer content to dump in hex format
      */
     public static void dump(ChannelBuffer buff) {
+        buff.markReaderIndex();
         try {
-            byte[] yTemp;
-            yTemp = buff.array();
-
-            int iStartIndex = buff.readerIndex();
-            int iEndIndex = buff.writerIndex();
             do {
                 StringBuilder sb = new StringBuilder();
-                for (int k = 0; (k < 16) && (iStartIndex < iEndIndex); ++k) {
+                for (int k = 0; (k < 16) && (buff.readableBytes() != 0); ++k) {
                     if (0 == k % 4) {
                         sb.append(String.format(" ")); // blank after 4 bytes
                     }
-                    sb.append(String.format("%02X ", yTemp[iStartIndex++]));
+                    sb.append(String.format("%02X ", buff.readByte()));
                 }
                 log.debug(sb.toString());
-            } while (iStartIndex < iEndIndex);
+            } while (buff.readableBytes() != 0);
         } catch (Exception e) {
             log.error("[HexDump] Invalid buffer: " + e.toString());
         }
+        buff.resetReaderIndex();
     }
 }

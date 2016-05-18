@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -230,7 +230,7 @@
             d = result.ldata;
 
         if (bad) {
-            //logicError(bad + ': ' + link.id);
+            $log.debug(bad + ': ' + link.id);
             return;
         }
 
@@ -255,10 +255,10 @@
         var result = tms.findLink(data, 'update'),
             bad = result.badLogic;
         if (bad) {
-            //logicError(bad + ': ' + link.id);
+            $log.debug(bad + ': ' + link.id);
             return;
         }
-        result.updateWith(link);
+        result.updateWith(data);
     }
 
     function removeLink(data) {
@@ -323,7 +323,8 @@
             .domain([1, 12])
             .range([widthRatio, 12 * widthRatio])
             .clamp(true),
-        allLinkTypes = 'direct indirect optical tunnel';
+        allLinkTypes = 'direct indirect optical tunnel',
+        allLinkSubTypes = 'inactive not-permitted';
 
     function restyleLinkElement(ldata, immediate) {
         // this fn's job is to look at raw links and decide what svg classes
@@ -333,6 +334,7 @@
             type = ldata.type(),
             lw = ldata.linkWidth(),
             online = ldata.online(),
+            modeCls = ldata.expected() ? 'inactive' : 'not-permitted',
             delay = immediate ? 0 : 1000;
 
         // FIXME: understand why el is sometimes undefined on addLink events...
@@ -343,7 +345,8 @@
         // a more efficient way to fix it.
         if (el && !el.empty()) {
             el.classed('link', true);
-            el.classed('inactive', !online);
+            el.classed(allLinkSubTypes, false);
+            el.classed(modeCls, !online);
             el.classed(allLinkTypes, false);
             if (type) {
                 el.classed(type, true);
@@ -452,10 +455,17 @@
             ll;
 
         // if we are not clearing the position data (unpinning),
-        // attach the x, y, longitude, latitude...
+        // attach the x, y, (and equivalent longitude, latitude)...
         if (!clearPos) {
             ll = tms.lngLatFromCoord([d.x, d.y]);
-            metaUi = {x: d.x, y: d.y, lng: ll[0], lat: ll[1]};
+            metaUi = {
+                x: d.x,
+                y: d.y,
+                equivLoc: {
+                    lng: ll[0],
+                    lat: ll[1]
+                }
+            };
         }
         d.metaUi = metaUi;
         wss.sendEvent('updateMeta', {
@@ -575,6 +585,13 @@
         });
         // back to normal after 2 seconds...
         $timeout(updateLinks, 2000);
+    }
+
+    function resetAllLocations() {
+        tms.resetAllLocations();
+        updateNodes();
+        tick(); // force nodes to be redrawn in their new locations
+        flash.flash('Reset Node Locations');
     }
 
     // ==========================================
@@ -1166,6 +1183,7 @@
                 showMastership: showMastership,
                 showBadLinks: showBadLinks,
 
+                resetAllLocations: resetAllLocations,
                 addDevice: addDevice,
                 updateDevice: updateDevice,
                 removeDevice: removeDevice,

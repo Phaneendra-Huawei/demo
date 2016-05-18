@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,6 +84,8 @@ public final class EncodeCriterionCodecHelper {
         formatMap.put(Criterion.Type.ETH_TYPE, new FormatEthType());
         formatMap.put(Criterion.Type.VLAN_VID, new FormatVlanVid());
         formatMap.put(Criterion.Type.VLAN_PCP, new FormatVlanPcp());
+        formatMap.put(Criterion.Type.INNER_VLAN_VID, new FormatInnerVlanVid());
+        formatMap.put(Criterion.Type.INNER_VLAN_PCP, new FormatInnerVlanPcp());
         formatMap.put(Criterion.Type.IP_DSCP, new FormatIpDscp());
         formatMap.put(Criterion.Type.IP_ECN, new FormatIpEcn());
         formatMap.put(Criterion.Type.IP_PROTO, new FormatIpProto());
@@ -128,6 +130,9 @@ public final class EncodeCriterionCodecHelper {
         formatMap.put(Criterion.Type.ACTSET_OUTPUT, new FormatUnknown());
         formatMap.put(Criterion.Type.PACKET_TYPE, new FormatUnknown());
         formatMap.put(Criterion.Type.EXTENSION, new FormatUnknown());
+        formatMap.put(Criterion.Type.ETH_DST_MASKED, new FormatUnknown());
+        formatMap.put(Criterion.Type.ETH_SRC_MASKED, new FormatUnknown());
+
     }
 
     private interface CriterionTypeFormatter {
@@ -191,6 +196,24 @@ public final class EncodeCriterionCodecHelper {
             final VlanPcpCriterion vlanPcpCriterion =
                     (VlanPcpCriterion) criterion;
             return root.put(CriterionCodec.PRIORITY, vlanPcpCriterion.priority());
+        }
+    }
+
+    private static class FormatInnerVlanVid implements CriterionTypeFormatter {
+        @Override
+        public ObjectNode encodeCriterion(ObjectNode root, Criterion criterion) {
+            final VlanIdCriterion vlanIdCriterion =
+                    (VlanIdCriterion) criterion;
+            return root.put(CriterionCodec.INNER_VLAN_ID, vlanIdCriterion.vlanId().toShort());
+        }
+    }
+
+    private static class FormatInnerVlanPcp implements CriterionTypeFormatter {
+        @Override
+        public ObjectNode encodeCriterion(ObjectNode root, Criterion criterion) {
+            final VlanPcpCriterion vlanPcpCriterion =
+                    (VlanPcpCriterion) criterion;
+            return root.put(CriterionCodec.INNER_PRIORITY, vlanPcpCriterion.priority());
         }
     }
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright 2014 Open Networking Laboratory
+  ~ Copyright 2014-present Open Networking Laboratory
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.onosproject</groupId>
         <artifactId>onos</artifactId>
-        <version>1.4.1-SNAPSHOT</version>
+        <version>1.6.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -45,10 +45,11 @@
         <module>bgprouter</module>
         <module>test</module>
         <module>segmentrouting</module>
-        <module>cordfabric</module>
         <module>xos-integration</module>
+        <module>kafka-integration</module>
         <module>pcep-api</module>
         <module>iptopology-api</module>
+        <module>pce</module>
         <module>olt</module>
         <module>cip</module>
         <module>flowanalyzer</module>
@@ -59,10 +60,20 @@
         <module>igmp</module>
         <module>pim</module>
         <module>mlb</module>
-        <module>openstackswitching</module>
         <module>pathpainter</module>
         <module>drivermatrix</module>
         <module>cpman</module>
+        <module>events</module>
+        <module>vrouter</module>
+        <module>cordmcast</module>
+        <module>vpls</module>
+        <module>openstacknode</module>
+        <module>openstacknetworking</module>
+        <module>openstackinterface</module>
+        <module>influxdbmetrics</module>
+        <module>gangliametrics</module>
+        <module>graphitemetrics</module>
+        <module>xosclient</module>
   </modules>
 
     <properties>

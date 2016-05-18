@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,10 @@ import org.jboss.netty.channel.Channel;
 import org.onosproject.bgpio.exceptions.BgpParseException;
 import org.onosproject.bgpio.protocol.BgpFactory;
 import org.onosproject.bgpio.protocol.BgpMessage;
+import org.onosproject.bgpio.protocol.flowspec.BgpFlowSpecNlri;
+import org.onosproject.bgpio.protocol.flowspec.BgpFlowSpecRouteKey;
 import org.onosproject.bgpio.types.BgpValueType;
+import org.onosproject.bgpio.types.attr.WideCommunity;
 
 /**
  * Represents the peer side of an BGP peer.
@@ -27,6 +30,23 @@ import org.onosproject.bgpio.types.BgpValueType;
  */
 public interface BgpPeer {
 
+    enum FlowSpecOperation {
+
+        /**
+         * Signifies addition of flow specification rule.
+         */
+        ADD,
+
+        /**
+         *  Signifies updation of flow specification rule.
+         */
+        UPDATE,
+
+        /**
+         * Signifies deletion of flow specification rule.
+         */
+        DELETE
+    }
     /**
      * Sets the associated Netty channel for this bgp peer.
      *
@@ -110,4 +130,15 @@ public interface BgpPeer {
      * @return sessionInfo bgp session info
      */
     BgpSessionInfo sessionInfo();
+
+    /**
+     * Updates flow specification rule.
+     *
+     * @param operType operation type add or delete or update
+     * @param routeKey flow route key  for the flow rule
+     * @param flowSpec BGP flow specification components
+     * @param wideCommunity for route policy
+     */
+    void updateFlowSpec(FlowSpecOperation operType, BgpFlowSpecRouteKey routeKey,
+                               BgpFlowSpecNlri flowSpec, WideCommunity wideCommunity);
 }

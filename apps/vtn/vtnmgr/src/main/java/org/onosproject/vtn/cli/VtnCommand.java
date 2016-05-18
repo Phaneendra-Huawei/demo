@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.onosproject.vtn.cli;
 import org.apache.karaf.shell.commands.Command;
 import org.apache.karaf.shell.commands.Option;
 import org.onosproject.cli.AbstractShellCommand;
-import org.onosproject.vtn.manager.impl.VTNManager;
+import org.onosproject.vtn.manager.impl.VtnManager;
 
 /**
  * Supports for updating the external gateway virtualPort.
@@ -33,6 +33,6 @@ public class VtnCommand extends AbstractShellCommand {
 
     @Override
     protected void execute() {
-        VTNManager.setExPortName(exPortName);
+        VtnManager.setExPortName(exPortName);
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.onosproject.codec.impl;
 
 
+import java.util.ArrayList;
 import java.util.Map;
 
 import org.junit.Test;
@@ -48,7 +49,7 @@ public class DriverCodecTest {
         Map<String, String> properties =
                 ImmutableMap.of("key1", "value1", "key2", "value2");
 
-        DefaultDriver parent = new DefaultDriver("parent", null, "Acme",
+        DefaultDriver parent = new DefaultDriver("parent", new ArrayList<>(), "Acme",
                 "HW1.2.3", "SW1.2.3",
                 behaviours,
                 properties);

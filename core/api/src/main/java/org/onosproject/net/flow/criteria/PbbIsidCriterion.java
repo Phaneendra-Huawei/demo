@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
 package org.onosproject.net.flow.criteria;
 
 import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 
 /**
  * Implementation of PBB I-SID criterion (24 bits unsigned integer).
@@ -51,8 +49,7 @@ public final class PbbIsidCriterion implements Criterion {
 
     @Override
     public String toString() {
-        return toStringHelper(type().toString())
-                .add("pbbIsid", Long.toHexString(pbbIsid)).toString();
+        return type().toString() + SEPARATOR + Long.toHexString(pbbIsid);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,8 @@
  */
 package org.onosproject.codec.impl;
 
-import static org.easymock.EasyMock.createMock;
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.onosproject.net.NetTestTools.APP_ID;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.SortedMap;
-import java.util.TreeMap;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.Before;
 import org.junit.Test;
 import org.onlab.packet.EthType;
@@ -63,7 +51,6 @@ import org.onosproject.net.flow.criteria.IcmpCodeCriterion;
 import org.onosproject.net.flow.criteria.IcmpTypeCriterion;
 import org.onosproject.net.flow.criteria.Icmpv6CodeCriterion;
 import org.onosproject.net.flow.criteria.Icmpv6TypeCriterion;
-import org.onosproject.net.flow.criteria.IndexedLambdaCriterion;
 import org.onosproject.net.flow.criteria.MplsCriterion;
 import org.onosproject.net.flow.criteria.OchSignalCriterion;
 import org.onosproject.net.flow.criteria.OchSignalTypeCriterion;
@@ -83,8 +70,19 @@ import org.onosproject.net.flow.instructions.L2ModificationInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction;
 import org.onosproject.net.flow.instructions.L4ModificationInstruction;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.SortedMap;
+import java.util.TreeMap;
+
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.onosproject.net.NetTestTools.APP_ID;
 
 /**
  * Flow rule codec unit tests.
@@ -139,6 +137,7 @@ public class FlowRuleCodecTest {
         assertThat(rule.isPermanent(), is(false));
         assertThat(rule.timeout(), is(1));
         assertThat(rule.priority(), is(1));
+        assertThat(rule.tableId(), is(1));
         assertThat(rule.deviceId().toString(), is("of:0000000000000001"));
     }
 
@@ -215,7 +214,7 @@ public class FlowRuleCodecTest {
                             instruction.type().name() + "/" + subType, instruction);
                 });
 
-        assertThat(rule.treatment().allInstructions().size(), is(24));
+        assertThat(rule.treatment().allInstructions().size(), is(23));
 
         Instruction instruction;
 
@@ -251,7 +250,7 @@ public class FlowRuleCodecTest {
                 L2ModificationInstruction.L2SubType.MPLS_LABEL.name());
         assertThat(instruction.type(), is(Instruction.Type.L2MODIFICATION));
         assertThat(((L2ModificationInstruction.ModMplsLabelInstruction) instruction)
-                        .mplsLabel().toInt(),
+                        .label().toInt(),
                 is(MplsLabel.MAX_MPLS));
 
         instruction = getInstruction(Instruction.Type.L2MODIFICATION,
@@ -321,13 +320,6 @@ public class FlowRuleCodecTest {
                 is(8));
 
         instruction = getInstruction(Instruction.Type.L0MODIFICATION,
-                L0ModificationInstruction.L0SubType.LAMBDA.name());
-        assertThat(instruction.type(), is(Instruction.Type.L0MODIFICATION));
-        assertThat(((L0ModificationInstruction.ModLambdaInstruction) instruction)
-                        .lambda(),
-                is((short) 7));
-
-        instruction = getInstruction(Instruction.Type.L0MODIFICATION,
                 L0ModificationInstruction.L0SubType.OCH.name());
         assertThat(instruction.type(), is(Instruction.Type.L0MODIFICATION));
         L0ModificationInstruction.ModOchSignalInstruction och =
@@ -387,7 +379,7 @@ public class FlowRuleCodecTest {
 
         checkCommonData(rule);
 
-        assertThat(rule.selector().criteria().size(), is(36));
+        assertThat(rule.selector().criteria().size(), is(35));
 
         rule.selector().criteria()
                 .stream()
@@ -516,10 +508,6 @@ public class FlowRuleCodecTest {
         assertThat(((IPv6ExthdrFlagsCriterion) criterion).exthdrFlags(),
                 is(99));
 
-        criterion = getCriterion(Criterion.Type.OCH_SIGID);
-        assertThat(((IndexedLambdaCriterion) criterion).lambda(),
-                is(Lambda.indexedLambda(122)));
-
         criterion = getCriterion(Criterion.Type.TUNNEL_ID);
         assertThat(((TunnelIdCriterion) criterion).tunnelId(),
                 is(100L));
@@ -541,7 +529,7 @@ public class FlowRuleCodecTest {
                 is(80));
 
        assertThat(((OduSignalIdCriterion) criterion).oduSignalId().tributarySlotBitmap(),
-                is(new byte [] {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}));
+                is(new byte[] {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}));
     }
 
     /**

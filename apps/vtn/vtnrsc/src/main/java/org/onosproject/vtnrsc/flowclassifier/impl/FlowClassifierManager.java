@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,10 @@
  */
 package org.onosproject.vtnrsc.flowclassifier.impl;
 
-import static org.slf4j.LoggerFactory.getLogger;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static org.slf4j.LoggerFactory.getLogger;
+
+import java.util.UUID;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -24,6 +26,7 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
+import org.onlab.packet.IpPrefix;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.event.AbstractListenerManager;
 import org.onosproject.store.serializers.KryoNamespaces;
@@ -33,8 +36,11 @@ import org.onosproject.store.service.EventuallyConsistentMapListener;
 import org.onosproject.store.service.MultiValuedTimestamp;
 import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.WallClockTimestamp;
-import org.onosproject.vtnrsc.FlowClassifierId;
+import org.onosproject.vtnrsc.DefaultFlowClassifier;
 import org.onosproject.vtnrsc.FlowClassifier;
+import org.onosproject.vtnrsc.FlowClassifierId;
+import org.onosproject.vtnrsc.TenantId;
+import org.onosproject.vtnrsc.VirtualPortId;
 import org.onosproject.vtnrsc.flowclassifier.FlowClassifierEvent;
 import org.onosproject.vtnrsc.flowclassifier.FlowClassifierListener;
 import org.onosproject.vtnrsc.flowclassifier.FlowClassifierService;
@@ -48,7 +54,7 @@ import com.google.common.collect.ImmutableList;
 @Component(immediate = true)
 @Service
 public class FlowClassifierManager extends AbstractListenerManager<FlowClassifierEvent, FlowClassifierListener>
-        implements FlowClassifierService {
+implements FlowClassifierService {
 
     private static final String FLOW_CLASSIFIER_NOT_NULL = "Flow Classifier cannot be null";
     private static final String FLOW_CLASSIFIER_ID_NOT_NULL = "Flow Classifier Id cannot be null";
@@ -68,14 +74,16 @@ public class FlowClassifierManager extends AbstractListenerManager<FlowClassifie
     @Activate
     protected void activate() {
         eventDispatcher.addSink(FlowClassifierEvent.class, listenerRegistry);
-        KryoNamespace.Builder serializer = KryoNamespace.newBuilder()
+        KryoNamespace.Builder serializer = KryoNamespace
+                .newBuilder()
                 .register(KryoNamespaces.API)
                 .register(MultiValuedTimestamp.class)
-                .register(FlowClassifier.class);
+                .register(FlowClassifier.class, FlowClassifierId.class, UUID.class, IpPrefix.class,
+                          VirtualPortId.class, DefaultFlowClassifier.class, TenantId.class);
         flowClassifierStore = storageService
                 .<FlowClassifierId, FlowClassifier>eventuallyConsistentMapBuilder()
                 .withName("flowclassifierstore").withSerializer(serializer)
-                .withTimestampProvider((k, v) -> new WallClockTimestamp()).build();
+                .withTimestampProvider((k, v) ->new WallClockTimestamp()).build();
         flowClassifierStore.addListener(flowClassifierListener);
         log.info("Flow Classifier service activated");
     }
@@ -129,7 +137,7 @@ public class FlowClassifierManager extends AbstractListenerManager<FlowClassifie
 
         if (!flowClassifierStore.containsKey(flowClassifier.flowClassifierId())) {
             log.debug("The flowClassifier is not exist whose identifier was {} ", flowClassifier.flowClassifierId()
-                    .toString());
+                      .toString());
             return false;
         }
 
@@ -137,7 +145,7 @@ public class FlowClassifierManager extends AbstractListenerManager<FlowClassifie
 
         if (!flowClassifier.equals(flowClassifierStore.get(flowClassifier.flowClassifierId()))) {
             log.debug("Updation of flowClassifier is failed whose identifier was {} ", flowClassifier
-                    .flowClassifierId().toString());
+                      .flowClassifierId().toString());
             return false;
         }
         return true;
@@ -155,8 +163,8 @@ public class FlowClassifierManager extends AbstractListenerManager<FlowClassifie
     }
 
     private class InnerFlowClassifierStoreListener
-            implements
-            EventuallyConsistentMapListener<FlowClassifierId, FlowClassifier> {
+    implements
+    EventuallyConsistentMapListener<FlowClassifierId, FlowClassifier> {
 
         @Override
         public void event(EventuallyConsistentMapEvent<FlowClassifierId, FlowClassifier> event) {
@@ -164,13 +172,13 @@ public class FlowClassifierManager extends AbstractListenerManager<FlowClassifie
             FlowClassifier flowClassifier = event.value();
             if (EventuallyConsistentMapEvent.Type.PUT == event.type()) {
                 notifyListeners(new FlowClassifierEvent(
-                        FlowClassifierEvent.Type.FLOW_CLASSIFIER_PUT,
-                        flowClassifier));
+                                                        FlowClassifierEvent.Type.FLOW_CLASSIFIER_PUT,
+                                                        flowClassifier));
             }
             if (EventuallyConsistentMapEvent.Type.REMOVE == event.type()) {
                 notifyListeners(new FlowClassifierEvent(
-                        FlowClassifierEvent.Type.FLOW_CLASSIFIER_DELETE,
-                        flowClassifier));
+                                                        FlowClassifierEvent.Type.FLOW_CLASSIFIER_DELETE,
+                                                        flowClassifier));
             }
         }
     }

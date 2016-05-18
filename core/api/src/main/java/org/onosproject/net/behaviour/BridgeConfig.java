@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,17 +71,37 @@ public interface BridgeConfig extends HandlerBehaviour {
 
     /**
      * Add a logical/virtual port.
+     * @deprecated version 1.5.0 - Falcon.
      *
      * @param port port number
      */
+    @Deprecated
     void addPort(PortDescription port);
 
     /**
+     * Adds a port to a given bridge.
+     *
+     * @param bridgeName bridge name
+     * @param portName port name
+     */
+    void addPort(BridgeName bridgeName, String portName);
+
+    /**
      * Delete a logical/virtual port.
+     * @deprecated version 1.5.0 - Falcon.
      *
      * @param port port number
      */
+    @Deprecated
     void deletePort(PortDescription port);
+
+    /**
+     * Removes a port from a given bridge.
+     *
+     * @param bridgeName bridge name
+     * @param portName port name
+     */
+    void deletePort(BridgeName bridgeName, String portName);
 
     /**
      * Delete a logical/virtual port.

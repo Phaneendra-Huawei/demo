@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@ package org.onosproject.net.packet;
 
 import org.onosproject.cluster.NodeId;
 import org.onosproject.core.ApplicationId;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.flow.TrafficSelector;
+
+import java.util.Optional;
 
 /**
  * Represents a packet request made to devices.
@@ -51,4 +54,12 @@ public interface PacketRequest {
      * @return an node id
      */
     NodeId nodeId();
+
+    /**
+     * Obtains the optional device id.
+     *
+     * @return an optional containing a device id
+     */
+    Optional<DeviceId> deviceId();
+
 }

@@ -1,5 +1,5 @@
 <!--
-  ~ Copyright 2015 Open Networking Laboratory
+  ~ Copyright 2015-present Open Networking Laboratory
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
   -->
 <scenario name="fast" description="ONOS fast smoke test">
     <import file="${ONOS_SCENARIOS}/prerequisites.xml"/>
+    <import file="${ONOS_SCENARIOS}/net-prerequisites.xml"/>
 
     <import file="${ONOS_SCENARIOS}/setup.xml"/>
-    <dependency name="Setup" requires="Prerequisites"/>
+    <dependency name="Setup" requires="Prerequisites,Net-Prerequisites"/>
 
     <import file="${ONOS_SCENARIOS}/net-fast.xml"/>
     <dependency name="Net-Fast" requires="Setup"/>

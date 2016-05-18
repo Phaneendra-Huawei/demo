@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 package org.onosproject.cluster.impl;
 
+import com.google.common.collect.Collections2;
+import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -28,17 +30,21 @@ import org.onosproject.cluster.ClusterAdminService;
 import org.onosproject.cluster.ClusterEvent;
 import org.onosproject.cluster.ClusterEventListener;
 import org.onosproject.cluster.ClusterMetadata;
+import org.onosproject.cluster.ClusterMetadataAdminService;
+import org.onosproject.cluster.ClusterMetadataDiff;
+import org.onosproject.cluster.ClusterMetadataEvent;
+import org.onosproject.cluster.ClusterMetadataEventListener;
 import org.onosproject.cluster.ClusterMetadataService;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.ClusterStore;
 import org.onosproject.cluster.ClusterStoreDelegate;
 import org.onosproject.cluster.ControllerNode;
+import org.onosproject.cluster.DefaultPartition;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.cluster.Partition;
+import org.onosproject.cluster.PartitionId;
 import org.onosproject.event.AbstractListenerManager;
 import org.slf4j.Logger;
-
-import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -46,12 +52,13 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.onosproject.security.AppGuard.checkPermission;
+import static org.onosproject.security.AppPermission.Type.CLUSTER_READ;
 import static org.slf4j.LoggerFactory.getLogger;
-import static org.onosproject.security.AppPermission.Type.*;
 
 /**
  * Implementation of the cluster service.
@@ -71,23 +78,29 @@ public class ClusterManager
     protected ClusterMetadataService clusterMetadataService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ClusterMetadataAdminService clusterMetadataAdminService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ClusterStore store;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected SystemService systemService;
 
+    private final AtomicReference<ClusterMetadata> currentMetadata = new AtomicReference<>();
+    private final InternalClusterMetadataListener metadataListener = new InternalClusterMetadataListener();
+
     @Activate
     public void activate() {
         store.setDelegate(delegate);
         eventDispatcher.addSink(ClusterEvent.class, listenerRegistry);
-        clusterMetadataService.getClusterMetadata()
-                              .getNodes()
-                              .forEach(node -> store.addNode(node.id(), node.ip(), node.tcpPort()));
+        clusterMetadataService.addListener(metadataListener);
+        processMetadata(clusterMetadataService.getClusterMetadata());
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
+        clusterMetadataService.removeListener(metadataListener);
         store.unsetDelegate(delegate);
         eventDispatcher.removeSink(ClusterEvent.class);
         log.info("Stopped");
@@ -119,6 +132,10 @@ public class ClusterManager
         return store.getState(nodeId);
     }
 
+    @Override
+    public void markFullyStarted(boolean started) {
+        store.markFullyStarted(started);
+    }
 
     @Override
     public DateTime getLastUpdated(NodeId nodeId) {
@@ -131,12 +148,8 @@ public class ClusterManager
         checkNotNull(nodes, "Nodes cannot be null");
         checkArgument(!nodes.isEmpty(), "Nodes cannot be empty");
 
-        ClusterMetadata metadata = ClusterMetadata.builder()
-                                                  .withName("default")
-                                                  .withControllerNodes(nodes)
-                                                  .withPartitions(buildDefaultPartitions(nodes))
-                                                  .build();
-        clusterMetadataService.setClusterMetadata(metadata);
+        ClusterMetadata metadata = new ClusterMetadata("default", nodes, buildDefaultPartitions(nodes));
+        clusterMetadataAdminService.setClusterMetadata(metadata);
         try {
             log.warn("Shutting down container for cluster reconfiguration!");
             systemService.reboot("now", SystemService.Swipe.NONE);
@@ -167,20 +180,45 @@ public class ClusterManager
         }
     }
 
-    private static Collection<Partition> buildDefaultPartitions(Collection<ControllerNode> nodes) {
+    private static Set<Partition> buildDefaultPartitions(Collection<ControllerNode> nodes) {
         List<ControllerNode> sorted = new ArrayList<>(nodes);
         Collections.sort(sorted, (o1, o2) -> o1.id().toString().compareTo(o2.id().toString()));
-        Collection<Partition> partitions = Lists.newArrayList();
-
+        Set<Partition> partitions = Sets.newHashSet();
+        // add p0 partition
+        partitions.add(new DefaultPartition(PartitionId.from(0),
+                                            Sets.newHashSet(Collections2.transform(nodes, ControllerNode::id))));
+        // add extended partitions
         int length = nodes.size();
-        int count = 3;
+        int count = Math.min(3, length);
         for (int i = 0; i < length; i++) {
+            int index = i;
             Set<NodeId> set = new HashSet<>(count);
             for (int j = 0; j < count; j++) {
                 set.add(sorted.get((i + j) % length).id());
             }
-            partitions.add(new Partition("p" + (i + 1), set));
+            partitions.add(new DefaultPartition(PartitionId.from((index + 1)), set));
         }
         return partitions;
+    }
+
+    /**
+     * Processes metadata by adding and removing nodes from the cluster.
+     */
+    private synchronized void processMetadata(ClusterMetadata metadata) {
+        try {
+            ClusterMetadataDiff examiner =
+                    new ClusterMetadataDiff(currentMetadata.get(), metadata);
+            examiner.nodesAdded().forEach(node -> addNode(node.id(), node.ip(), node.tcpPort()));
+            examiner.nodesRemoved().forEach(this::removeNode);
+        } finally {
+            currentMetadata.set(metadata);
+        }
+    }
+
+    private class InternalClusterMetadataListener implements ClusterMetadataEventListener {
+        @Override
+        public void event(ClusterMetadataEvent event) {
+            processMetadata(event.subject());
+        }
     }
 }

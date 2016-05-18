@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import org.onosproject.core.CoreService;
 import org.onosproject.core.IdGenerator;
 import org.onosproject.incubator.net.tunnel.DefaultTunnel;
 import org.onosproject.incubator.net.tunnel.Tunnel;
+import org.onosproject.incubator.net.tunnel.Tunnel.State;
 import org.onosproject.incubator.net.tunnel.Tunnel.Type;
 import org.onosproject.incubator.net.tunnel.TunnelEndPoint;
 import org.onosproject.incubator.net.tunnel.TunnelEvent;
@@ -78,7 +79,7 @@ public class DistributedTunnelStore
     /**
      * The topic used for obtaining globally unique ids.
      */
-    private String runnelOpTopoic = "tunnel-ops-ids";
+    private String tunnelOpTopic = "tunnel-ops-ids";
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ClusterCommunicationService clusterCommunicator;
@@ -131,7 +132,7 @@ public class DistributedTunnelStore
                 .<ApplicationId, Set<TunnelSubscription>>eventuallyConsistentMapBuilder()
                 .withName("type_tunnel").withSerializer(serializer)
                 .withTimestampProvider((k, v) -> new WallClockTimestamp()).build();
-        idGenerator = coreService.getIdGenerator(runnelOpTopoic);
+        idGenerator = coreService.getIdGenerator(tunnelOpTopic);
         log.info("Started");
     }
 
@@ -147,6 +148,15 @@ public class DistributedTunnelStore
 
     @Override
     public TunnelId createOrUpdateTunnel(Tunnel tunnel) {
+        return handleCreateOrUpdateTunnel(tunnel, null);
+    }
+
+    @Override
+    public TunnelId createOrUpdateTunnel(Tunnel tunnel, State state) {
+        return handleCreateOrUpdateTunnel(tunnel, state);
+    }
+
+    private TunnelId handleCreateOrUpdateTunnel(Tunnel tunnel, State state) {
         // tunnelIdAsKeyStore.
         if (tunnel.tunnelId() != null && !"".equals(tunnel.tunnelId().toString())) {
             Tunnel old = tunnelIdAsKeyStore.get(tunnel.tunnelId());
@@ -156,24 +166,25 @@ public class DistributedTunnelStore
             }
             DefaultAnnotations oldAnno = (DefaultAnnotations) old.annotations();
             SparseAnnotations newAnno = (SparseAnnotations) tunnel.annotations();
+            State newTunnelState = (state != null) ? state : old.state();
             Tunnel newT = new DefaultTunnel(old.providerId(), old.src(),
                                             old.dst(), old.type(),
-                                            old.state(), old.groupId(),
+                                            newTunnelState, old.groupId(),
                                             old.tunnelId(),
                                             old.tunnelName(),
                                             old.path(),
                                             DefaultAnnotations.merge(oldAnno, newAnno));
             tunnelIdAsKeyStore.put(tunnel.tunnelId(), newT);
-            TunnelEvent event = new TunnelEvent(
-                                                TunnelEvent.Type.TUNNEL_UPDATED,
+            TunnelEvent event = new TunnelEvent(TunnelEvent.Type.TUNNEL_UPDATED,
                                                 tunnel);
             notifyDelegate(event);
             return tunnel.tunnelId();
         } else {
-            TunnelId tunnelId = TunnelId.valueOf(idGenerator.getNewId());
+            TunnelId tunnelId = TunnelId.valueOf(String.valueOf(idGenerator.getNewId()));
+            State tunnelState = (state != null) ? state : tunnel.state();
             Tunnel newT = new DefaultTunnel(tunnel.providerId(), tunnel.src(),
                                             tunnel.dst(), tunnel.type(),
-                                            tunnel.state(), tunnel.groupId(),
+                                            tunnelState, tunnel.groupId(),
                                             tunnelId,
                                             tunnel.tunnelName(),
                                             tunnel.path(),
@@ -236,19 +247,24 @@ public class DistributedTunnelStore
         List<TunnelEvent> ls = new ArrayList<TunnelEvent>();
         for (TunnelId id : idSet) {
             deletedTunnel = tunnelIdAsKeyStore.get(id);
-            event = new TunnelEvent(TunnelEvent.Type.TUNNEL_REMOVED,
-                                    deletedTunnel);
-            ls.add(event);
-            if (producerName.equals(deletedTunnel.providerId())) {
+
+            if (producerName == null || (producerName != null
+                    && producerName.equals(deletedTunnel.providerId()))) {
                 tunnelIdAsKeyStore.remove(deletedTunnel.tunnelId());
                 tunnelNameAsKeyStore.get(deletedTunnel.tunnelName())
                         .remove(deletedTunnel.tunnelId());
                 srcAndDstKeyStore.get(key).remove(deletedTunnel.tunnelId());
                 typeKeyStore.get(deletedTunnel.type())
                         .remove(deletedTunnel.tunnelId());
+                event = new TunnelEvent(TunnelEvent.Type.TUNNEL_REMOVED,
+                                        deletedTunnel);
+                ls.add(event);
             }
         }
-        notifyDelegate(ls);
+
+        if (!ls.isEmpty()) {
+            notifyDelegate(ls);
+        }
     }
 
     @Override
@@ -264,20 +280,24 @@ public class DistributedTunnelStore
         List<TunnelEvent> ls = new ArrayList<TunnelEvent>();
         for (TunnelId id : idSet) {
             deletedTunnel = tunnelIdAsKeyStore.get(id);
-            event = new TunnelEvent(TunnelEvent.Type.TUNNEL_REMOVED,
-                                    deletedTunnel);
-            ls.add(event);
-            if (producerName.equals(deletedTunnel.providerId())
-                    && type.equals(deletedTunnel.type())) {
+
+            if (type.equals(deletedTunnel.type()) && (producerName == null || (producerName != null
+                    && producerName.equals(deletedTunnel.providerId())))) {
                 tunnelIdAsKeyStore.remove(deletedTunnel.tunnelId());
                 tunnelNameAsKeyStore.get(deletedTunnel.tunnelName())
                         .remove(deletedTunnel.tunnelId());
                 srcAndDstKeyStore.get(key).remove(deletedTunnel.tunnelId());
                 typeKeyStore.get(deletedTunnel.type())
                         .remove(deletedTunnel.tunnelId());
+                event = new TunnelEvent(TunnelEvent.Type.TUNNEL_REMOVED,
+                                        deletedTunnel);
+                ls.add(event);
             }
         }
-        notifyDelegate(ls);
+
+        if (!ls.isEmpty()) {
+            notifyDelegate(ls);
+        }
     }
 
     @Override

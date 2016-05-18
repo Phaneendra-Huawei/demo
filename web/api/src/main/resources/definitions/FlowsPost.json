@@ -10,12 +10,12 @@
   "properties": {
     "priority": {
       "type": "integer",
-      "format": "int64",
-      "example": 400000
+      "format": "int32",
+      "example": 40000
     },
     "timeout": {
       "type": "integer",
-      "format": "int64",
+      "format": "int32",
       "example": 0
     },
     "isPermanent": {
@@ -78,19 +78,17 @@
           "items": {
             "type": "object",
             "title": "criteria",
-            "required": [
-              "type",
-              "ethType"
-            ],
             "properties": {
               "type": {
                 "type": "string",
+                "description":"Ethernet field name",
                 "example": "ETH_TYPE"
               },
               "ethType": {
-                "type": "integer",
+                "type": "int64",
                 "format": "int64",
-                "example": "0x88cc"
+                "example": "0x88cc",
+                "description":"Ethernet frame type"
               }
             }
           }

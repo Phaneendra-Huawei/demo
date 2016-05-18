@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package org.onosproject.store.app;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -57,16 +58,20 @@ import org.slf4j.Logger;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.google.common.collect.Multimaps.newSetMultimap;
 import static com.google.common.collect.Multimaps.synchronizedSetMultimap;
 import static com.google.common.io.ByteStreams.toByteArray;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.onlab.util.Tools.groupedThreads;
 import static org.onlab.util.Tools.randomDelay;
@@ -93,6 +98,10 @@ public class GossipApplicationStore extends ApplicationArchive
     private static final int RETRY_DELAY_MS = 2_000;
 
     private static final int FETCH_TIMEOUT_MS = 10_000;
+
+    private static final int APP_LOAD_DELAY_MS = 500;
+
+    private static List<String> pendingApps = Lists.newArrayList();
 
     public enum InternalState {
         INSTALLED, ACTIVATED, DEACTIVATED
@@ -135,10 +144,10 @@ public class GossipApplicationStore extends ApplicationArchive
                 .register(MultiValuedTimestamp.class)
                 .register(InternalState.class);
 
-        executor = Executors.newSingleThreadScheduledExecutor(groupedThreads("onos/app", "store"));
+        executor = newSingleThreadScheduledExecutor(groupedThreads("onos/app", "store", log));
 
         messageHandlingExecutor = Executors.newSingleThreadExecutor(
-                groupedThreads("onos/store/app", "message-handler"));
+                groupedThreads("onos/store/app", "message-handler", log));
 
         clusterCommunicator.<String, byte[]>addSubscriber(APP_BITS_REQUEST,
                                                           bytes -> new String(bytes, Charsets.UTF_8),
@@ -193,23 +202,42 @@ public class GossipApplicationStore extends ApplicationArchive
     }
 
     private Application loadFromDisk(String appName) {
+        pendingApps.add(appName);
+
         for (int i = 0; i < MAX_LOAD_RETRIES; i++) {
             try {
                 // Directly return if app already exists
                 ApplicationId appId = getId(appName);
                 if (appId != null) {
-                    return getApplication(appId);
+                    Application application = getApplication(appId);
+                    if (application != null) {
+                        pendingApps.remove(appName);
+                        return application;
+                    }
                 }
 
                 ApplicationDescription appDesc = getApplicationDescription(appName);
+
+                Optional<String> loop = appDesc.requiredApps().stream()
+                        .filter(app -> pendingApps.contains(app)).findAny();
+                if (loop.isPresent()) {
+                    log.error("Circular app dependency detected: {} -> {}", pendingApps, loop.get());
+                    pendingApps.remove(appName);
+                    return null;
+                }
+
                 boolean success = appDesc.requiredApps().stream()
                         .noneMatch(requiredApp -> loadFromDisk(requiredApp) == null);
+                pendingApps.remove(appName);
+
                 return success ? create(appDesc, false) : null;
+
             } catch (Exception e) {
                 log.warn("Unable to load application {} from disk; retrying", appName);
                 randomDelay(RETRY_DELAY_MS); //FIXME: This is a deliberate hack; fix in Falcon
             }
         }
+        pendingApps.remove(appName);
         return null;
     }
 
@@ -227,7 +255,7 @@ public class GossipApplicationStore extends ApplicationArchive
     @Override
     public void setDelegate(ApplicationStoreDelegate delegate) {
         super.setDelegate(delegate);
-        loadFromDisk();
+        executor.schedule(() -> loadFromDisk(), APP_LOAD_DELAY_MS, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -501,9 +529,19 @@ public class GossipApplicationStore extends ApplicationArchive
      */
     private Application registerApp(ApplicationDescription appDesc) {
         ApplicationId appId = idStore.registerApplication(appDesc.name());
-        return new DefaultApplication(appId, appDesc.version(), appDesc.description(),
-                                      appDesc.origin(), appDesc.role(), appDesc.permissions(),
-                                      appDesc.featuresRepo(), appDesc.features(),
-                                      appDesc.requiredApps());
+        return new DefaultApplication(appId,
+                appDesc.version(),
+                appDesc.title(),
+                appDesc.description(),
+                appDesc.origin(),
+                appDesc.category(),
+                appDesc.url(),
+                appDesc.readme(),
+                appDesc.icon(),
+                appDesc.role(),
+                appDesc.permissions(),
+                appDesc.featuresRepo(),
+                appDesc.features(),
+                appDesc.requiredApps());
     }
 }

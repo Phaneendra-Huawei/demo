@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import com.google.common.base.Preconditions;
  */
 public class NextHop implements BgpValueType {
     public static final byte NEXTHOP_TYPE = 3;
-
+    public static final byte FLAGS = (byte) 0x40;
     private boolean isNextHop = false;
     private Ip4Address nextHop;
 
@@ -44,6 +44,14 @@ public class NextHop implements BgpValueType {
     public NextHop(Ip4Address nextHop) {
         this.nextHop = Preconditions.checkNotNull(nextHop);
         this.isNextHop = true;
+    }
+
+    /**
+     * Constructor to initialize default parameters.
+     *
+     */
+    public NextHop() {
+        this.nextHop = null;
     }
 
     /**
@@ -103,8 +111,16 @@ public class NextHop implements BgpValueType {
 
     @Override
     public int write(ChannelBuffer cb) {
-        //Not required to be implemented now
-        return 0;
+        int iLenStartIndex = cb.writerIndex();
+        cb.writeByte(FLAGS);
+        cb.writeByte(getType());
+        if (!isNextHopSet()) {
+            cb.writeByte(0);
+        } else {
+            cb.writeInt(nextHop.toInt());
+        }
+
+        return cb.writerIndex() - iLenStartIndex;
     }
 
     @Override

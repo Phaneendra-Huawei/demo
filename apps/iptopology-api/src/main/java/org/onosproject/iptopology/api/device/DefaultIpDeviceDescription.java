@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ public class DefaultIpDeviceDescription extends AbstractDescription
      * @param annotations Annotations to use.
      */
     public DefaultIpDeviceDescription(IpDeviceDescription base, SparseAnnotations... annotations) {
-        this(base.deviceURI(), base.type(), base.deviceIdentifier(),
+        this(base.deviceUri(), base.type(), base.deviceIdentifier(),
              base.deviceTed(), annotations);
     }
 
@@ -71,12 +71,12 @@ public class DefaultIpDeviceDescription extends AbstractDescription
      * @param annotations Annotations to use.
      */
     public DefaultIpDeviceDescription(IpDeviceDescription base, Type type, SparseAnnotations... annotations) {
-        this(base.deviceURI(), type, base.deviceIdentifier(),
+        this(base.deviceUri(), type, base.deviceIdentifier(),
                 base.deviceTed(), annotations);
     }
 
     @Override
-    public URI deviceURI() {
+    public URI deviceUri() {
         return uri;
     }
 

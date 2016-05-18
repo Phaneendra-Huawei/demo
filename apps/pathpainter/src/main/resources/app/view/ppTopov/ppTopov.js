@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@
 
     function clear() {
         wss.sendEvent(clearMessage);
-        flash.flash('Source node: ' + node.id);
+        flash.flash('Cleared source and destination');
     }
 
     function setSrc(node) {
@@ -78,7 +78,6 @@
     function prevPath() {
         wss.sendEvent(prevPathMessage);
     }
-
 
     function setMode(mode) {
         if (currentMode === mode) {

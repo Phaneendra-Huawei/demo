@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package org.onosproject.pcepio.exceptions;
  */
 public class PcepTunnelAttributeException extends Exception {
 
-    private static final long serialVersionUID = 7860981378961458434L;
+    private static final long serialVersionUID = 2L;
 
     /**
      * Default constructor to create a new exception.

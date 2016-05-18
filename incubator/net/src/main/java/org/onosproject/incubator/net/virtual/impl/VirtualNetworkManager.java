@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 @Service
 public class VirtualNetworkManager
         extends AbstractListenerProviderRegistry<VirtualNetworkEvent, VirtualNetworkListener,
-                                                 VirtualNetworkProvider, VirtualNetworkProviderService>
+        VirtualNetworkProvider, VirtualNetworkProviderService>
         implements VirtualNetworkService, VirtualNetworkAdminService, VirtualNetworkProviderRegistry {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -66,23 +66,28 @@ public class VirtualNetworkManager
     private static final String NETWORK_NULL = "Network ID cannot be null";
     private static final String DEVICE_NULL = "Device ID cannot be null";
     private static final String LINK_POINT_NULL = "Link end-point cannot be null";
+    private static final String VIRTUAL_LINK_NULL = "Virtual Link cannot be null";
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected VirtualNetworkStore store;
 
-    private VirtualNetworkStoreDelegate delegate = new InternalStoreDelegate();
+    private VirtualNetworkStoreDelegate delegate = this::post;
 
     // TODO: figure out how to coordinate "implementation" of a virtual network in a cluster
 
     @Activate
     protected void activate() {
         store.setDelegate(delegate);
+        eventDispatcher.addSink(VirtualNetworkEvent.class, listenerRegistry);
+
         log.info("Started");
     }
 
     @Deactivate
     protected void deactivate() {
         store.unsetDelegate(delegate);
+        eventDispatcher.removeSink(VirtualNetworkEvent.class);
+
         log.info("Stopped");
     }
 
@@ -131,13 +136,41 @@ public class VirtualNetworkManager
 
     @Override
     public VirtualLink createVirtualLink(NetworkId networkId,
-                                         ConnectPoint src, ConnectPoint dst,
-                                         TunnelId realizedBy) {
+                                         ConnectPoint src, ConnectPoint dst) {
         checkNotNull(networkId, NETWORK_NULL);
         checkNotNull(src, LINK_POINT_NULL);
         checkNotNull(dst, LINK_POINT_NULL);
-        checkNotNull(realizedBy, "Tunnel ID cannot be null");
-        return store.addLink(networkId, src, dst, realizedBy);
+        VirtualLink virtualLink = store.addLink(networkId, src, dst, null);
+        checkNotNull(virtualLink, VIRTUAL_LINK_NULL);
+
+        if (virtualLink.providerId() != null) {
+            VirtualNetworkProvider provider = getProvider(virtualLink.providerId());
+            if (provider != null) {
+                TunnelId tunnelId = provider.createTunnel(networkId, mapVirtualToPhysicalPort(networkId, src),
+                                                          mapVirtualToPhysicalPort(networkId, dst));
+                store.updateLink(virtualLink, tunnelId);
+            }
+        }
+        return virtualLink;
+    }
+
+    /**
+     * Maps the virtual connect point to a physical connect point.
+     *
+     * @param networkId network identifier
+     * @param virtualCp virtual connect point
+     * @return physical connect point
+     */
+    private ConnectPoint mapVirtualToPhysicalPort(NetworkId networkId,
+                                                  ConnectPoint virtualCp) {
+        Set<VirtualPort> ports = store.getPorts(networkId, virtualCp.deviceId());
+        for (VirtualPort port : ports) {
+            if (port.element().id().equals(virtualCp.elementId()) &&
+                    port.number().equals(virtualCp.port())) {
+                return new ConnectPoint(port.realizedBy().element().id(), port.realizedBy().number());
+            }
+        }
+        return null;
     }
 
     @Override
@@ -145,7 +178,14 @@ public class VirtualNetworkManager
         checkNotNull(networkId, NETWORK_NULL);
         checkNotNull(src, LINK_POINT_NULL);
         checkNotNull(dst, LINK_POINT_NULL);
-        store.removeLink(networkId, src, dst);
+        VirtualLink virtualLink = store.removeLink(networkId, src, dst);
+
+        if (virtualLink != null && virtualLink.providerId() != null) {
+            VirtualNetworkProvider provider = getProvider(virtualLink.providerId());
+            if (provider != null) {
+                provider.destroyTunnel(networkId, virtualLink.tunnelId());
+            }
+        }
     }
 
     @Override
@@ -209,14 +249,15 @@ public class VirtualNetworkManager
         InternalVirtualNetworkProviderService(VirtualNetworkProvider provider) {
             super(provider);
         }
-    }
 
-    // Auxiliary store delegate to receive notification about changes in
-    // the virtual network configuration store state - by the store itself.
-    private class InternalStoreDelegate implements VirtualNetworkStoreDelegate {
         @Override
-        public void notify(VirtualNetworkEvent event) {
-            post(event);
+        public void tunnelUp(NetworkId networkId, ConnectPoint src, ConnectPoint dst) {
+
+        }
+
+        @Override
+        public void tunnelDown(NetworkId networkId, ConnectPoint src, ConnectPoint dst) {
+
         }
     }
 

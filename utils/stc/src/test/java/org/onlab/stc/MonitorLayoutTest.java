@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 package org.onlab.stc;
 
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.onlab.stc.MonitorLayout.Box;
 
@@ -32,6 +34,16 @@ import static org.onlab.stc.Scenario.loadScenario;
 public class MonitorLayoutTest {
 
     private MonitorLayout layout;
+
+    @BeforeClass
+    public static void setUpClass() throws IOException {
+        CompilerTest.setUpClass();
+    }
+
+    @AfterClass
+    public static void tearDownClass() throws IOException {
+        CompilerTest.tearDownClass();
+    }
 
     private Compiler getCompiler(String name) throws IOException {
         stageTestResource(name);

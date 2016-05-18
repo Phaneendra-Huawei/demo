@@ -1,0 +1,9 @@
+COMPILE_DEPS = [
+    '//lib:CORE_DEPS',
+    '//protocols/pcep/pcepio:onos-protocols-pcep-pcepio',
+]
+
+osgi_jar_with_tests (
+    deps = COMPILE_DEPS,
+)
+

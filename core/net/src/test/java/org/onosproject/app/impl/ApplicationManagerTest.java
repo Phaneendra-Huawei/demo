@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -138,7 +138,8 @@ public class ApplicationManagerTest {
 
         @Override
         public Application create(InputStream appDescStream) {
-            app = new DefaultApplication(APP_ID, VER, DESC, ORIGIN, ROLE, PERMS,
+            app = new DefaultApplication(APP_ID, VER, TITLE, DESC, ORIGIN, CATEGORY,
+                                         URL, README, ICON, ROLE, PERMS,
                                          Optional.of(FURL), FEATURES, ImmutableList.of());
             state = INSTALLED;
             delegate.notify(new ApplicationEvent(APP_INSTALLED, app));

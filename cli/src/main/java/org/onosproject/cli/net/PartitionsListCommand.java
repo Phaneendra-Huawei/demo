@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.Ordering;
 
 /**
  * Command to list the database partitions in the system.
@@ -42,13 +43,16 @@ public class PartitionsListCommand extends AbstractShellCommand {
      * @param partitionInfo partition descriptions
      */
     private void displayPartitions(List<PartitionInfo> partitionInfo) {
+        if (partitionInfo.isEmpty()) {
+            return;
+        }
         print("----------------------------------------------------------");
         print(FMT, "Name", "Term", "Members", "");
         print("----------------------------------------------------------");
 
         for (PartitionInfo info : partitionInfo) {
             boolean first = true;
-            for (String member : info.members()) {
+            for (String member : Ordering.natural().sortedCopy(info.members())) {
                 if (first) {
                     print(FMT, info.name(), info.term(), member,
                             member.equals(info.leader()) ? "*" : "");

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
     'use strict';
 
     // injected refs
-    var $log, fs, sus, is, ts;
+    var $log, fs, sus, is, ts, ps, ttbs;
 
     // api to topoForce
     var api;
@@ -67,6 +67,17 @@
         w: 'badgeWarn',
         e: 'badgeError'
     };
+
+    // NOTE: this type of hack should go away once we have implemented
+    //       the server-side UiModel code.
+    // {virtual -> cord} is for the E-CORD demo at ONS 2016
+    var remappedDeviceTypes = {
+        virtual: 'cord'
+    };
+
+    function mapDeviceTypeToGlyph(type) {
+        return remappedDeviceTypes[type] || type || 'unknown';
+    }
 
     function badgeStatus(badge) {
         return status[badge.status] || status.i;
@@ -148,12 +159,19 @@
     // ====
 
     function incDevLabIndex() {
-        deviceLabelIndex = (deviceLabelIndex+1) % 3;
+        setDevLabIndex(deviceLabelIndex+1);
         switch(deviceLabelIndex) {
             case 0: return 'Hide device labels';
             case 1: return 'Show friendly device labels';
             case 2: return 'Show device ID labels';
         }
+    }
+
+    function setDevLabIndex(mode) {
+        deviceLabelIndex = mode % 3;
+        var p = ps.getPrefs('topo_prefs', ttbs.defaultPrefs);
+        p.dlbls = deviceLabelIndex;
+        ps.setPrefs('topo_prefs', p);
     }
 
     // Returns the newly computed bounding box of the rectangle
@@ -205,16 +223,11 @@
             noLabel = !label,
             node = d.el,
             dim = icfg.device.dim,
-            box, dx, dy, bsel,
-            bdg = d.badge,
-            bcr = badgeConfig.radius,
-            bcgd = badgeConfig.gdelta;
+            box, dx, dy,
+            bdg = d.badge;
 
         node.select('text')
-            .text(label)
-            .style('opacity', 0)
-            .transition()
-            .style('opacity', 1);
+            .text(label);
 
         if (noLabel) {
             box = emptyBox();
@@ -316,9 +329,8 @@
 
     function deviceEnter(d) {
         var node = d3.select(this),
-            glyphId = d.type || 'unknown',
+            glyphId = mapDeviceTypeToGlyph(d.type),
             label = trimLabel(deviceLabel(d)),
-            //devCfg = deviceIconConfig,
             noLabel = !label,
             box, dx, dy, icon;
 
@@ -594,13 +606,16 @@
     angular.module('ovTopo')
     .factory('TopoD3Service',
         ['$log', 'FnService', 'SvgUtilService', 'IconService', 'ThemeService',
+            'PrefsService', 'TopoToolbarService',
 
-        function (_$log_, _fs_, _sus_, _is_, _ts_) {
+        function (_$log_, _fs_, _sus_, _is_, _ts_, _ps_, _ttbs_) {
             $log = _$log_;
             fs = _fs_;
             sus = _sus_;
             is = _is_;
             ts = _ts_;
+            ps = _ps_;
+            ttbs = _ttbs_;
 
             icfg = is.iconConfig();
 
@@ -615,6 +630,7 @@
                 destroyD3: destroyD3,
 
                 incDevLabIndex: incDevLabIndex,
+                setDevLabIndex: setDevLabIndex,
                 adjustRectToFitText: adjustRectToFitText,
                 hostLabel: hostLabel,
                 deviceLabel: deviceLabel,

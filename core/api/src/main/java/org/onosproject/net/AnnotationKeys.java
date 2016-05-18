@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,10 +31,7 @@ public final class AnnotationKeys {
 
     /**
      * Annotation key for instance name.
-     *
-     * @deprecated since Cardinal
      */
-    @Deprecated
     public static final String NAME = "name";
 
     /**
@@ -47,18 +44,12 @@ public final class AnnotationKeys {
 
     /**
      * Annotation key for latitude (e.g. latitude of device).
-     *
-     * @deprecated since Cardinal
      */
-    @Deprecated
     public static final String LATITUDE = "latitude";
 
     /**
      * Annotation key for longitute (e.g. longitude of device).
-     *
-     * @deprecated since Cardinal
      */
-    @Deprecated
     public static final String LONGITUDE = "longitude";
 
     /**
@@ -68,10 +59,7 @@ public final class AnnotationKeys {
 
     /**
      * Annotation key for the device driver name.
-     *
-     * @deprecated since Cardinal
      */
-    @Deprecated
     public static final String DRIVER = "driver";
 
     /**
@@ -87,19 +75,13 @@ public final class AnnotationKeys {
 
     /**
      * Annotation key for latency.
-     *
-     * @deprecated since Cardinal
      */
-    @Deprecated
     public static final String LATENCY = "latency";
 
     /**
      * Annotation key for bandwidth.
      * The value for this key is interpreted as Mbps.
-     *
-     * @deprecated since Cardinal
      */
-    @Deprecated
     public static final String BANDWIDTH = "bandwidth";
 
     /**
@@ -151,6 +133,16 @@ public final class AnnotationKeys {
      * Annotation key for the management address.
      */
     public static final String MANAGEMENT_ADDRESS = "managementAddress";
+
+    /**
+     * Annotation key for the username.
+     */
+    public static final String USERNAME = "username";
+
+    /**
+     * Annotation key for the password.
+     */
+    public static final String PASSWORD = "password";
 
     /**
      * Returns the value annotated object for the specified annotation key.

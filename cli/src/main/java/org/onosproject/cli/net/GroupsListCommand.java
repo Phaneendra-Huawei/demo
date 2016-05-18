@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@ import java.util.TreeMap;
 
 import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
+import org.apache.karaf.shell.commands.Option;
 import org.onosproject.cli.AbstractShellCommand;
-import org.onosproject.cli.Comparators;
+import org.onosproject.utils.Comparators;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.device.DeviceService;
@@ -45,6 +46,8 @@ import static com.google.common.collect.Lists.newArrayList;
         description = "Lists all groups in the system")
 public class GroupsListCommand extends AbstractShellCommand {
 
+    public static final String ANY = "any";
+
     private static final String FORMAT =
             "   id=0x%s, state=%s, type=%s, bytes=%s, packets=%s, appId=%s";
     private static final String BUCKET_FORMAT =
@@ -57,6 +60,11 @@ public class GroupsListCommand extends AbstractShellCommand {
     @Argument(index = 0, name = "state", description = "Group state",
             required = false, multiValued = false)
     String state;
+
+    @Option(name = "-c", aliases = "--count",
+            description = "Print group count only",
+            required = false, multiValued = false)
+    private boolean countOnly = false;
 
     private JsonNode json(Map<Device, List<Group>> sortedGroups) {
         ArrayNode result = mapper().createArrayNode();
@@ -120,6 +128,11 @@ public class GroupsListCommand extends AbstractShellCommand {
 
     private void printGroups(DeviceId deviceId, List<Group> groups) {
         print("deviceId=%s, groupCount=%s", deviceId, groups.size());
+
+        if (countOnly) {
+            return;
+        }
+
         for (Group group : groups) {
             print(FORMAT, Integer.toHexString(group.id().id()), group.state(), group.type(),
                   group.bytes(), group.packets(), group.appId().name());

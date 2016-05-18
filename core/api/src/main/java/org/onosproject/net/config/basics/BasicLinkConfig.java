@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import static org.onosproject.net.config.Config.FieldPresence.OPTIONAL;
 /**
  * Basic configuration for network infrastructure link.
  */
-public class BasicLinkConfig extends AllowedEntityConfig<LinkKey> {
+public final class BasicLinkConfig extends AllowedEntityConfig<LinkKey> {
 
     public static final String TYPE = "type";
     public static final String METRIC = "metric";
@@ -36,9 +36,9 @@ public class BasicLinkConfig extends AllowedEntityConfig<LinkKey> {
 
     @Override
     public boolean isValid() {
-        return hasOnlyFields(TYPE, METRIC, LATENCY, BANDWIDTH, IS_DURABLE) &&
-                isNumber(METRIC, OPTIONAL) && isNumber(LATENCY, OPTIONAL) &&
-                isNumber(BANDWIDTH, OPTIONAL);
+        return hasOnlyFields(ALLOWED, TYPE, METRIC, LATENCY, BANDWIDTH, IS_DURABLE) &&
+                isBoolean(ALLOWED, OPTIONAL) && isNumber(METRIC, OPTIONAL) &&
+                isNumber(LATENCY, OPTIONAL) && isNumber(BANDWIDTH, OPTIONAL);
     }
 
     /**

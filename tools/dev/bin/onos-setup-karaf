@@ -22,24 +22,33 @@ function validateIp {
 
 # Parse optional arguments
 while [[ $# > 0 ]]; do
-case $1 in
+    case $1 in
     clean)
-        echo "Removing existing karaf, apps, and config directories..."
-        CLEAN="true"
-        [ -d $KARAF_ROOT ] && rm -fr $KARAF_ROOT $STAGE/apps $STAGE/config
-    ;;
+        CLEAN="true";;
     secure)
-        SECURE="true"
-    ;;
+        SECURE="true";;
     *)
-        break
-    ;;
-esac
-shift
+        break;;
+    esac
+    shift
 done
 
 ONOS_IP=${ONOS_IP:-127.0.0.1}
 IP="${1:-$ONOS_IP}"
+
+# If the installed version does not line-up with ONOS_POM_VERSION force clean install
+if [ ! -f $KARAF_ROOT/etc/org.apache.karaf.features.cfg ] || \
+    ! grep -q "mvn:org.onosproject/onos-features/$ONOS_POM_VERSION/xml/features" \
+        $KARAF_ROOT/etc/org.apache.karaf.features.cfg; then
+    echo "Existing ONOS Karaf uses version different from $ONOS_POM_VERSION; forcing clean install..."
+    CLEAN="true"
+fi
+
+# If clean option was specified, wipe-out existing installation
+if [ "$CLEAN" = "true" ]; then
+    echo "Removing existing ONOS Karaf, apps, data and config directories..."
+    [ -d $KARAF_ROOT ] && rm -fr $KARAF_ROOT $STAGE/apps $STAGE/data $STAGE/config
+fi
 
 # If IP was not given, nor configured attempt to use ONOS_NIC env. variable
 if [ -z "$IP" -a -n "$ONOS_NIC" ]; then
@@ -111,19 +120,20 @@ fi
 if ! grep -q "/onos-features/" $KARAF_ROOT/etc/org.apache.karaf.features.cfg; then
     # Patch the Apache Karaf distribution file to add ONOS features repository
     echo "Adding ONOS feature repository..."
-    perl -pi.old -e "s|^(featuresRepositories=.*)|\1,mvn:org.onosproject/onos-features/$ONOS_POM_VERSION/xml/features|" \
+    perl -pi.old -e "s|^(featuresRepositories=.*)|featuresRepositories=mvn:org.apache.karaf.features/standard/$KARAF_VERSION/xml/features,mvn:org.onosproject/onos-features/$ONOS_POM_VERSION/xml/features|" \
         $KARAF_ROOT/etc/org.apache.karaf.features.cfg
 fi
 
 if ! grep -q ",onos-api," $KARAF_ROOT/etc/org.apache.karaf.features.cfg; then
     # Patch the Apache Karaf distribution file to load default ONOS boot features
-    export BOOT_FEATURES="webconsole,onos-api,onos-core,onos-incubator,onos-cli,onos-rest,onos-gui"
+    BOOT_FEATURES="standard,ssh,webconsole"
     if [ "$SECURE" = "true" ]; then
         # SM-ONOS Step 3.2: add onos-security to featuresBoot
-        export BOOT_FEATURES="onos-security,$BOOT_FEATURES"
+        BOOT_FEATURES="$BOOT_FEATURES,onos-security"
     fi
+    BOOT_FEATURES="$BOOT_FEATURES,onos-api,onos-core,onos-incubator,onos-cli,onos-rest,onos-gui"
     echo "Adding ONOS boot features $BOOT_FEATURES..."
-    perl -pi.old -e "s|^(featuresBoot=.*)|\1,$BOOT_FEATURES|" \
+    perl -pi.old -e "s|^(featuresBoot=.*)|featuresBoot=$BOOT_FEATURES|" \
         $KARAF_ROOT/etc/org.apache.karaf.features.cfg
 fi
 
@@ -141,7 +151,7 @@ cat > $STAGE/config/cluster.json <<EOF
 {
   "name": "default",
   "nodes": [ {"id": "$IP", "ip": "$IP", "port": 9876 } ],
-  "partitions": [ { "name": "p1", "members": [ "$IP" ] } ]
+  "partitions": [ { "id": 0, "members": [ "$IP" ] }, { "id": 1, "members": [ "$IP" ] } ]
 }
 EOF
 

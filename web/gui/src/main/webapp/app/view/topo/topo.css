@@ -1,5 +1,5 @@
 /*
- * Copyright 2014,2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,23 +96,6 @@ html[data-platform='iPad'] #topo-p-detail {
     height: 30px;
 }
 
-/* --- Topo Dialog Panel --- */
-
-#topo-p-dialog .dialog-button {
-    display: inline-block;
-    cursor: pointer;
-    height: 20px;
-    padding: 2px 6px;
-    margin: 4px;
-    float: right;
-}
-
-.light #topo-p-dialog .dialog-button {
-    background-color: #fec;
-}
-.dark #topo-p-dialog .dialog-button {
-    background-color: #369;
-}
 
 /* --- general topo-panel styling --- */
 
@@ -543,6 +526,12 @@ html[data-platform='iPad'] #topo-p-detail {
     opacity: .5;
     stroke-dasharray: 8 4;
 }
+/* FIXME: Review for not-permitted links */
+#ov-topo svg .link.not-permitted {
+    stroke: rgb(255,0,0);
+    stroke-width: 5.0;
+    stroke-dasharray: 8 4;
+}
 
 #ov-topo svg .link.secondary {
     stroke-width: 3px;
@@ -776,5 +765,17 @@ html[data-platform='iPad'] #topo-p-detail {
 }
 .dark #ov-topo svg #topo-sprites use.fill-blue2 {
     fill: #447;
+}
+
+.notReady .readyBadge {
+    visibility: hidden;
+}
+
+.map-list {
+    padding: 10px;
+}
+
+.map-list select {
+    font-size: 20px;
 }
 

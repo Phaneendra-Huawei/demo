@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import java.util.Map;
 import org.onlab.packet.Ip4Address;
 import org.onlab.packet.Ip4Prefix;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.VlanId;
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 
@@ -90,7 +92,16 @@ public interface DeviceProperties {
      * Value: a list of ports, which are bound to the subnet
      *
      * @param deviceId device identifier
+     * @throws DeviceConfigNotFoundException if the device configuration is not found
      * @return a map that contains all subnet-to-ports mapping of given device
      */
-    Map<Ip4Prefix, List<PortNumber>> getSubnetPortsMap(DeviceId deviceId);
+    Map<Ip4Prefix, List<PortNumber>> getSubnetPortsMap(DeviceId deviceId)
+            throws DeviceConfigNotFoundException;
+
+    /**
+     * Returns the VLAN cross-connect configuration.
+     *
+     * @return A map of that maps VLAN ID to a list of cross-connect endpoints
+     */
+    Map<VlanId, List<ConnectPoint>> getXConnects();
 }

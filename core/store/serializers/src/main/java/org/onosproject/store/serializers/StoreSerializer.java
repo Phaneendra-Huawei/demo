@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,4 +75,13 @@ public interface StoreSerializer {
      * @param <T> decoded type
      */
     <T> T decode(final InputStream stream);
+
+    /**
+     * Returns a copy of the specfied object.
+     *
+     * @param object object to copy
+     * @return a copy of the object
+     * @param <T> object type
+     */
+    <T> T copy(final T object);
 }

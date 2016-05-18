@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,6 @@ import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionGroup;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
 import org.projectfloodlight.openflow.protocol.oxm.OFOxm;
-import org.projectfloodlight.openflow.types.CircuitSignalID;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IPv6Address;
@@ -64,6 +63,7 @@ import org.projectfloodlight.openflow.types.OFGroup;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.OFVlanVidMatch;
 import org.projectfloodlight.openflow.types.U32;
+import org.projectfloodlight.openflow.types.U64;
 import org.projectfloodlight.openflow.types.VlanPcp;
 import org.slf4j.Logger;
 
@@ -234,9 +234,6 @@ public final class GroupModBuilder {
         List<OFAction> actions = new LinkedList<>();
         for (Instruction i : treatment.allInstructions()) {
             switch (i.type()) {
-                case DROP:
-                    log.warn("Saw drop action; assigning drop action");
-                    return Collections.emptyList();
                 case L0MODIFICATION:
                     actions.add(buildL0Modification(i));
                     break;
@@ -280,11 +277,6 @@ public final class GroupModBuilder {
     private OFAction buildL0Modification(Instruction i) {
         L0ModificationInstruction l0m = (L0ModificationInstruction) i;
         switch (l0m.subtype()) {
-            case LAMBDA:
-                L0ModificationInstruction.ModLambdaInstruction ml =
-                        (L0ModificationInstruction.ModLambdaInstruction) i;
-                return factory.actions().circuit(factory.oxms().ochSigidBasic(
-                        new CircuitSignalID((byte) 1, (byte) 2, ml.lambda(), (short) 1)));
             default:
                 log.warn("Unimplemented action type {}.", l0m.subtype());
                 break;
@@ -335,7 +327,7 @@ public final class GroupModBuilder {
             case MPLS_LABEL:
                 L2ModificationInstruction.ModMplsLabelInstruction mplsLabel =
                         (L2ModificationInstruction.ModMplsLabelInstruction) l2m;
-                oxm = factory.oxms().mplsLabel(U32.of(mplsLabel.mplsLabel().toInt()));
+                oxm = factory.oxms().mplsLabel(U32.of(mplsLabel.label().toInt()));
                 break;
             case MPLS_BOS:
                 L2ModificationInstruction.ModMplsBosInstruction mplsBos =
@@ -346,6 +338,11 @@ public final class GroupModBuilder {
                 break;
             case DEC_MPLS_TTL:
                 return factory.actions().decMplsTtl();
+            case TUNNEL_ID:
+                L2ModificationInstruction.ModTunnelIdInstruction tunnelId =
+                        (L2ModificationInstruction.ModTunnelIdInstruction) l2m;
+                oxm = factory.oxms().tunnelId(U64.of(tunnelId.tunnelId()));
+                break;
             default:
                 log.warn("Unimplemented action type {}.", l2m.subtype());
                 break;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 package org.onosproject.bgp.controller;
 
-import java.util.Map;
-import java.util.Set;
-
 import org.onosproject.bgpio.exceptions.BgpParseException;
 import org.onosproject.bgpio.protocol.BgpMessage;
+
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Abstraction of an BGP controller. Serves as a one stop shop for obtaining BGP devices and (un)register listeners on
@@ -72,7 +72,7 @@ public interface BgpController {
      * @param msg the message to process.
      * @throws BgpParseException on data processing error
      */
-    void processBGPPacket(BgpId bgpId, BgpMessage msg) throws BgpParseException;
+    void processBgpPacket(BgpId bgpId, BgpMessage msg) throws BgpParseException;
 
     /**
      * Close all connected BGP peers.
@@ -128,4 +128,25 @@ public interface BgpController {
      * @return node listener
      */
     Set<BgpNodeListener> listener();
+
+    /**
+     * Register a listener for BGP message events.
+     *
+     * @param listener the listener to notify
+     */
+    void addLinkListener(BgpLinkListener listener);
+
+    /**
+     * Unregister a listener.
+     *
+     * @param listener the listener to unregister
+     */
+    void removeLinkListener(BgpLinkListener listener);
+
+    /**
+     * Return BGP link listener.
+     *
+     * @return link listener
+     */
+    Set<BgpLinkListener> linkListener();
 }

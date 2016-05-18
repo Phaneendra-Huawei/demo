@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -211,10 +211,12 @@ public class OpenFlowMeterProvider extends AbstractProvider implements MeterProv
         }
     }
 
+    // TODO: ONOS-3546 Support per device enabling/disabling via network config
     private boolean isMeterSupported(OpenFlowSwitch sw) {
         if (sw.factory().getVersion() == OFVersion.OF_10 ||
                 sw.factory().getVersion() == OFVersion.OF_11 ||
-                sw.factory().getVersion() == OFVersion.OF_12) {
+                sw.factory().getVersion() == OFVersion.OF_12 ||
+                sw.softwareDescription().equals("OF-DPA 2.0")) {
             return false;
         }
 

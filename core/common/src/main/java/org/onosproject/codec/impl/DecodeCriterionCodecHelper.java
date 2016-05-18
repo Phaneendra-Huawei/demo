@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,6 +72,8 @@ public final class DecodeCriterionCodecHelper {
         decoderMap.put(Criterion.Type.ETH_TYPE.name(), new EthTypeDecoder());
         decoderMap.put(Criterion.Type.VLAN_VID.name(), new VlanVidDecoder());
         decoderMap.put(Criterion.Type.VLAN_PCP.name(), new VlanPcpDecoder());
+        decoderMap.put(Criterion.Type.INNER_VLAN_VID.name(), new InnerVlanVidDecoder());
+        decoderMap.put(Criterion.Type.INNER_VLAN_PCP.name(), new InnerVlanPcpDecoder());
         decoderMap.put(Criterion.Type.IP_DSCP.name(), new IpDscpDecoder());
         decoderMap.put(Criterion.Type.IP_ECN.name(), new IpEcnDecoder());
         decoderMap.put(Criterion.Type.IP_PROTO.name(), new IpProtoDecoder());
@@ -105,12 +107,13 @@ public final class DecodeCriterionCodecHelper {
     private class EthTypeDecoder implements CriterionDecoder {
         @Override
         public Criterion decodeCriterion(ObjectNode json) {
+            JsonNode ethTypeNode = nullIsIllegal(json.get(CriterionCodec.ETH_TYPE),
+                                              CriterionCodec.ETH_TYPE + MISSING_MEMBER_MESSAGE);
             int ethType;
-            if (json.get(CriterionCodec.ETH_TYPE).isInt()) {
-                ethType = nullIsIllegal(json.get(CriterionCodec.ETH_TYPE),
-                                        CriterionCodec.ETH_TYPE + MISSING_MEMBER_MESSAGE).asInt();
+            if (ethTypeNode.isInt()) {
+                ethType = ethTypeNode.asInt();
             } else {
-                ethType = Integer.decode(json.get(CriterionCodec.ETH_TYPE).textValue());
+                ethType = Integer.decode(ethTypeNode.textValue());
             }
             return Criteria.matchEthType(ethType);
         }
@@ -139,7 +142,8 @@ public final class DecodeCriterionCodecHelper {
         @Override
         public Criterion decodeCriterion(ObjectNode json) {
             PortNumber port = PortNumber.portNumber(nullIsIllegal(json.get(CriterionCodec.PORT),
-                    CriterionCodec.PORT + MISSING_MEMBER_MESSAGE).asLong());
+                                                                  CriterionCodec.PORT +
+                                                                          MISSING_MEMBER_MESSAGE).asLong());
 
             return Criteria.matchInPort(port);
         }
@@ -149,7 +153,8 @@ public final class DecodeCriterionCodecHelper {
         @Override
         public Criterion decodeCriterion(ObjectNode json) {
             PortNumber port = PortNumber.portNumber(nullIsIllegal(json.get(CriterionCodec.PORT),
-                    CriterionCodec.PORT + MISSING_MEMBER_MESSAGE).asLong());
+                                                                  CriterionCodec.PORT +
+                                                                          MISSING_MEMBER_MESSAGE).asLong());
 
             return Criteria.matchInPhyPort(port);
         }
@@ -179,9 +184,31 @@ public final class DecodeCriterionCodecHelper {
         @Override
         public Criterion decodeCriterion(ObjectNode json) {
             byte priority = (byte) nullIsIllegal(json.get(CriterionCodec.PRIORITY),
-                    CriterionCodec.VLAN_ID + MISSING_MEMBER_MESSAGE).asInt();
+                    CriterionCodec.PRIORITY + MISSING_MEMBER_MESSAGE).asInt();
 
             return Criteria.matchVlanPcp(priority);
+        }
+    }
+
+    private class InnerVlanVidDecoder implements CriterionDecoder {
+        @Override
+        public Criterion decodeCriterion(ObjectNode json) {
+            short vlanId = (short) nullIsIllegal(json.get(CriterionCodec.INNER_VLAN_ID),
+                                                 CriterionCodec.INNER_VLAN_ID +
+                                                         MISSING_MEMBER_MESSAGE).asInt();
+
+            return Criteria.matchInnerVlanId(VlanId.vlanId(vlanId));
+        }
+    }
+
+    private class InnerVlanPcpDecoder implements CriterionDecoder {
+        @Override
+        public Criterion decodeCriterion(ObjectNode json) {
+            byte priority = (byte) nullIsIllegal(json.get(CriterionCodec.INNER_PRIORITY),
+                                                 CriterionCodec.INNER_PRIORITY +
+                                                         MISSING_MEMBER_MESSAGE).asInt();
+
+            return Criteria.matchInnerVlanPcp(priority);
         }
     }
 
@@ -395,29 +422,23 @@ public final class DecodeCriterionCodecHelper {
     private class OchSigIdDecoder implements CriterionDecoder {
         @Override
         public Criterion decodeCriterion(ObjectNode json) {
-            if (json.get(CriterionCodec.LAMBDA) != null) {
-                Lambda lambda = Lambda.indexedLambda(nullIsIllegal(json.get(CriterionCodec.LAMBDA),
-                        CriterionCodec.LAMBDA + MISSING_MEMBER_MESSAGE).asInt());
-                return Criteria.matchLambda(lambda);
-            } else {
-                JsonNode ochSignalId = nullIsIllegal(json.get(CriterionCodec.OCH_SIGNAL_ID),
-                        CriterionCodec.GRID_TYPE + MISSING_MEMBER_MESSAGE);
-                GridType gridType =
-                        GridType.valueOf(
-                                nullIsIllegal(ochSignalId.get(CriterionCodec.GRID_TYPE),
-                                CriterionCodec.GRID_TYPE + MISSING_MEMBER_MESSAGE).asText());
-                ChannelSpacing channelSpacing =
-                        ChannelSpacing.valueOf(
-                                nullIsIllegal(ochSignalId.get(CriterionCodec.CHANNEL_SPACING),
-                                CriterionCodec.CHANNEL_SPACING + MISSING_MEMBER_MESSAGE).asText());
-                int spacingMultiplier = nullIsIllegal(ochSignalId.get(CriterionCodec.SPACING_MULIPLIER),
-                        CriterionCodec.SPACING_MULIPLIER + MISSING_MEMBER_MESSAGE).asInt();
-                int slotGranularity = nullIsIllegal(ochSignalId.get(CriterionCodec.SLOT_GRANULARITY),
-                        CriterionCodec.SLOT_GRANULARITY + MISSING_MEMBER_MESSAGE).asInt();
-                return Criteria.matchLambda(
-                        Lambda.ochSignal(gridType, channelSpacing,
-                                spacingMultiplier, slotGranularity));
-            }
+            JsonNode ochSignalId = nullIsIllegal(json.get(CriterionCodec.OCH_SIGNAL_ID),
+                    CriterionCodec.GRID_TYPE + MISSING_MEMBER_MESSAGE);
+            GridType gridType =
+                    GridType.valueOf(
+                            nullIsIllegal(ochSignalId.get(CriterionCodec.GRID_TYPE),
+                            CriterionCodec.GRID_TYPE + MISSING_MEMBER_MESSAGE).asText());
+            ChannelSpacing channelSpacing =
+                    ChannelSpacing.valueOf(
+                            nullIsIllegal(ochSignalId.get(CriterionCodec.CHANNEL_SPACING),
+                            CriterionCodec.CHANNEL_SPACING + MISSING_MEMBER_MESSAGE).asText());
+            int spacingMultiplier = nullIsIllegal(ochSignalId.get(CriterionCodec.SPACING_MULIPLIER),
+                    CriterionCodec.SPACING_MULIPLIER + MISSING_MEMBER_MESSAGE).asInt();
+            int slotGranularity = nullIsIllegal(ochSignalId.get(CriterionCodec.SLOT_GRANULARITY),
+                    CriterionCodec.SLOT_GRANULARITY + MISSING_MEMBER_MESSAGE).asInt();
+            return Criteria.matchLambda(
+                    Lambda.ochSignal(gridType, channelSpacing,
+                            spacingMultiplier, slotGranularity));
         }
     }
 
@@ -474,7 +495,9 @@ public final class DecodeCriterionCodecHelper {
      * @throws IllegalArgumentException if the JSON is invalid
      */
     public Criterion decode() {
-        String type = json.get(CriterionCodec.TYPE).asText();
+        String type =
+                nullIsIllegal(json.get(CriterionCodec.TYPE), "Type not specified")
+                        .asText();
 
         CriterionDecoder decoder = decoderMap.get(type);
         if (decoder != null) {

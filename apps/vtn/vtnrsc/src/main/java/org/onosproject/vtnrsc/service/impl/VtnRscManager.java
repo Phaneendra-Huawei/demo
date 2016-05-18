@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -164,7 +164,7 @@ public class VtnRscManager extends AbstractListenerManager<VtnRscEvent, VtnRscLi
 
         KryoNamespace.Builder serializer = KryoNamespace.newBuilder()
                 .register(KryoNamespaces.API)
-                .register(TenantId.class, DeviceId.class);
+                .register(TenantId.class, DeviceId.class, SegmentationId.class);
         l3vniMap = storageService
                 .<TenantId, SegmentationId>eventuallyConsistentMapBuilder()
                 .withName(L3VNIMAP).withSerializer(serializer)
@@ -221,18 +221,6 @@ public class VtnRscManager extends AbstractListenerManager<VtnRscEvent, VtnRscLi
         public void event(FloatingIpEvent event) {
             checkNotNull(event, EVENT_NOT_NULL);
             FloatingIp floatingIp = event.subject();
-            if (FloatingIpEvent.Type.FLOATINGIP_BIND == event.type()) {
-                notifyListeners(new VtnRscEvent(
-                                                VtnRscEvent.Type.FLOATINGIP_BIND,
-                                                new VtnRscEventFeedback(
-                                                                        floatingIp)));
-            }
-            if (FloatingIpEvent.Type.FLOATINGIP_UNBIND == event.type()) {
-                notifyListeners(new VtnRscEvent(
-                                                VtnRscEvent.Type.FLOATINGIP_UNBIND,
-                                                new VtnRscEventFeedback(
-                                                                        floatingIp)));
-            }
             if (FloatingIpEvent.Type.FLOATINGIP_PUT == event.type()) {
                 notifyListeners(new VtnRscEvent(
                                                 VtnRscEvent.Type.FLOATINGIP_PUT,
@@ -242,6 +230,18 @@ public class VtnRscManager extends AbstractListenerManager<VtnRscEvent, VtnRscLi
             if (FloatingIpEvent.Type.FLOATINGIP_DELETE == event.type()) {
                 notifyListeners(new VtnRscEvent(
                                                 VtnRscEvent.Type.FLOATINGIP_DELETE,
+                                                new VtnRscEventFeedback(
+                                                                        floatingIp)));
+            }
+            if (FloatingIpEvent.Type.FLOATINGIP_BIND == event.type()) {
+                notifyListeners(new VtnRscEvent(
+                                                VtnRscEvent.Type.FLOATINGIP_BIND,
+                                                new VtnRscEventFeedback(
+                                                                        floatingIp)));
+            }
+            if (FloatingIpEvent.Type.FLOATINGIP_UNBIND == event.type()) {
+                notifyListeners(new VtnRscEvent(
+                                                VtnRscEvent.Type.FLOATINGIP_UNBIND,
                                                 new VtnRscEventFeedback(
                                                                         floatingIp)));
             }
@@ -389,7 +389,7 @@ public class VtnRscManager extends AbstractListenerManager<VtnRscEvent, VtnRscLi
     }
 
     @Override
-    public Iterator<Device> getSFFOfTenant(TenantId tenantId) {
+    public Iterator<Device> getSffOfTenant(TenantId tenantId) {
         checkNotNull(tenantId, TENANTID_NOT_NULL);
         Set<DeviceId> deviceIdSet = sffOvsMap.get(tenantId);
         Set<Device> deviceSet = new HashSet<>();
@@ -430,7 +430,7 @@ public class VtnRscManager extends AbstractListenerManager<VtnRscEvent, VtnRscLi
     }
 
     @Override
-    public DeviceId getSFToSFFMaping(VirtualPortId portId) {
+    public DeviceId getSfToSffMaping(VirtualPortId portId) {
         checkNotNull(portId, "portId cannot be null");
         VirtualPort vmPort = virtualPortService.getPort(portId);
         Set<Host> hostSet = hostService.getHostsByMac(vmPort.macAddress());

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
         idSum = 'topo-p-summary',
         idDet = 'topo-p-detail',
         panelOpts = {
-            width: 260
+            width: 268
         },
         sumMax = 262,
         padTop = 20,
@@ -97,7 +97,9 @@
                 $log.warn('adjustHeight: height from top of page not given');
                 return null;
             } else if (!body || !p) {
-                $log.warn('adjustHeight: panel contents are not defined');
+                // panel contents are not defined
+                // this may happen when window is resizing but panel has
+                //   been cleared or removed
                 return null;
             }
 
@@ -221,7 +223,8 @@
 
     var isDevice = {
         switch: 1,
-        roadm: 1
+        roadm: 1,
+        otn:1
     };
 
     function displaySingle(data) {
@@ -299,8 +302,12 @@
         return linkTypePres[d.type()] || d.type();
     }
 
+    function linkExpected(d) {
+        return d.expected();
+    }
+
     var coreOrder = [
-            'Type', '-',
+            'Type', 'Expected', '-',
             'A_type', 'A_id', 'A_label', 'A_port', '-',
             'B_type', 'B_id', 'B_label', 'B_port', '-'
         ],
@@ -330,6 +337,7 @@
             propOrder: order,
             props: {
                 Type: linkType(data),
+                Expected: linkExpected(data),
 
                 A_type: data.source.class,
                 A_id: data.source.id,
@@ -521,6 +529,7 @@
 
                 showSummary: showSummary,
                 toggleSummary: toggleSummary,
+                hideSummary: hideSummaryPanel,
 
                 toggleUseDetailsFlag: toggleUseDetailsFlag,
                 displaySingle: displaySingle,
@@ -529,8 +538,6 @@
                 displayNothing: displayNothing,
                 displaySomething: displaySomething,
                 addAction: addAction,
-
-                hideSummaryPanel: hideSummaryPanel,
 
                 detailVisible: function () { return detail.panel().isVisible(); },
                 summaryVisible: function () { return summary.panel().isVisible(); }

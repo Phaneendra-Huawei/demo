@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,20 +28,28 @@ public class CoreWebApplication extends AbstractWebApplication {
     @Override
     public Set<Class<?>> getClasses() {
         return getClasses(ApiDocResource.class,
-                          ApplicationsWebResource.class,
-                          ComponentConfigWebResource.class,
-                          NetworkConfigWebResource.class,
-                          ClusterWebResource.class,
-                          DevicesWebResource.class,
-                          LinksWebResource.class,
-                          HostsWebResource.class,
-                          IntentsWebResource.class,
-                          FlowsWebResource.class,
-                          TopologyWebResource.class,
-                          ConfigWebResource.class,
-                          PathsWebResource.class,
-                          StatisticsWebResource.class,
-                          MetricsWebResource.class
+                ApplicationsWebResource.class,
+                ComponentConfigWebResource.class,
+                NetworkConfigWebResource.class,
+                ClusterWebResource.class,
+                DevicesWebResource.class,
+                LinksWebResource.class,
+                HostsWebResource.class,
+                IntentsWebResource.class,
+                FlowsWebResource.class,
+                GroupsWebResource.class,
+                MetersWebResource.class,
+                TopologyWebResource.class,
+                ConfigWebResource.class,
+                PathsWebResource.class,
+                StatisticsWebResource.class,
+                MetricsWebResource.class,
+                FlowObjectiveWebResource.class,
+                MulticastRouteWebResource.class,
+                DeviceKeyWebResource.class,
+                RegionsWebResource.class,
+                TenantWebResource.class,
+                VirtualNetworkWebResource.class
         );
     }
 }

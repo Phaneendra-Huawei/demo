@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ public final class ConditionUtil {
      * @param data column value
      * @return Condition
      */
-    public static Condition equals(String columnName, Object data) {
+    public static Condition isEqual(String columnName, Object data) {
         Object value = TransValueUtil.getFormatData(data);
         return new Condition(columnName, Function.EQUALS, value);
     }

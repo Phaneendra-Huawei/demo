@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,17 +17,22 @@ package org.onosproject.routing;
 
 import org.onlab.packet.IpAddress;
 import org.onosproject.routing.config.BgpConfig;
+import org.onosproject.routing.config.RouterConfig;
 
 import java.util.Collection;
 
 /**
  * Provides a way of interacting with the RIB management component.
+ *
+ * @deprecated in Goldeneye. Use RouteService instead.
  */
+@Deprecated
 public interface RoutingService {
 
     String ROUTER_APP_ID = "org.onosproject.router";
 
     Class<BgpConfig> CONFIG_CLASS = BgpConfig.class;
+    Class<RouterConfig> ROUTER_CONFIG_CLASS = RouterConfig.class;
 
     /**
      * Starts the routing service.
@@ -47,16 +52,16 @@ public interface RoutingService {
     void stop();
 
     /**
-     * Gets all IPv4 routes known to SDN-IP.
+     * Gets all IPv4 routes from the RIB.
      *
-     * @return the SDN-IP IPv4 routes
+     * @return the IPv4 routes
      */
     Collection<RouteEntry> getRoutes4();
 
     /**
-     * Gets all IPv6 routes known to SDN-IP.
+     * Gets all IPv6 routes from the RIB.
      *
-     * @return the SDN-IP IPv6 routes
+     * @return the IPv6 routes
      */
     Collection<RouteEntry> getRoutes6();
 

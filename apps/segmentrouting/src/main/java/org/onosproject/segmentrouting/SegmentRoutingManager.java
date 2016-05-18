@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,53 +22,50 @@ import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.Ethernet;
-import org.onlab.packet.MacAddress;
-import org.onlab.packet.VlanId;
 import org.onlab.packet.IPv4;
-import org.onlab.packet.Ip4Address;
 import org.onlab.packet.Ip4Prefix;
-import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
+import org.onlab.packet.VlanId;
 import org.onlab.util.KryoNamespace;
+import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.event.Event;
-import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.PortNumber;
-import org.onosproject.net.config.ConfigFactory;
-import org.onosproject.net.config.NetworkConfigEvent;
-import org.onosproject.net.config.NetworkConfigRegistry;
-import org.onosproject.net.config.NetworkConfigListener;
-import org.onosproject.net.config.basics.SubjectFactories;
-import org.onosproject.net.flow.DefaultTrafficSelector;
-import org.onosproject.net.flow.DefaultTrafficTreatment;
-import org.onosproject.net.flow.TrafficSelector;
-import org.onosproject.net.flow.TrafficTreatment;
-import org.onosproject.net.flowobjective.DefaultForwardingObjective;
-import org.onosproject.net.flowobjective.ForwardingObjective;
-import org.onosproject.net.flowobjective.Objective;
-import org.onosproject.net.flowobjective.ObjectiveContext;
-import org.onosproject.net.flowobjective.ObjectiveError;
-import org.onosproject.net.host.HostEvent;
-import org.onosproject.net.host.HostListener;
-import org.onosproject.segmentrouting.config.DeviceConfigNotFoundException;
-import org.onosproject.segmentrouting.config.DeviceConfiguration;
-import org.onosproject.segmentrouting.config.SegmentRoutingConfig;
-import org.onosproject.segmentrouting.grouphandler.DefaultGroupHandler;
-import org.onosproject.segmentrouting.grouphandler.NeighborSet;
-import org.onosproject.segmentrouting.grouphandler.NeighborSetNextObjectiveStoreKey;
-import org.onosproject.segmentrouting.grouphandler.PortNextObjectiveStoreKey;
+import org.onosproject.incubator.net.config.basics.McastConfig;
 import org.onosproject.mastership.MastershipService;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.Link;
 import org.onosproject.net.Port;
+import org.onosproject.net.PortNumber;
+import org.onosproject.net.config.ConfigFactory;
+import org.onosproject.net.config.NetworkConfigEvent;
+import org.onosproject.net.config.NetworkConfigListener;
+import org.onosproject.net.config.NetworkConfigRegistry;
+import org.onosproject.net.config.basics.SubjectFactories;
 import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceService;
+import org.onosproject.net.flow.DefaultTrafficSelector;
+import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.flowobjective.FlowObjectiveService;
+import org.onosproject.net.host.HostEvent;
+import org.onosproject.net.host.HostListener;
+import org.onosproject.net.mcast.McastEvent;
+import org.onosproject.net.mcast.McastListener;
+import org.onosproject.net.mcast.MulticastRouteService;
+import org.onosproject.net.packet.PacketPriority;
+import org.onosproject.net.topology.TopologyService;
+import org.onosproject.segmentrouting.config.DeviceConfigNotFoundException;
+import org.onosproject.segmentrouting.config.DeviceConfiguration;
+import org.onosproject.segmentrouting.config.SegmentRoutingDeviceConfig;
+import org.onosproject.segmentrouting.config.SegmentRoutingAppConfig;
+import org.onosproject.segmentrouting.grouphandler.DefaultGroupHandler;
+import org.onosproject.segmentrouting.grouphandler.NeighborSet;
+import org.onosproject.segmentrouting.storekey.NeighborSetNextObjectiveStoreKey;
+import org.onosproject.segmentrouting.storekey.PortNextObjectiveStoreKey;
 import org.onosproject.net.host.HostService;
-import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.link.LinkEvent;
 import org.onosproject.net.link.LinkListener;
 import org.onosproject.net.link.LinkService;
@@ -76,8 +73,10 @@ import org.onosproject.net.packet.InboundPacket;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketService;
-import org.onosproject.net.topology.TopologyService;
-import org.onosproject.segmentrouting.grouphandler.SubnetNextObjectiveStoreKey;
+import org.onosproject.segmentrouting.storekey.SubnetAssignedVidStoreKey;
+import org.onosproject.segmentrouting.storekey.SubnetNextObjectiveStoreKey;
+import org.onosproject.segmentrouting.storekey.XConnectNextObjectiveStoreKey;
+import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMapBuilder;
 import org.onosproject.store.service.StorageService;
@@ -85,11 +84,11 @@ import org.onosproject.store.service.WallClockTimestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -98,6 +97,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkState;
+
+
+/**
+ * Segment routing manager.
+ */
 @Service
 @Component(immediate = true)
 public class SegmentRoutingManager implements SegmentRoutingService {
@@ -109,13 +114,7 @@ public class SegmentRoutingManager implements SegmentRoutingService {
     protected CoreService coreService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected TopologyService topologyService;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected PacketService packetService;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected IntentService intentService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected HostService hostService;
@@ -132,6 +131,21 @@ public class SegmentRoutingManager implements SegmentRoutingService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected MastershipService mastershipService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected StorageService storageService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected NetworkConfigRegistry cfgService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ComponentConfigService compCfgService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected MulticastRouteService multicastRouteService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected TopologyService topologyService;
+
     protected ArpHandler arpHandler = null;
     protected IcmpHandler icmpHandler = null;
     protected IpHandler ipHandler = null;
@@ -145,7 +159,13 @@ public class SegmentRoutingManager implements SegmentRoutingService {
     private InternalPacketProcessor processor = null;
     private InternalLinkListener linkListener = null;
     private InternalDeviceListener deviceListener = null;
+    private NetworkConfigEventHandler netcfgHandler = null;
+    private McastHandler mcastHandler = null;
+    private HostHandler hostHandler = null;
     private InternalEventHandler eventHandler = new InternalEventHandler();
+    private final InternalHostListener hostListener = new InternalHostListener();
+    private final InternalConfigListener cfgListener = new InternalConfigListener(this);
+    private final InternalMcastListener mcastListener = new InternalMcastListener();
 
     private ScheduledExecutorService executorService = Executors
             .newScheduledThreadPool(1);
@@ -155,44 +175,59 @@ public class SegmentRoutingManager implements SegmentRoutingService {
     @SuppressWarnings("rawtypes")
     private ConcurrentLinkedQueue<Event> eventQueue = new ConcurrentLinkedQueue<Event>();
     private Map<DeviceId, DefaultGroupHandler> groupHandlerMap =
-            new ConcurrentHashMap<DeviceId, DefaultGroupHandler>();
-    // Per device next objective ID store with (device id + neighbor set) as key
-    private EventuallyConsistentMap<NeighborSetNextObjectiveStoreKey, Integer>
+            new ConcurrentHashMap<>();
+    /**
+     * Per device next objective ID store with (device id + neighbor set) as key.
+     */
+    public EventuallyConsistentMap<NeighborSetNextObjectiveStoreKey, Integer>
             nsNextObjStore = null;
-    // Per device next objective ID store with (device id + subnet) as key
-    private EventuallyConsistentMap<SubnetNextObjectiveStoreKey, Integer>
+    /**
+     * Per device next objective ID store with (device id + subnet) as key.
+     */
+    public EventuallyConsistentMap<SubnetNextObjectiveStoreKey, Integer>
             subnetNextObjStore = null;
-    // Per device next objective ID store with (device id + port) as key
-    private EventuallyConsistentMap<PortNextObjectiveStoreKey, Integer>
+    /**
+     * Per device next objective ID store with (device id + port) as key.
+     */
+    public EventuallyConsistentMap<PortNextObjectiveStoreKey, Integer>
             portNextObjStore = null;
+    /**
+     * Per cross-connect objective ID store with VLAN ID as key.
+     */
+    public EventuallyConsistentMap<XConnectNextObjectiveStoreKey, Integer>
+            xConnectNextObjStore = null;
     // Per device, per-subnet assigned-vlans store, with (device id + subnet
     // IPv4 prefix) as key
     private EventuallyConsistentMap<SubnetAssignedVidStoreKey, VlanId>
-        subnetVidStore = null;
+            subnetVidStore = null;
     private EventuallyConsistentMap<String, Tunnel> tunnelStore = null;
     private EventuallyConsistentMap<String, Policy> policyStore = null;
 
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected StorageService storageService;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected NetworkConfigRegistry cfgService;
-
-    private final InternalConfigListener cfgListener =
-            new InternalConfigListener(this);
-
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    private final ConfigFactory cfgFactory =
-            new ConfigFactory(SubjectFactories.DEVICE_SUBJECT_FACTORY,
-                              SegmentRoutingConfig.class,
-                              "segmentrouting") {
+    private final ConfigFactory<DeviceId, SegmentRoutingDeviceConfig> deviceConfigFactory =
+            new ConfigFactory<DeviceId, SegmentRoutingDeviceConfig>(SubjectFactories.DEVICE_SUBJECT_FACTORY,
+                    SegmentRoutingDeviceConfig.class, "segmentrouting") {
                 @Override
-                public SegmentRoutingConfig createConfig() {
-                    return new SegmentRoutingConfig();
+                public SegmentRoutingDeviceConfig createConfig() {
+                    return new SegmentRoutingDeviceConfig();
+                }
+            };
+    private final ConfigFactory<ApplicationId, SegmentRoutingAppConfig> appConfigFactory =
+            new ConfigFactory<ApplicationId, SegmentRoutingAppConfig>(SubjectFactories.APP_SUBJECT_FACTORY,
+                    SegmentRoutingAppConfig.class, "segmentrouting") {
+                @Override
+                public SegmentRoutingAppConfig createConfig() {
+                    return new SegmentRoutingAppConfig();
                 }
             };
 
-    private final InternalHostListener hostListener = new InternalHostListener();
+    private ConfigFactory<ApplicationId, McastConfig> mcastConfigFactory =
+            new ConfigFactory<ApplicationId, McastConfig>(SubjectFactories.APP_SUBJECT_FACTORY,
+                    McastConfig.class, "multicast") {
+                @Override
+                public McastConfig createConfig() {
+                    return new McastConfig();
+                }
+            };
 
     private Object threadSchedulerLock = new Object();
     private static int numOfEventsQueued = 0;
@@ -200,44 +235,29 @@ public class SegmentRoutingManager implements SegmentRoutingService {
     private static int numOfHandlerExecution = 0;
     private static int numOfHandlerScheduled = 0;
 
-    private KryoNamespace.Builder kryoBuilder = null;
-
+    /**
+     * Segment Routing App ID.
+     */
+    public static final String SR_APP_ID = "org.onosproject.segmentrouting";
+    /**
+     * The starting value of per-subnet VLAN ID assignment.
+     */
     private static final short ASSIGNED_VLAN_START = 4093;
+    /**
+     * The default VLAN ID assigned to the interfaces without subnet config.
+     */
     public static final short ASSIGNED_VLAN_NO_SUBNET = 4094;
 
     @Activate
     protected void activate() {
-        appId = coreService
-                .registerApplication("org.onosproject.segmentrouting");
-
-        kryoBuilder = new KryoNamespace.Builder()
-            .register(NeighborSetNextObjectiveStoreKey.class,
-                    SubnetNextObjectiveStoreKey.class,
-                    SubnetAssignedVidStoreKey.class,
-                    NeighborSet.class,
-                    DeviceId.class,
-                    URI.class,
-                    WallClockTimestamp.class,
-                    org.onosproject.cluster.NodeId.class,
-                    HashSet.class,
-                    Tunnel.class,
-                    DefaultTunnel.class,
-                    Policy.class,
-                    TunnelPolicy.class,
-                    Policy.Type.class,
-                    VlanId.class,
-                    Ip4Address.class,
-                    Ip4Prefix.class,
-                    IpAddress.Version.class,
-                    ConnectPoint.class
-            );
+        appId = coreService.registerApplication(SR_APP_ID);
 
         log.debug("Creating EC map nsnextobjectivestore");
         EventuallyConsistentMapBuilder<NeighborSetNextObjectiveStoreKey, Integer>
                 nsNextObjMapBuilder = storageService.eventuallyConsistentMapBuilder();
         nsNextObjStore = nsNextObjMapBuilder
                 .withName("nsnextobjectivestore")
-                .withSerializer(kryoBuilder)
+                .withSerializer(createSerializer())
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .build();
         log.trace("Current size {}", nsNextObjStore.size());
@@ -247,7 +267,7 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                 subnetNextObjMapBuilder = storageService.eventuallyConsistentMapBuilder();
         subnetNextObjStore = subnetNextObjMapBuilder
                 .withName("subnetnextobjectivestore")
-                .withSerializer(kryoBuilder)
+                .withSerializer(createSerializer())
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .build();
 
@@ -256,7 +276,16 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                 portNextObjMapBuilder = storageService.eventuallyConsistentMapBuilder();
         portNextObjStore = portNextObjMapBuilder
                 .withName("portnextobjectivestore")
-                .withSerializer(kryoBuilder)
+                .withSerializer(createSerializer())
+                .withTimestampProvider((k, v) -> new WallClockTimestamp())
+                .build();
+
+        log.debug("Creating EC map xconnectnextobjectivestore");
+        EventuallyConsistentMapBuilder<XConnectNextObjectiveStoreKey, Integer>
+                xConnectNextObjStoreBuilder = storageService.eventuallyConsistentMapBuilder();
+        xConnectNextObjStore = xConnectNextObjStoreBuilder
+                .withName("xconnectnextobjectivestore")
+                .withSerializer(createSerializer())
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .build();
 
@@ -264,7 +293,7 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                 storageService.eventuallyConsistentMapBuilder();
         tunnelStore = tunnelMapBuilder
                 .withName("tunnelstore")
-                .withSerializer(kryoBuilder)
+                .withSerializer(createSerializer())
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .build();
 
@@ -272,7 +301,7 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                 storageService.eventuallyConsistentMapBuilder();
         policyStore = policyMapBuilder
                 .withName("policystore")
-                .withSerializer(kryoBuilder)
+                .withSerializer(createSerializer())
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .build();
 
@@ -280,42 +309,88 @@ public class SegmentRoutingManager implements SegmentRoutingService {
             subnetVidStoreMapBuilder = storageService.eventuallyConsistentMapBuilder();
         subnetVidStore = subnetVidStoreMapBuilder
                 .withName("subnetvidstore")
-                .withSerializer(kryoBuilder)
+                .withSerializer(createSerializer())
                 .withTimestampProvider((k, v) -> new WallClockTimestamp())
                 .build();
 
-        cfgService.addListener(cfgListener);
-        cfgService.registerConfigFactory(cfgFactory);
-
-        hostService.addListener(hostListener);
+        compCfgService.preSetProperty("org.onosproject.net.group.impl.GroupManager",
+                "purgeOnDisconnection", "true");
+        compCfgService.preSetProperty("org.onosproject.net.flow.impl.FlowRuleManager",
+                "purgeOnDisconnection", "true");
 
         processor = new InternalPacketProcessor();
         linkListener = new InternalLinkListener();
         deviceListener = new InternalDeviceListener();
+        netcfgHandler = new NetworkConfigEventHandler(this);
+        mcastHandler = new McastHandler(this);
+        hostHandler = new HostHandler(this);
 
+        cfgService.addListener(cfgListener);
+        cfgService.registerConfigFactory(deviceConfigFactory);
+        cfgService.registerConfigFactory(appConfigFactory);
+        cfgService.registerConfigFactory(mcastConfigFactory);
+        hostService.addListener(hostListener);
         packetService.addProcessor(processor, PacketProcessor.director(2));
         linkService.addListener(linkListener);
         deviceService.addListener(deviceListener);
+        multicastRouteService.addListener(mcastListener);
+
+        // Request ARP packet-in
+        TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
+        selector.matchEthType(Ethernet.TYPE_ARP);
+        packetService.requestPackets(selector.build(), PacketPriority.CONTROL, appId, Optional.empty());
 
         cfgListener.configureNetwork();
 
         log.info("Started");
     }
 
+    private KryoNamespace.Builder createSerializer() {
+        return new KryoNamespace.Builder()
+                .register(KryoNamespaces.API)
+                .register(NeighborSetNextObjectiveStoreKey.class,
+                        SubnetNextObjectiveStoreKey.class,
+                        SubnetAssignedVidStoreKey.class,
+                        NeighborSet.class,
+                        Tunnel.class,
+                        DefaultTunnel.class,
+                        Policy.class,
+                        TunnelPolicy.class,
+                        Policy.Type.class,
+                        PortNextObjectiveStoreKey.class,
+                        XConnectNextObjectiveStoreKey.class
+                );
+    }
+
     @Deactivate
     protected void deactivate() {
         cfgService.removeListener(cfgListener);
-        cfgService.unregisterConfigFactory(cfgFactory);
+        cfgService.unregisterConfigFactory(deviceConfigFactory);
+        cfgService.unregisterConfigFactory(appConfigFactory);
+        cfgService.unregisterConfigFactory(mcastConfigFactory);
+
+        // Withdraw ARP packet-in
+        TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
+        selector.matchEthType(Ethernet.TYPE_ARP);
+        packetService.cancelPackets(selector.build(), PacketPriority.CONTROL, appId, Optional.empty());
 
         packetService.removeProcessor(processor);
         linkService.removeListener(linkListener);
         deviceService.removeListener(deviceListener);
+        multicastRouteService.removeListener(mcastListener);
+
         processor = null;
         linkListener = null;
-        deviceService = null;
-
+        deviceListener = null;
         groupHandlerMap.clear();
 
+        nsNextObjStore.destroy();
+        subnetNextObjStore.destroy();
+        portNextObjStore.destroy();
+        xConnectNextObjStore.destroy();
+        tunnelStore.destroy();
+        policyStore.destroy();
+        subnetVidStore.destroy();
         log.info("Stopped");
     }
 
@@ -382,9 +457,6 @@ public class SegmentRoutingManager implements SegmentRoutingService {
      * Vlan id 4094 expected to be used for all ports that are not assigned subnets.
      * Vlan id 4095 is reserved and unused. Only a single vlan id is assigned
      * per subnet.
-     * XXX This method should avoid any vlans configured on the ports, but
-     *     currently the app works only on untagged packets and as a result
-     *     ignores any vlan configuration.
      *
      * @param deviceId switch dpid
      * @param subnet IPv4 prefix for which assigned vlan is desired
@@ -392,6 +464,7 @@ public class SegmentRoutingManager implements SegmentRoutingService {
      *         null if no vlan assignment was found and this instance is not
      *         the master for the device.
      */
+    // TODO: We should avoid assigning VLAN IDs that are used by VLAN cross-connection.
     public VlanId getSubnetAssignedVlanId(DeviceId deviceId, Ip4Prefix subnet) {
         VlanId assignedVid = subnetVidStore.get(new SubnetAssignedVidStoreKey(
                                                         deviceId, subnet));
@@ -424,10 +497,17 @@ public class SegmentRoutingManager implements SegmentRoutingService {
             nextAssignedVlan = (short) (Collections.min(assignedVlans) - 1);
         }
         for (Ip4Prefix unsub : unassignedSubnets) {
-            subnetVidStore.put(new SubnetAssignedVidStoreKey(deviceId, unsub),
-                               VlanId.vlanId(nextAssignedVlan--));
-            log.info("Assigned vlan: {} to subnet: {} on device: {}",
-                      nextAssignedVlan + 1, unsub, deviceId);
+            // Special case for default route. Assign default VLAN ID to /32 and /0 subnets
+            if (unsub.prefixLength() == IpPrefix.MAX_INET_MASK_LENGTH ||
+                    unsub.prefixLength() == 0) {
+                subnetVidStore.put(new SubnetAssignedVidStoreKey(deviceId, unsub),
+                        VlanId.vlanId(ASSIGNED_VLAN_NO_SUBNET));
+            } else {
+                subnetVidStore.put(new SubnetAssignedVidStoreKey(deviceId, unsub),
+                        VlanId.vlanId(nextAssignedVlan--));
+                log.info("Assigned vlan: {} to subnet: {} on device: {}",
+                        nextAssignedVlan + 1, unsub, deviceId);
+            }
         }
 
         return subnetVidStore.get(new SubnetAssignedVidStoreKey(deviceId, subnet));
@@ -496,7 +576,26 @@ public class SegmentRoutingManager implements SegmentRoutingService {
         if (ghdlr != null) {
             return ghdlr.getPortNextObjectiveId(portNum, treatment, meta);
         } else {
-            log.warn("getPortNextObjectiveId query -  groupHandler for device {}"
+            log.warn("getPortNextObjectiveId query - groupHandler for device {}"
+                    + " not found", deviceId);
+            return -1;
+        }
+    }
+
+    /**
+     * Returns the next objective ID of type broadcast associated with the VLAN
+     * cross-connection.
+     *
+     * @param deviceId Device ID for the cross-connection
+     * @param vlanId VLAN ID for the cross-connection
+     * @return next objective ID or -1 if it was not found
+     */
+    public int getXConnectNextObjectiveId(DeviceId deviceId, VlanId vlanId) {
+        DefaultGroupHandler ghdlr = groupHandlerMap.get(deviceId);
+        if (ghdlr != null) {
+            return ghdlr.getXConnectNextObjectiveId(vlanId);
+        } else {
+            log.warn("getPortNextObjectiveId query - groupHandler for device {}"
                     + " not found", deviceId);
             return -1;
         }
@@ -566,7 +665,7 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                         .schedule(eventHandler, 100, TimeUnit.MILLISECONDS);
                 numOfHandlerScheduled++;
             }
-            log.trace("numOfEventsQueued {}, numOfEventHanlderScheduled {}",
+            log.trace("numOfEventsQueued {}, numOfEventHandlerScheduled {}",
                       numOfEventsQueued,
                       numOfHandlerScheduled);
         }
@@ -602,15 +701,11 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                             log.info("Processing device event {} for available device {}",
                                      event.type(), ((Device) event.subject()).id());
                             processDeviceAdded((Device) event.subject());
-                        } /* else {
-                            if (event.type() == DeviceEvent.Type.DEVICE_AVAILABILITY_CHANGED) {
-                                // availability changed and not available - dev gone
-                                DefaultGroupHandler groupHandler = groupHandlerMap.get(deviceId);
-                                if (groupHandler != null) {
-                                    groupHandler.removeAllGroups();
-                                }
-                            }
-                        }*/
+                        } else {
+                            log.info("Processing device event {} for unavailable device {}",
+                                    event.type(), ((Device) event.subject()).id());
+                            processDeviceRemoved((Device) event.subject());
+                        }
                     } else if (event.type() == DeviceEvent.Type.PORT_REMOVED) {
                         processPortRemoved((Device) event.subject(),
                                            ((DeviceEvent) event).port());
@@ -695,9 +790,7 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                                            deviceConfiguration,
                                            linkService,
                                            flowObjectiveService,
-                                           nsNextObjStore,
-                                           subnetNextObjStore,
-                                           portNextObjStore);
+                                           this);
             } catch (DeviceConfigNotFoundException e) {
                 log.warn(e.getMessage() + " Aborting processDeviceAdded.");
                 return;
@@ -708,13 +801,53 @@ public class SegmentRoutingManager implements SegmentRoutingService {
             // port addressing rules to the driver as well irrespective of whether
             // this instance is the master or not.
             defaultRoutingHandler.populatePortAddressingRules(device.id());
-            hostListener.readInitialHosts();
+            hostHandler.readInitialHosts();
         }
         if (mastershipService.isLocalMaster(device.id())) {
             DefaultGroupHandler groupHandler = groupHandlerMap.get(device.id());
             groupHandler.createGroupsFromSubnetConfig();
             routingRulePopulator.populateSubnetBroadcastRule(device.id());
+            groupHandler.createGroupsForXConnect(device.id());
+            routingRulePopulator.populateXConnectBroadcastRule(device.id());
         }
+
+        netcfgHandler.initVRouters(device.id());
+    }
+
+    private void processDeviceRemoved(Device device) {
+        nsNextObjStore.entrySet().stream()
+                .filter(entry -> entry.getKey().deviceId().equals(device.id()))
+                .forEach(entry -> {
+                    nsNextObjStore.remove(entry.getKey());
+                });
+
+        subnetNextObjStore.entrySet().stream()
+                .filter(entry -> entry.getKey().deviceId().equals(device.id()))
+                .forEach(entry -> {
+                    subnetNextObjStore.remove(entry.getKey());
+                });
+
+        portNextObjStore.entrySet().stream()
+                .filter(entry -> entry.getKey().deviceId().equals(device.id()))
+                .forEach(entry -> {
+                    portNextObjStore.remove(entry.getKey());
+                });
+
+        xConnectNextObjStore.entrySet().stream()
+                .filter(entry -> entry.getKey().deviceId().equals(device.id()))
+                .forEach(entry -> {
+                    xConnectNextObjStore.remove(entry.getKey());
+                });
+
+        subnetVidStore.entrySet().stream()
+                .filter(entry -> entry.getKey().deviceId().equals(device.id()))
+                .forEach(entry -> {
+                    subnetVidStore.remove(entry.getKey());
+                });
+
+        groupHandlerMap.remove(device.id());
+
+        defaultRoutingHandler.purgeEcmpGraph(device.id());
     }
 
     private void processPortRemoved(Device device, Port port) {
@@ -729,12 +862,21 @@ public class SegmentRoutingManager implements SegmentRoutingService {
     private class InternalConfigListener implements NetworkConfigListener {
         SegmentRoutingManager segmentRoutingManager;
 
+        /**
+         * Constructs the internal network config listener.
+         *
+         * @param srMgr segment routing manager
+         */
         public InternalConfigListener(SegmentRoutingManager srMgr) {
             this.segmentRoutingManager = srMgr;
         }
 
+        /**
+         * Reads network config and initializes related data structure accordingly.
+         */
         public void configureNetwork() {
-            deviceConfiguration = new DeviceConfiguration(segmentRoutingManager.cfgService);
+            deviceConfiguration = new DeviceConfiguration(appId,
+                    segmentRoutingManager.cfgService);
 
             arpHandler = new ArpHandler(segmentRoutingManager);
             icmpHandler = new IcmpHandler(segmentRoutingManager);
@@ -764,9 +906,7 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                                                    deviceConfiguration,
                                                    linkService,
                                                    flowObjectiveService,
-                                                   nsNextObjStore,
-                                                   subnetNextObjStore,
-                                                   portNextObjStore);
+                                                   segmentRoutingManager);
                     } catch (DeviceConfigNotFoundException e) {
                         log.warn(e.getMessage() + " Aborting configureNetwork.");
                         return;
@@ -778,12 +918,14 @@ public class SegmentRoutingManager implements SegmentRoutingService {
                     // port addressing rules to the driver as well, irrespective of whether
                     // this instance is the master or not.
                     defaultRoutingHandler.populatePortAddressingRules(device.id());
-                    hostListener.readInitialHosts();
+                    hostHandler.readInitialHosts();
                 }
                 if (mastershipService.isLocalMaster(device.id())) {
                     DefaultGroupHandler groupHandler = groupHandlerMap.get(device.id());
                     groupHandler.createGroupsFromSubnetConfig();
                     routingRulePopulator.populateSubnetBroadcastRule(device.id());
+                    groupHandler.createGroupsForXConnect(device.id());
+                    routingRulePopulator.populateXConnectBroadcastRule(device.id());
                 }
             }
 
@@ -792,205 +934,40 @@ public class SegmentRoutingManager implements SegmentRoutingService {
 
         @Override
         public void event(NetworkConfigEvent event) {
-            if (event.configClass().equals(SegmentRoutingConfig.class)) {
-                if (event.type() == NetworkConfigEvent.Type.CONFIG_ADDED) {
-                    log.info("Network configuration added.");
-                    configureNetwork();
+            // TODO move this part to NetworkConfigEventHandler
+            if (event.configClass().equals(SegmentRoutingDeviceConfig.class)) {
+                switch (event.type()) {
+                    case CONFIG_ADDED:
+                        log.info("Segment Routing Config added.");
+                        configureNetwork();
+                        break;
+                    case CONFIG_UPDATED:
+                        log.info("Segment Routing Config updated.");
+                        // TODO support dynamic configuration
+                        break;
+                    default:
+                        break;
                 }
-                if (event.type() == NetworkConfigEvent.Type.CONFIG_UPDATED) {
-                    log.info("Network configuration updated.");
-                    // TODO support dynamic configuration
+            } else if (event.configClass().equals(SegmentRoutingAppConfig.class)) {
+                checkState(netcfgHandler != null, "NetworkConfigEventHandler is not initialized");
+                switch (event.type()) {
+                    case CONFIG_ADDED:
+                        netcfgHandler.processVRouterConfigAdded(event);
+                        break;
+                    case CONFIG_UPDATED:
+                        netcfgHandler.processVRouterConfigUpdated(event);
+                        break;
+                    case CONFIG_REMOVED:
+                        netcfgHandler.processVRouterConfigRemoved(event);
+                        break;
+                    default:
+                        break;
                 }
             }
         }
     }
 
-    // TODO Move bridging table population to a separate class
     private class InternalHostListener implements HostListener {
-        private void readInitialHosts() {
-            hostService.getHosts().forEach(host -> {
-                MacAddress mac = host.mac();
-                VlanId vlanId = host.vlan();
-                DeviceId deviceId = host.location().deviceId();
-                PortNumber port = host.location().port();
-                Set<IpAddress> ips = host.ipAddresses();
-                log.debug("Host {}/{} is added at {}:{}", mac, vlanId, deviceId, port);
-
-                // Populate bridging table entry
-                ForwardingObjective.Builder fob =
-                        getForwardingObjectiveBuilder(deviceId, mac, vlanId, port);
-                flowObjectiveService.forward(deviceId, fob.add(
-                        new BridgingTableObjectiveContext(mac, vlanId)
-                ));
-
-                // Populate IP table entry
-                ips.forEach(ip -> {
-                    if (ip.isIp4()) {
-                        routingRulePopulator.populateIpRuleForHost(
-                                deviceId, ip.getIp4Address(), mac, port);
-                    }
-                });
-            });
-        }
-
-        private ForwardingObjective.Builder getForwardingObjectiveBuilder(
-                     DeviceId deviceId, MacAddress mac, VlanId vlanId,
-                     PortNumber outport) {
-            // match rule
-            TrafficSelector.Builder sbuilder = DefaultTrafficSelector.builder();
-            sbuilder.matchEthDst(mac);
-            sbuilder.matchVlanId(vlanId);
-
-            TrafficTreatment.Builder tbuilder = DefaultTrafficTreatment.builder();
-            tbuilder.immediate().popVlan();
-            tbuilder.immediate().setOutput(outport);
-
-            // for switch pipelines that need it, provide outgoing vlan as metadata
-            VlanId outvlan = null;
-            Ip4Prefix subnet = deviceConfiguration.getPortSubnet(deviceId, outport);
-            if (subnet == null) {
-                outvlan = VlanId.vlanId(ASSIGNED_VLAN_NO_SUBNET);
-            } else {
-                outvlan = getSubnetAssignedVlanId(deviceId, subnet);
-            }
-            TrafficSelector meta = DefaultTrafficSelector.builder()
-                                        .matchVlanId(outvlan).build();
-
-            // All forwarding is via Groups. Drivers can re-purpose to flow-actions if needed.
-            int portNextObjId = getPortNextObjectiveId(deviceId, outport,
-                                                       tbuilder.build(),
-                                                       meta);
-
-            return DefaultForwardingObjective.builder()
-                    .withFlag(ForwardingObjective.Flag.SPECIFIC)
-                    .withSelector(sbuilder.build())
-                    .nextStep(portNextObjId)
-                    .withPriority(100)
-                    .fromApp(appId)
-                    .makePermanent();
-        }
-
-        private void processHostAddedEvent(HostEvent event) {
-            MacAddress mac = event.subject().mac();
-            VlanId vlanId = event.subject().vlan();
-            DeviceId deviceId = event.subject().location().deviceId();
-            PortNumber port = event.subject().location().port();
-            Set<IpAddress> ips = event.subject().ipAddresses();
-            log.info("Host {}/{} is added at {}:{}", mac, vlanId, deviceId, port);
-
-            // Populate bridging table entry
-            log.debug("Populate L2 table entry for host {} at {}:{}",
-                      mac, deviceId, port);
-            ForwardingObjective.Builder fob =
-                    getForwardingObjectiveBuilder(deviceId, mac, vlanId, port);
-            flowObjectiveService.forward(deviceId, fob.add(
-                    new BridgingTableObjectiveContext(mac, vlanId)
-            ));
-
-            // Populate IP table entry
-            ips.forEach(ip -> {
-                if (ip.isIp4()) {
-                    routingRulePopulator.populateIpRuleForHost(
-                            deviceId, ip.getIp4Address(), mac, port);
-                }
-            });
-        }
-
-        private void processHostRemoveEvent(HostEvent event) {
-            MacAddress mac = event.subject().mac();
-            VlanId vlanId = event.subject().vlan();
-            DeviceId deviceId = event.subject().location().deviceId();
-            PortNumber port = event.subject().location().port();
-            Set<IpAddress> ips = event.subject().ipAddresses();
-            log.debug("Host {}/{} is removed from {}:{}", mac, vlanId, deviceId, port);
-
-            // Revoke bridging table entry
-            ForwardingObjective.Builder fob =
-                    getForwardingObjectiveBuilder(deviceId, mac, vlanId, port);
-            flowObjectiveService.forward(deviceId, fob.remove(
-                    new BridgingTableObjectiveContext(mac, vlanId)
-            ));
-
-            // Revoke IP table entry
-            ips.forEach(ip -> {
-                if (ip.isIp4()) {
-                    routingRulePopulator.revokeIpRuleForHost(
-                            deviceId, ip.getIp4Address(), mac, port);
-                }
-            });
-        }
-
-        private void processHostMovedEvent(HostEvent event) {
-            MacAddress mac = event.subject().mac();
-            VlanId vlanId = event.subject().vlan();
-            DeviceId prevDeviceId = event.prevSubject().location().deviceId();
-            PortNumber prevPort = event.prevSubject().location().port();
-            Set<IpAddress> prevIps = event.prevSubject().ipAddresses();
-            DeviceId newDeviceId = event.subject().location().deviceId();
-            PortNumber newPort = event.subject().location().port();
-            Set<IpAddress> newIps = event.subject().ipAddresses();
-            log.debug("Host {}/{} is moved from {}:{} to {}:{}",
-                    mac, vlanId, prevDeviceId, prevPort, newDeviceId, newPort);
-
-            // Revoke previous bridging table entry
-            ForwardingObjective.Builder prevFob =
-                    getForwardingObjectiveBuilder(prevDeviceId, mac, vlanId, prevPort);
-            flowObjectiveService.forward(prevDeviceId, prevFob.remove(
-                    new BridgingTableObjectiveContext(mac, vlanId)
-            ));
-
-            // Revoke previous IP table entry
-            prevIps.forEach(ip -> {
-                if (ip.isIp4()) {
-                    routingRulePopulator.revokeIpRuleForHost(
-                            prevDeviceId, ip.getIp4Address(), mac, prevPort);
-                }
-            });
-
-            // Populate new bridging table entry
-            ForwardingObjective.Builder newFob =
-                    getForwardingObjectiveBuilder(newDeviceId, mac, vlanId, newPort);
-            flowObjectiveService.forward(newDeviceId, newFob.add(
-                    new BridgingTableObjectiveContext(mac, vlanId)
-            ));
-
-            // Populate new IP table entry
-            newIps.forEach(ip -> {
-                if (ip.isIp4()) {
-                    routingRulePopulator.populateIpRuleForHost(
-                            newDeviceId, ip.getIp4Address(), mac, newPort);
-                }
-            });
-        }
-
-        private void processHostUpdatedEvent(HostEvent event) {
-            MacAddress mac = event.subject().mac();
-            VlanId vlanId = event.subject().vlan();
-            DeviceId prevDeviceId = event.prevSubject().location().deviceId();
-            PortNumber prevPort = event.prevSubject().location().port();
-            Set<IpAddress> prevIps = event.prevSubject().ipAddresses();
-            DeviceId newDeviceId = event.subject().location().deviceId();
-            PortNumber newPort = event.subject().location().port();
-            Set<IpAddress> newIps = event.subject().ipAddresses();
-            log.debug("Host {}/{} is updated", mac, vlanId);
-
-            // Revoke previous IP table entry
-            prevIps.forEach(ip -> {
-                if (ip.isIp4()) {
-                    routingRulePopulator.revokeIpRuleForHost(
-                            prevDeviceId, ip.getIp4Address(), mac, prevPort);
-                }
-            });
-
-            // Populate new IP table entry
-            newIps.forEach(ip -> {
-                if (ip.isIp4()) {
-                    routingRulePopulator.populateIpRuleForHost(
-                            newDeviceId, ip.getIp4Address(), mac, newPort);
-                }
-            });
-        }
-
         @Override
         public void event(HostEvent event) {
             // Do not proceed without mastership
@@ -1001,16 +978,16 @@ public class SegmentRoutingManager implements SegmentRoutingService {
 
             switch (event.type()) {
                 case HOST_ADDED:
-                    processHostAddedEvent(event);
+                    hostHandler.processHostAddedEvent(event);
                     break;
                 case HOST_MOVED:
-                    processHostMovedEvent(event);
+                    hostHandler.processHostMovedEvent(event);
                     break;
                 case HOST_REMOVED:
-                    processHostRemoveEvent(event);
+                    hostHandler.processHostRemoveEvent(event);
                     break;
                 case HOST_UPDATED:
-                    processHostUpdatedEvent(event);
+                    hostHandler.processHostUpdatedEvent(event);
                     break;
                 default:
                     log.warn("Unsupported host event type: {}", event.type());
@@ -1019,34 +996,23 @@ public class SegmentRoutingManager implements SegmentRoutingService {
         }
     }
 
-    private static class BridgingTableObjectiveContext implements ObjectiveContext {
-        final MacAddress mac;
-        final VlanId vlanId;
-
-        BridgingTableObjectiveContext(MacAddress mac, VlanId vlanId) {
-            this.mac = mac;
-            this.vlanId = vlanId;
-        }
-
+    private class InternalMcastListener implements McastListener {
         @Override
-        public void onSuccess(Objective objective) {
-            if (objective.op() == Objective.Operation.ADD) {
-                log.debug("Successfully populate bridging table entry for {}/{}",
-                        mac, vlanId);
-            } else {
-                log.debug("Successfully revoke bridging table entry for {}/{}",
-                        mac, vlanId);
-            }
-        }
-
-        @Override
-        public void onError(Objective objective, ObjectiveError error) {
-            if (objective.op() == Objective.Operation.ADD) {
-                log.debug("Fail to populate bridging table entry for {}/{}. {}",
-                        mac, vlanId, error);
-            } else {
-                log.debug("Fail to revoke bridging table entry for {}/{}. {}",
-                         mac, vlanId, error);
+        public void event(McastEvent event) {
+            switch (event.type()) {
+                case SOURCE_ADDED:
+                    mcastHandler.processSourceAdded(event);
+                    break;
+                case SINK_ADDED:
+                    mcastHandler.processSinkAdded(event);
+                    break;
+                case SINK_REMOVED:
+                    mcastHandler.processSinkRemoved(event);
+                    break;
+                case ROUTE_ADDED:
+                case ROUTE_REMOVED:
+                default:
+                    break;
             }
         }
     }

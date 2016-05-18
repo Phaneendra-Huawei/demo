@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -62,7 +61,11 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.onosproject.net.config.NetworkConfigEvent.Type.*;
+import static org.onosproject.net.config.NetworkConfigEvent.Type.CONFIG_ADDED;
+import static org.onosproject.net.config.NetworkConfigEvent.Type.CONFIG_REGISTERED;
+import static org.onosproject.net.config.NetworkConfigEvent.Type.CONFIG_REMOVED;
+import static org.onosproject.net.config.NetworkConfigEvent.Type.CONFIG_UNREGISTERED;
+import static org.onosproject.net.config.NetworkConfigEvent.Type.CONFIG_UPDATED;
 
 /**
  * Implementation of a distributed network configuration store.
@@ -78,6 +81,10 @@ public class DistributedNetworkConfigStore
     private static final int MAX_BACKOFF = 10;
     private static final String INVALID_CONFIG_JSON =
             "JSON node does not contain valid configuration";
+    private static final String INVALID_JSON_LIST =
+            "JSON node is not a list for list type config";
+    private static final String INVALID_JSON_OBJECT =
+            "JSON node is not an object for object type config";
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected StorageService storageService;
@@ -124,25 +131,35 @@ public class DistributedNetworkConfigStore
 
     // Sweep through any pending configurations, validate them and then prune them.
     private void processPendingConfigs(ConfigFactory configFactory) {
-        Set<ConfigKey> toBePruned = Sets.newHashSet();
-        configs.keySet().forEach(k -> {
-            if (Objects.equals(k.configKey, configFactory.configKey())) {
+        ImmutableSet.copyOf(configs.keySet()).forEach(k -> {
+            if (Objects.equals(k.configKey, configFactory.configKey()) &&
+                    isAssignableFrom(configFactory, k)) {
                 validateConfig(k, configFactory, configs.get(k).value());
-                toBePruned.add(k); // Prune whether valid or not
+                configs.remove(k); // Prune whether valid or not
             }
         });
-        toBePruned.forEach(configs::remove);
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean isAssignableFrom(ConfigFactory configFactory, ConfigKey k) {
+        return configFactory.subjectFactory().subjectClass().isAssignableFrom(k.subject.getClass());
     }
 
     @SuppressWarnings("unchecked")
     private void validateConfig(ConfigKey key, ConfigFactory configFactory, JsonNode json) {
-        Config config = createConfig(key.subject, configFactory.configClass(), json);
+        Object subject;
+        if (key.subject instanceof String) {
+            subject = configFactory.subjectFactory().createSubject((String) key.subject);
+        } else {
+            subject = key.subject;
+        }
+        Config config = createConfig(subject, configFactory.configClass(), json);
         try {
             checkArgument(config.isValid(), INVALID_CONFIG_JSON);
-            configs.putAndGet(key(key.subject, configFactory.configClass()), json);
+            configs.putAndGet(key(subject, configFactory.configClass()), json);
         } catch (Exception e) {
             log.warn("Failed to validate pending {} configuration for {}: {}",
-                     key.configKey, configFactory.subjectFactory().subjectKey(key.subject), json);
+                     key.configKey, key.subject, json);
         }
     }
 
@@ -156,7 +173,7 @@ public class DistributedNetworkConfigStore
     @Override
     @SuppressWarnings("unchecked")
     public <S, C extends Config<S>> ConfigFactory<S, C> getConfigFactory(Class<C> configClass) {
-        return (ConfigFactory<S, C>) factoriesByConfig.get(configClass.getName());
+        return factoriesByConfig.get(configClass.getName());
     }
 
     @Override
@@ -253,18 +270,65 @@ public class DistributedNetworkConfigStore
      * @return config object or null of no factory found or if the specified
      * JSON is null
      */
-    @SuppressWarnings("unchecked")
     private <S, C extends Config<S>> C createConfig(S subject, Class<C> configClass,
                                                     JsonNode json) {
+        return createConfig(subject, configClass, json, false);
+    }
+
+    /**
+     * Produces a config from the specified subject, config class and raw JSON.
+     *
+     * The config can optionally be detached, which means it does not contain a
+     * reference to an apply delegate. This means a detached config can not be
+     * applied. This should be used only for passing the config object in the
+     * NetworkConfigEvent.
+     *
+     * @param subject     config subject
+     * @param configClass config class
+     * @param json        raw JSON data
+     * @param detached    whether the config should be detached, that is, should
+     *                    be created without setting an apply delegate.
+     * @return config object or null of no factory found or if the specified
+     * JSON is null
+     */
+    @SuppressWarnings("unchecked")
+    private <S, C extends Config<S>> C createConfig(S subject, Class<C> configClass,
+                                                    JsonNode json, boolean detached) {
         if (json != null) {
             ConfigFactory<S, C> factory = factoriesByConfig.get(configClass.getName());
             if (factory != null) {
+                validateJsonType(json, factory);
                 C config = factory.createConfig();
-                config.init(subject, factory.configKey(), json, mapper, applyDelegate);
+                config.init(subject, factory.configKey(), json, mapper,
+                        detached ? null : applyDelegate);
                 return config;
             }
         }
         return null;
+    }
+
+    /**
+     * Validates that the type of the JSON node is appropriate for the type of
+     * configuration. A list type configuration must be created with an
+     * ArrayNode, and an object type configuration must be created with an
+     * ObjectNode.
+     *
+     * @param json JSON node to check
+     * @param factory config factory of configuration
+     * @param <S> subject
+     * @param <C> configuration
+     * @return true if the JSON node type is appropriate for the configuration
+     */
+    private <S, C extends Config<S>> boolean validateJsonType(JsonNode json,
+                                                              ConfigFactory<S, C> factory) {
+        if (factory.isList() && !(json instanceof ArrayNode)) {
+            throw new IllegalArgumentException(INVALID_JSON_LIST);
+        }
+        if (!factory.isList() && !(json instanceof ObjectNode)) {
+            throw new IllegalArgumentException(INVALID_JSON_OBJECT);
+        }
+
+        return true;
     }
 
 
@@ -336,23 +400,35 @@ public class DistributedNetworkConfigStore
                 return;
             }
 
-            NetworkConfigEvent.Type type;
-            switch (event.type()) {
-                case INSERT:
-                    type = CONFIG_ADDED;
-                    break;
-                case UPDATE:
-                    type = CONFIG_UPDATED;
-                    break;
-                case REMOVE:
-                default:
-                    type = CONFIG_REMOVED;
-                    break;
-            }
             ConfigFactory factory = factoriesByConfig.get(event.key().configClass);
             if (factory != null) {
+                Object subject = event.key().subject;
+                Class configClass = factory.configClass();
+                Versioned<JsonNode> newValue = event.newValue();
+                Versioned<JsonNode> oldValue = event.oldValue();
+
+                Config config = (newValue != null) ?
+                                createConfig(subject, configClass, newValue.value(), true) :
+                                null;
+                Config prevConfig = (oldValue != null) ?
+                                    createConfig(subject, configClass, oldValue.value(), true) :
+                                    null;
+
+                NetworkConfigEvent.Type type;
+                switch (event.type()) {
+                    case INSERT:
+                        type = CONFIG_ADDED;
+                        break;
+                    case UPDATE:
+                        type = CONFIG_UPDATED;
+                        break;
+                    case REMOVE:
+                    default:
+                        type = CONFIG_REMOVED;
+                        break;
+                }
                 notifyDelegate(new NetworkConfigEvent(type, event.key().subject,
-                                                      factory.configClass()));
+                        config, prevConfig, factory.configClass()));
             }
         }
     }

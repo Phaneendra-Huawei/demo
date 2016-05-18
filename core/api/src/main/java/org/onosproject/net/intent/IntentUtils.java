@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public final class IntentUtils {
      * @param two second intent
      * @return true if the two intents represent the same value, otherwise false
      */
-    public static boolean equals(Intent one, Intent two) {
+    public static boolean intentsAreEqual(Intent one, Intent two) {
         if (one.getClass() != two.getClass()) {
             return false;
         }

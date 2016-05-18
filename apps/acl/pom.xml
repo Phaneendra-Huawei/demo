@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright 2015 Open Networking Laboratory
+  ~ Copyright 2015-present Open Networking Laboratory
   ~ Originally created by Pengfei Lu, Network and Cloud Computing Laboratory, Dalian University of Technology, China
   ~ Advisers: Keqiu Li and Heng Qi
   ~ This work is supported by the State Key Program of National Natural Science of China(Grant No. 61432002)
@@ -26,12 +26,12 @@
     <parent>
         <groupId>org.onosproject</groupId>
         <artifactId>onos-apps</artifactId>
-        <version>1.4.1-SNAPSHOT</version>
+        <version>1.6.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>onos-app-acl</artifactId>
-    <version>1.4.1-SNAPSHOT</version>
+    <version>1.6.0-SNAPSHOT</version>
     <packaging>bundle</packaging>
 
     <description>ONOS ACL application</description>
@@ -40,6 +40,10 @@
     <properties>
         <onos.app.name>org.onosproject.acl</onos.app.name>
         <onos.app.origin>DLUT</onos.app.origin>
+        <onos.app.title>ACL App</onos.app.title>
+        <onos.app.category>Security</onos.app.category>
+        <onos.app.url>http://onosproject.org</onos.app.url>
+        <onos.app.readme>ONOS ACL application.</onos.app.readme>
 
         <web.context>/onos/v1/acl</web.context>
         <api.version>1.0.0</api.version>
@@ -47,20 +51,19 @@
         <api.description>
             APIs for interacting with the ACL application.
         </api.description>
-        <api.package>org.onos.acl.impl</api.package>
+        <api.package>org.onosproject.acl.impl</api.package>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>18.0</version>
         </dependency>
 
         <dependency>
             <groupId>javax.ws.rs</groupId>
-            <artifactId>jsr311-api</artifactId>
-            <version>1.1.1</version>
+            <artifactId>javax.ws.rs-api</artifactId>
+            <version>2.0.1</version>
         </dependency>
 
         <dependency>
@@ -97,21 +100,19 @@
         </dependency>
 
         <dependency>
-            <groupId>com.sun.jersey.jersey-test-framework</groupId>
+            <groupId>org.glassfish.jersey.test-framework</groupId>
             <artifactId>jersey-test-framework-core</artifactId>
-            <version>1.19</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jersey.test-framework.providers</groupId>
+            <artifactId>jersey-test-framework-provider-jetty</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.easymock</groupId>
             <artifactId>easymock</artifactId>
-            <version>3.2</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.sun.jersey.jersey-test-framework</groupId>
-            <artifactId>jersey-test-framework-grizzly2</artifactId>
-            <version>1.19</version>
         </dependency>
 
         <dependency>
@@ -125,7 +126,6 @@
             <plugin>
                 <groupId>org.apache.felix</groupId>
                 <artifactId>maven-bundle-plugin</artifactId>
-                <version>2.5.3</version>
                 <extensions>true</extensions>
                 <configuration>
                     <instructions>
@@ -138,18 +138,7 @@
                             ${project.groupId}.${project.artifactId}
                         </Bundle-SymbolicName>
                         <Import-Package>
-                            org.slf4j,
-                            org.osgi.framework,
-                            javax.ws.rs,javax.ws.rs.core,
-                            com.fasterxml.jackson*,
-                            com.sun.jersey.api.core,
-                            com.sun.jersey.spi.container.servlet,
-                            com.sun.jersey.server.impl.container.servlet,
-                            org.onlab.packet.*,
-                            org.onlab.rest.*,
-                            org.onosproject.*,
-                            org.onlab.util.*,
-                            com.google.common.*;
+                            *,org.glassfish.jersey.servlet
                         </Import-Package>
                         <Web-ContextPath>${web.context}</Web-ContextPath>
                     </instructions>

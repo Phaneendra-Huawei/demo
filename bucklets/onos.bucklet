@@ -1,0 +1,211 @@
+import random
+
+DEBUG_ARG='JAVA_TOOL_OPTIONS="-Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5005,suspend=y"'
+FORCE_INSTALL=True
+NONE='NONE'
+
+SRC = 'src/main/java/**/'
+TEST = 'src/test/java/**/'
+RESOURCES_ROOT = 'src/main/resources/'
+TEST_RESOURCES_ROOT = 'src/test/resources/'
+
+
+ONOS_GROUP_ID = 'org.onosproject'
+ONOS_VERSION = '1.6.0-SNAPSHOT'
+ONOS_ARTIFACT_BASE = 'onos-'
+
+def _get_name():
+    base_path = get_base_path()
+    return ONOS_ARTIFACT_BASE + base_path.replace('/', '-') #TODO Unix-separator
+
+def osgi_jar(
+    name = None,
+    srcs = None,
+    group_id = ONOS_GROUP_ID,
+    version = ONOS_VERSION,
+    deps = [],
+    visibility = ['PUBLIC'],
+    license = 'NONE',
+    description = '',
+    debug = False,
+    import_packages = '*',
+    export_packages = '*',
+    include_resources = NONE,
+    web_context = NONE,
+    resources = NONE,
+    resources_root = None,
+    **kwargs
+    ):
+
+  # if name and _get_name() != name:
+  #     print _get_name(), '!=', name
+  if name is None:
+      name = _get_name()
+
+  if srcs is None:
+      srcs = glob([SRC + '/*.java'])
+
+  if resources == NONE and resources_root is not None:
+      resources = glob([resources_root + '**'])
+  elif resources == NONE:
+      resources = glob([RESOURCES_ROOT + '**'])
+
+  if resources and not resources_root:
+      resources_root = RESOURCES_ROOT
+
+  bare_jar_name = name + '-jar'
+  osgi_jar_name = name + '-osgi'
+  mvn_coords = group_id + ':' + name + ':' + version
+
+
+  java_library(
+      name = bare_jar_name,
+      srcs = srcs,
+      deps = deps,
+      visibility = [], #intentially, not visible
+      resources = resources,
+      resources_root = resources_root,
+      **kwargs
+  )
+
+  cp = ':'.join(['$(classpath %s)' % c for c in deps]) if deps else '""'
+
+  args = ( '$(location :%s)' % bare_jar_name, #input jar
+           '$OUT',                            #output jar
+           cp,                                #classpath
+           name,                              #bundle name
+           group_id,                          #group id
+           version,                           #version
+           license,                           #license url
+           "'%s'" % import_packages,          #packages to import
+           "'%s'" % export_packages,          #packages to export
+           include_resources,                 #custom includes to classpath
+           web_context,                       #web context (REST API only)
+           description,                       #description
+          )
+
+  #TODO stage_jar is a horrendous hack
+  stage_jar = 'pushd $SRCDIR; mkdir bin; cd bin; jar xf $(location :%s); ls; popd; ' % bare_jar_name
+  wrap_jar = '$(exe //utils/osgiwrap:osgi-jar) ' + ' '.join(args)
+  bash = stage_jar + wrap_jar
+  if debug:
+    bash = stage_jar + DEBUG_ARG + ' ' + wrap_jar
+    print bash
+
+  genrule(
+    name = osgi_jar_name,
+    bash = bash,
+    out = '%s-%s.jar' % (name, version), #FIXME add version to jar file
+    srcs =  glob(['src/main/webapp/**']),
+    visibility = [], #intentially, not visible
+  )
+
+  # TODO we really should shade the jar with maven flavor
+  prebuilt_jar(
+    name = name,
+    maven_coords = mvn_coords,
+    binary_jar = ':' + osgi_jar_name,
+    visibility = visibility,
+  )
+
+  ### Checkstyle
+  if srcs:
+    chk_cmd = '#!/bin/sh\n'
+    # FIXME hack to add dependency on suppressions-xml in the checkstyle rule
+    chk_cmd += 'FOO="$(location //tools/build/conf:suppressions-xml)"\n'
+    base = get_base_path()
+    chk_cmd += ' '.join(( 'java -jar $(location //lib:checkstyle)',
+                         '-c $(location //tools/build/conf:checkstyle-xml)',
+                         ' '.join(['%s/%s' % (base, s) for s in srcs]) ))
+    chk_cmd += ' | grep -E "^[^: ]*:\d+:\d+: error:"'
+    chk_cmd += ' | sed "s#^.*%s/#%s:#g"\n' % (base, name)
+    chk_cmd += 'test ${PIPESTATUS[0]} -eq 0\n' # status of java command
+
+    genrule(
+      name = name + '-checkstyle-sh',
+      bash = "echo '%s' > $OUT && chmod +x $OUT" % chk_cmd,
+      srcs = srcs,
+      out = 'checkstyle.sh',
+    )
+
+    sh_test(
+      name = name + '-checkstyle',
+      test = ':' + name + '-checkstyle-sh',
+      deps = [ ':'+ bare_jar_name ],
+      labels = [ 'checkstyle' ],
+    )
+  else:
+    print 'Not generating checkstyle rule for %s because there are no sources.' % name
+
+  # TODO add project config for intellij
+  # project_config(
+  #   src_target = ':' + bare_jar_name,
+  #   src_roots = [ 'src/main/java' ],
+  #   test_target = ':' + name + '-tests',
+  #   test_roots = [ 'src/test/java' ],
+  # )
+
+  ### .m2 Install
+  mvn_cmd = ' '.join(( 'mvn install:install-file',
+                       '-Dfile=$(location :%s)' % name,
+                       '-DgroupId=%s' % group_id,
+                       '-DartifactId=%s' % name,
+                       '-Dversion=%s' % version,
+                       '-Dpackaging=jar' ))
+  cmd = mvn_cmd + ' > $OUT'
+  if FORCE_INSTALL:
+    # Add a random number to the command to force this rule to run.
+    # TODO We should make this configurable from CLI, perhaps with a flag.
+    cmd = 'FOO=%s ' % random.random() + cmd
+  genrule(
+    name = name + '-install',
+    bash = cmd,
+    out = 'install.log',
+    visibility = visibility,
+  )
+
+def osgi_jar_with_tests(
+        name = None,
+        deps = [],
+        test_srcs = None,
+        test_deps = [ '//lib:TEST' ],
+        test_resources = None,
+        test_resources_root = None,
+        visibility = [ 'PUBLIC' ],
+        **kwargs
+    ):
+
+  if name is None:
+      name = _get_name()
+
+  osgi_jar(name = name,
+           deps = deps,
+           visibility = visibility,
+           **kwargs)
+
+  if test_resources and not test_resources_root:
+      test_resources_root = TEST_RESOURCES_ROOT
+  if test_resources_root and not test_resources:
+      test_resources = glob([test_resources_root + '**'])
+  if not test_resources and not test_resources_root:
+      test_resources = glob([TEST_RESOURCES_ROOT + '**'])
+      if test_resources:
+        test_resources_root = TEST_RESOURCES_ROOT
+
+  if test_srcs is None:
+      test_srcs = glob([TEST + '/*.java'])
+
+  if not test_srcs:
+          print "Generating test rule for %s, but there are no tests." % name
+
+  java_test(
+    name = name + '-tests',
+    srcs = test_srcs,
+    deps = deps +
+           test_deps +
+           [':' + name + '-jar'],
+    source_under_test = [':' + name + '-jar'],
+    resources = test_resources,
+    resources_root = test_resources_root,
+    visibility = visibility
+    )

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,20 +23,23 @@ import java.util.Map;
 import java.util.stream.IntStream;
 
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.onlab.junit.TestTools;
 import org.onlab.util.ItemNotFoundException;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.driver.Behaviour;
 import org.onosproject.net.driver.Driver;
-import org.onosproject.openflow.DriverAdapter;
-import org.onosproject.openflow.DriverServiceAdapter;
+import org.onosproject.net.driver.DriverAdapter;
+import org.onosproject.net.driver.DriverHandler;
+import org.onosproject.net.driver.DriverServiceAdapter;
 import org.onosproject.openflow.OFDescStatsReplyAdapter;
+import org.onosproject.openflow.OpenflowSwitchDriverAdapter;
 import org.onosproject.openflow.controller.driver.OpenFlowSwitchDriver;
 import org.projectfloodlight.openflow.protocol.OFDescStatsReply;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.io.Files;
 
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.io.Files.write;
@@ -53,16 +56,28 @@ import static org.hamcrest.Matchers.nullValue;
  */
 public class ControllerTest {
 
+    @ClassRule
+    public static TemporaryFolder testFolder = new TemporaryFolder();
+
     Controller controller;
     protected static final Logger log = LoggerFactory.getLogger(ControllerTest.class);
 
-    static final File TEST_DIR = Files.createTempDir();
+    private class TestDriver extends DriverAdapter {
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T extends Behaviour> T createBehaviour(DriverHandler handler, Class<T> behaviourClass) {
+            if (behaviourClass == OpenFlowSwitchDriver.class) {
+                return (T) new OpenflowSwitchDriverAdapter();
+            }
+            return null;
+        }
+    }
 
     /*
      * Writes the necessary file for the tests in the temporary directory
      */
-    static File stageTestResource(String name) throws IOException {
-        File file = new File(TEST_DIR, name);
+    private static File stageTestResource(String name) throws IOException {
+        File file = new File(testFolder.newFolder(), name);
         byte[] bytes = toByteArray(ControllerTest.class.getResourceAsStream(name));
         write(bytes, file);
         return file;
@@ -90,7 +105,7 @@ public class ControllerTest {
                 case ITEM_NOT_FOUND_DRIVER:
                     throw new ItemNotFoundException();
                 case DRIVER_EXISTS:
-                    return new DriverAdapter();
+                    return new TestDriver();
                 default:
                     throw new AssertionError();
             }

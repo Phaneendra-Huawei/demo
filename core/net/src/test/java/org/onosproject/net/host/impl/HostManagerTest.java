@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ public class HostManagerTest {
     private void detect(HostId hid, MacAddress mac, VlanId vlan,
                         HostLocation loc, IpAddress ip) {
         HostDescription descr = new DefaultHostDescription(mac, vlan, loc, ip);
-        providerService.hostDetected(hid, descr);
+        providerService.hostDetected(hid, descr, false);
         assertNotNull("host should be found", mgr.getHost(hid));
     }
 

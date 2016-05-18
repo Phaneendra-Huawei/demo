@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Collections;
+import java.util.UUID;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -28,6 +29,7 @@ import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.event.AbstractListenerManager;
+import org.onosproject.net.DeviceId;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMapEvent;
@@ -35,8 +37,15 @@ import org.onosproject.store.service.EventuallyConsistentMapListener;
 import org.onosproject.store.service.MultiValuedTimestamp;
 import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.WallClockTimestamp;
+import org.onosproject.vtnrsc.DefaultPortChain;
+import org.onosproject.vtnrsc.FiveTuple;
+import org.onosproject.vtnrsc.FlowClassifierId;
+import org.onosproject.vtnrsc.LoadBalanceId;
 import org.onosproject.vtnrsc.PortChain;
 import org.onosproject.vtnrsc.PortChainId;
+import org.onosproject.vtnrsc.PortPairGroupId;
+import org.onosproject.vtnrsc.PortPairId;
+import org.onosproject.vtnrsc.TenantId;
 import org.onosproject.vtnrsc.portchain.PortChainEvent;
 import org.onosproject.vtnrsc.portchain.PortChainListener;
 import org.onosproject.vtnrsc.portchain.PortChainService;
@@ -48,7 +57,7 @@ import org.slf4j.Logger;
 @Component(immediate = true)
 @Service
 public class PortChainManager extends AbstractListenerManager<PortChainEvent, PortChainListener> implements
-        PortChainService {
+PortChainService {
 
     private static final String PORT_CHAIN_ID_NULL = "PortChain ID cannot be null";
     private static final String PORT_CHAIN_NULL = "PortChain cannot be null";
@@ -68,15 +77,18 @@ public class PortChainManager extends AbstractListenerManager<PortChainEvent, Po
 
         eventDispatcher.addSink(PortChainEvent.class, listenerRegistry);
 
-        KryoNamespace.Builder serializer = KryoNamespace.newBuilder()
+        KryoNamespace.Builder serializer = KryoNamespace
+                .newBuilder()
                 .register(KryoNamespaces.API)
                 .register(MultiValuedTimestamp.class)
-                .register(PortChain.class);
+                .register(PortChain.class, PortChainId.class, UUID.class, PortPairGroupId.class,
+                          FlowClassifierId.class, FiveTuple.class, LoadBalanceId.class, DeviceId.class,
+                          DefaultPortChain.class, PortPairId.class, TenantId.class);
 
         portChainStore = storageService
                 .<PortChainId, PortChain>eventuallyConsistentMapBuilder()
                 .withName("portchainstore").withSerializer(serializer)
-                .withTimestampProvider((k, v) -> new WallClockTimestamp()).build();
+                .withTimestampProvider((k, v) ->new WallClockTimestamp()).build();
 
         portChainStore.addListener(portChainListener);
 
@@ -119,7 +131,7 @@ public class PortChainManager extends AbstractListenerManager<PortChainEvent, Po
         portChainStore.put(portChain.portChainId(), portChain);
         if (!portChainStore.containsKey(portChain.portChainId())) {
             log.debug("The portChain is created failed which identifier was {}", portChain.portChainId()
-                      .toString());
+                    .toString());
             return false;
         }
         return true;
@@ -159,8 +171,8 @@ public class PortChainManager extends AbstractListenerManager<PortChainEvent, Po
     }
 
     private class InnerPortChainStoreListener
-            implements
-            EventuallyConsistentMapListener<PortChainId, PortChain> {
+    implements
+    EventuallyConsistentMapListener<PortChainId, PortChain> {
 
         @Override
         public void event(EventuallyConsistentMapEvent<PortChainId, PortChain> event) {
@@ -168,13 +180,13 @@ public class PortChainManager extends AbstractListenerManager<PortChainEvent, Po
             PortChain portChain = event.value();
             if (EventuallyConsistentMapEvent.Type.PUT == event.type()) {
                 notifyListeners(new PortChainEvent(
-                        PortChainEvent.Type.PORT_CHAIN_PUT,
-                        portChain));
+                                                   PortChainEvent.Type.PORT_CHAIN_PUT,
+                                                   portChain));
             }
             if (EventuallyConsistentMapEvent.Type.REMOVE == event.type()) {
                 notifyListeners(new PortChainEvent(
-                        PortChainEvent.Type.PORT_CHAIN_DELETE,
-                        portChain));
+                                                   PortChainEvent.Type.PORT_CHAIN_DELETE,
+                                                   portChain));
             }
         }
     }

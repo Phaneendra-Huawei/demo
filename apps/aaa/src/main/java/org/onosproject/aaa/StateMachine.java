@@ -23,8 +23,6 @@ import java.util.Map;
 
 import org.onlab.packet.MacAddress;
 import org.onosproject.net.ConnectPoint;
-import org.onosproject.xosintegration.VoltTenant;
-import org.onosproject.xosintegration.VoltTenantService;
 import org.slf4j.Logger;
 
 import com.google.common.collect.Maps;
@@ -52,7 +50,6 @@ class StateMachine {
 
     //map of access identifiers (issued at EAPOL START)
     static BitSet bitSet = new BitSet();
-    private final VoltTenantService voltService;
 
     private int identifier = -1;
     private byte challengeIdentifier;
@@ -83,7 +80,7 @@ class StateMachine {
        input
        ----------------------------------------------------------------------------------------------------
 
-       START                STARTED |   _               |   _               |   _           |   _
+       START                STARTED |   _               |   _               |   STARTED     |   _
 
        REQUEST_ACCESS       _       |   PENDING         |   _               |   _           |   _
 
@@ -101,7 +98,7 @@ class StateMachine {
     private int[] pendingTransition =
             {STATE_PENDING, STATE_PENDING, STATE_AUTHORIZED, STATE_UNAUTHORIZED, STATE_PENDING};
     private int[] authorizedTransition =
-            {STATE_AUTHORIZED, STATE_AUTHORIZED, STATE_AUTHORIZED, STATE_AUTHORIZED, STATE_IDLE};
+            {STATE_STARTED, STATE_AUTHORIZED, STATE_AUTHORIZED, STATE_AUTHORIZED, STATE_IDLE};
     private int[] unauthorizedTransition =
             {STATE_UNAUTHORIZED, STATE_UNAUTHORIZED, STATE_UNAUTHORIZED, STATE_UNAUTHORIZED, STATE_IDLE};
 
@@ -127,6 +124,10 @@ class StateMachine {
         identifierMap = null;
     }
 
+    public static Map<String, StateMachine> sessionIdMap() {
+        return sessionIdMap;
+    }
+
     public static StateMachine lookupStateMachineById(byte identifier) {
         return identifierMap.get((int) identifier);
     }
@@ -137,12 +138,10 @@ class StateMachine {
      * State Machine Constructor.
      *
      * @param sessionId   session Id represented by the switch dpid +  port number
-     * @param voltService volt service reference
      */
-    public StateMachine(String sessionId, VoltTenantService voltService) {
+    public StateMachine(String sessionId) {
         log.info("Creating a new state machine for {}", sessionId);
         this.sessionId = sessionId;
-        this.voltService = voltService;
         sessionIdMap.put(sessionId, this);
     }
 
@@ -387,16 +386,7 @@ class StateMachine {
         //move to the next state
         next(TRANSITION_AUTHORIZE_ACCESS);
 
-        if (voltService != null) {
-            voltService.addTenant(
-                    VoltTenant.builder()
-                            .withHumanReadableName("VCPE-" + this.identifier)
-                            .withId(this.identifier)
-                            .withProviderService(1)
-                            .withServiceSpecificId(String.valueOf(this.identifier))
-                            .withPort(this.supplicantConnectpoint)
-                            .withVlanId(String.valueOf(this.vlanId)).build());
-        }
+        // TODO: put in calls to launch vSG here
 
         deleteIdentifier();
     }
@@ -514,6 +504,10 @@ class StateMachine {
     class Authorized extends State {
         private final Logger log = getLogger(getClass());
         private String name = "AUTHORIZED_STATE";
+
+        public void start() {
+            log.info("Moving from AUTHORIZED state to STARTED state.");
+        }
 
         public void logoff() {
 

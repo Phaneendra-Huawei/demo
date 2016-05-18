@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,22 @@
  */
 package org.onosproject.store.link.impl;
 
-import com.google.common.base.Function;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.felix.scr.annotations.Activate;
-import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
@@ -33,7 +40,6 @@ import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.ControllerNode;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.mastership.MastershipService;
-import org.onosproject.net.AnnotationKeys;
 import org.onosproject.net.AnnotationsUtil;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DefaultAnnotations;
@@ -61,21 +67,14 @@ import org.onosproject.store.serializers.KryoSerializer;
 import org.onosproject.store.serializers.custom.DistributedStoreSerializers;
 import org.slf4j.Logger;
 
-import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import com.google.common.base.Function;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Multimaps.synchronizedSetMultimap;
@@ -90,7 +89,9 @@ import static org.onosproject.net.Link.State.INACTIVE;
 import static org.onosproject.net.Link.Type.DIRECT;
 import static org.onosproject.net.Link.Type.INDIRECT;
 import static org.onosproject.net.LinkKey.linkKey;
-import static org.onosproject.net.link.LinkEvent.Type.*;
+import static org.onosproject.net.link.LinkEvent.Type.LINK_ADDED;
+import static org.onosproject.net.link.LinkEvent.Type.LINK_REMOVED;
+import static org.onosproject.net.link.LinkEvent.Type.LINK_UPDATED;
 import static org.onosproject.store.link.impl.GossipLinkStoreMessageSubjects.LINK_ANTI_ENTROPY_ADVERTISEMENT;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -98,7 +99,7 @@ import static org.slf4j.LoggerFactory.getLogger;
  * Manages inventory of infrastructure links in distributed data store
  * that uses optimistic replication and gossip based techniques.
  */
-@Component(immediate = true, enabled = false)
+//@Component(immediate = true, enabled = false)
 @Service
 public class GossipLinkStore
         extends AbstractStore<LinkEvent, LinkStoreDelegate>
@@ -106,6 +107,15 @@ public class GossipLinkStore
 
     // Timeout in milliseconds to process links on remote master node
     private static final int REMOTE_MASTER_TIMEOUT = 1000;
+
+    // Default delay for ScheduledExecutorService of anti-entropy(BackgroundExecutor)
+    private static final long DEFAULT_INITIAL_DELAY = 5;
+
+    // Default period for ScheduledExecutorService of anti-entropy(BackgroundExecutor)
+    private static final long DEFAULT_PERIOD = 5;
+
+    private static long initialDelaySec = DEFAULT_INITIAL_DELAY;
+    private static long periodSec = DEFAULT_PERIOD;
 
     private final Logger log = getLogger(getClass());
 
@@ -175,8 +185,6 @@ public class GossipLinkStore
                 GossipLinkStoreMessageSubjects.LINK_INJECTED,
                 new LinkInjectedEventListener(), executor);
 
-        long initialDelaySec = 5;
-        long periodSec = 5;
         // start anti-entropy thread
         backgroundExecutors.scheduleAtFixedRate(new SendAdvertisementTask(),
                     initialDelaySec, periodSec, TimeUnit.SECONDS);
@@ -323,6 +331,11 @@ public class GossipLinkStore
             }
 
         } else {
+            // Only forward for ConfigProvider
+            // Forwarding was added as a workaround for ONOS-490
+            if (!providerId.scheme().equals("cfg")) {
+                return null;
+            }
             // FIXME Temporary hack for NPE (ONOS-1171).
             // Proper fix is to implement forwarding to master on ConfigProvider
             // redo ONOS-490
@@ -355,11 +368,15 @@ public class GossipLinkStore
             // FIXME: this is not the right thing to call for the gossip store; will not sync link state!!!
             return link.state() == INACTIVE ? null :
                     updateLink(linkKey(link.src(), link.dst()), link,
-                               new DefaultLink(link.providerId(),
-                                               link.src(), link.dst(),
-                                               link.type(), INACTIVE,
-                                               link.isDurable(),
-                                               link.annotations()));
+                               DefaultLink.builder()
+                                    .providerId(link.providerId())
+                                    .src(link.src())
+                                    .dst(link.dst())
+                                    .type(link.type())
+                                    .state(INACTIVE)
+                                    .isExpected(link.isExpected())
+                                    .annotations(link.annotations())
+                                    .build());
         }
         return removeLink(src, dst);
     }
@@ -423,7 +440,9 @@ public class GossipLinkStore
                     new DefaultLinkDescription(
                         linkDescription.value().src(),
                         linkDescription.value().dst(),
-                        newType, merged),
+                        newType,
+                        existingLinkDescription.value().isExpected(),
+                        merged),
                     linkDescription.timestamp());
         }
         return descs.put(providerId, newLinkDescription);
@@ -598,8 +617,19 @@ public class GossipLinkStore
             annotations = merge(annotations, e.getValue().value().annotations());
         }
 
-        boolean isDurable = Objects.equals(annotations.value(AnnotationKeys.DURABLE), "true");
-        return new DefaultLink(baseProviderId, src, dst, type, ACTIVE, isDurable, annotations);
+        //boolean isDurable = Objects.equals(annotations.value(AnnotationKeys.DURABLE), "true");
+
+        // TEMP
+        Link.State initialLinkState = base.value().isExpected() ? ACTIVE : INACTIVE;
+        return DefaultLink.builder()
+                .providerId(baseProviderId)
+                .src(src)
+                .dst(dst)
+                .type(type)
+                .state(initialLinkState)
+                .isExpected(base.value().isExpected())
+                .annotations(annotations)
+                .build();
     }
 
     private Map<ProviderId, Timestamped<LinkDescription>> getOrCreateLinkDescriptions(LinkKey key) {
@@ -678,6 +708,28 @@ public class GossipLinkStore
         } catch (IOException e) {
             log.debug("Failed to notify peer {} with message {}", peer, event);
         }
+    }
+
+    /**
+     * sets the time to delay first execution for anti-entropy.
+     * (scheduleAtFixedRate of ScheduledExecutorService)
+     *
+     * @param delay the time to delay first execution for anti-entropy
+     */
+    private void setInitialDelaySec(long delay) {
+        checkArgument(delay >= 0, "Initial delay of scheduleAtFixedRate() must be 0 or more");
+        initialDelaySec = delay;
+    }
+
+    /**
+     * sets the period between successive execution for anti-entropy.
+     * (scheduleAtFixedRate of ScheduledExecutorService)
+     *
+     * @param period the period between successive execution for anti-entropy
+     */
+    private void setPeriodSec(long period) {
+        checkArgument(period > 0, "Period of scheduleAtFixedRate() must be greater than 0");
+        periodSec = period;
     }
 
     private final class SendAdvertisementTask implements Runnable {

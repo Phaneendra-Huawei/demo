@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import org.onosproject.ovsdb.controller.OvsdbTunnel;
 import org.onosproject.ovsdb.rfc.message.OperationResult;
 import org.onosproject.ovsdb.rfc.message.TableUpdates;
 import org.onosproject.ovsdb.rfc.notation.Row;
-import org.onosproject.ovsdb.rfc.notation.UUID;
+import org.onosproject.ovsdb.rfc.notation.Uuid;
 import org.onosproject.ovsdb.rfc.operations.Operation;
 import org.onosproject.ovsdb.rfc.schema.DatabaseSchema;
 
@@ -46,11 +46,6 @@ public class OvsdbClientServiceAdapter implements OvsdbClientService {
     @Override
     public OvsdbNodeId nodeId() {
         return null;
-    }
-
-    @Override
-    public void createTunnel(IpAddress srcIp, IpAddress dstIp) {
-
     }
 
     @Override
@@ -94,7 +89,7 @@ public class OvsdbClientServiceAdapter implements OvsdbClientService {
     }
 
     @Override
-    public void setControllersWithUUID(UUID bridgeUuid, List<ControllerInfo> controllers) {
+    public void setControllersWithUuid(Uuid bridgeUuid, List<ControllerInfo> controllers) {
 
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@ import com.google.common.testing.EqualsTester;
 public class OspfRouteTypeTest {
     private final byte value1 = 5;
     private final byte value2 = 4;
-    private final OSPFRouteTypeTlv tlv1 = OSPFRouteTypeTlv.of(value1);
-    private final OSPFRouteTypeTlv sameAsTlv1 = OSPFRouteTypeTlv.of(value1);
-    private final OSPFRouteTypeTlv tlv2 = OSPFRouteTypeTlv.of(value2);
+    private final OspfRouteTypeTlv tlv1 = OspfRouteTypeTlv.of(value1);
+    private final OspfRouteTypeTlv sameAsTlv1 = OspfRouteTypeTlv.of(value1);
+    private final OspfRouteTypeTlv tlv2 = OspfRouteTypeTlv.of(value2);
 
     @Test
     public void testEquality() {

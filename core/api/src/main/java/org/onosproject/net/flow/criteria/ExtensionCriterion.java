@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@ import org.onosproject.net.DeviceId;
 
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-
 /**
  * Criterion for implementing selector extensions.
  */
@@ -34,6 +32,7 @@ public class ExtensionCriterion implements Criterion {
      * Constructor.
      *
      * @param extensionSelector extension selector
+     * @param deviceId          device identification
      */
     public ExtensionCriterion(ExtensionSelector extensionSelector, DeviceId deviceId) {
         this.extensionSelector = extensionSelector;
@@ -65,10 +64,7 @@ public class ExtensionCriterion implements Criterion {
 
     @Override
     public String toString() {
-        return toStringHelper(type().toString())
-                .add("extensionSelector", extensionSelector.toString())
-                .add("deviceId", deviceId)
-                .toString();
+        return type().toString() + SEPARATOR + deviceId + "/" + extensionSelector;
     }
 
     @Override

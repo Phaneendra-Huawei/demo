@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,19 +23,6 @@ import org.onosproject.net.provider.ProviderService;
  * Means of conveying host information to the core.
  */
 public interface HostProviderService extends ProviderService<HostProvider> {
-
-    /**
-     * Notifies the core when a host has been detected on a network along with
-     * information that identifies the host location.
-     *
-     * @param hostId          id of the host that been detected
-     * @param hostDescription description of host and its location
-     * @deprecated in Drake release
-     */
-    @Deprecated
-    default void hostDetected(HostId hostId, HostDescription hostDescription) {
-        hostDetected(hostId, hostDescription, false);
-    }
 
     /**
      * Notifies the core when a host has been detected on a network along with

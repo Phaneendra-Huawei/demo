@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,7 +110,9 @@ public class NetworkConfigHostProvider extends AbstractProvider implements HostP
      */
     protected void addHost(MacAddress mac, VlanId vlan, HostLocation hloc, Set<IpAddress> ips) {
         HostId hid = HostId.hostId(mac, vlan);
-        HostDescription desc = new DefaultHostDescription(mac, vlan, hloc, ips);
+        HostDescription desc = (ips != null) ?
+                new DefaultHostDescription(mac, vlan, hloc, ips) :
+                new DefaultHostDescription(mac, vlan, hloc);
         providerService.hostDetected(hid, desc, false);
     }
 

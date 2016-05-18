@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/**
+ * Handler of IP packets that forwards IP packets that are sent to the controller,
+ * except the ICMP packets which are processed by @link{IcmpHandler}.
+ */
 public class IpHandler {
 
     private static Logger log = LoggerFactory.getLogger(IpHandler.class);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,11 +89,18 @@ public interface VirtualNetworkStore
      * @param networkId  network identifier
      * @param src        source end-point of the link
      * @param dst        destination end-point of the link
-     * @param realizedBy underlying tunnel using which this link is realized
+     * @param realizedBy underlying tunnel identifier using which this link is realized
      * @return the virtual link
      */
-    VirtualLink addLink(NetworkId networkId, ConnectPoint src, ConnectPoint dst,
-                        TunnelId realizedBy);
+    VirtualLink addLink(NetworkId networkId, ConnectPoint src, ConnectPoint dst, TunnelId realizedBy);
+
+    /**
+     * Updates the tunnelId in the virtual link.
+     *
+     * @param virtualLink  virtual link
+     * @param tunnelId tunnel identifier
+     */
+    void updateLink(VirtualLink virtualLink, TunnelId tunnelId);
 
     /**
      * Removes the specified link from the store.
@@ -101,8 +108,9 @@ public interface VirtualNetworkStore
      * @param networkId network identifier
      * @param src       source connection point
      * @param dst       destination connection point
+     * @return the virtual link
      */
-    void removeLink(NetworkId networkId, ConnectPoint src, ConnectPoint dst);
+    VirtualLink removeLink(NetworkId networkId, ConnectPoint src, ConnectPoint dst);
 
     /**
      * Adds a new virtual port to the network.

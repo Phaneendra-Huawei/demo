@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,8 +55,6 @@ import org.onosproject.net.DeviceId;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.store.AbstractStore;
 import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
-import org.onosproject.store.cluster.messaging.ClusterMessage;
-import org.onosproject.store.cluster.messaging.ClusterMessageHandler;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.ConsistentMap;
 import org.onosproject.store.service.Serializer;
@@ -126,62 +124,42 @@ public class DistributedLabelResourceStore
                                                    "message-handlers"));
         clusterCommunicator
                 .addSubscriber(LabelResourceMessageSubjects.LABEL_POOL_CREATED,
-                               new ClusterMessageHandler() {
-
-                                   @Override
-                                   public void handle(ClusterMessage message) {
-                                       LabelResourcePool operation = SERIALIZER
-                                               .decode(message.payload());
-                                       log.trace("received get flow entry request for {}",
-                                                 operation);
-                                       boolean b = internalCreate(operation);
-                                       message.respond(SERIALIZER.encode(b));
-                                   }
-                               }, messageHandlingExecutor);
+                        SERIALIZER::<LabelResourcePool>decode,
+                        operation -> {
+                            log.trace("received get flow entry request for {}", operation);
+                            return internalCreate(operation);
+                        },
+                        SERIALIZER::<Boolean>encode,
+                        messageHandlingExecutor);
         clusterCommunicator
                 .addSubscriber(LabelResourceMessageSubjects.LABEL_POOL_DESTROYED,
-                               new ClusterMessageHandler() {
-
-                                   @Override
-                                   public void handle(ClusterMessage message) {
-                                       DeviceId deviceId = SERIALIZER
-                                               .decode(message.payload());
-                                       log.trace("received get flow entry request for {}",
-                                                 deviceId);
-                                       boolean b = internalDestroy(deviceId);
-                                       message.respond(SERIALIZER.encode(b));
-                                   }
-                               }, messageHandlingExecutor);
+                        SERIALIZER::<DeviceId>decode,
+                        deviceId -> {
+                            log.trace("received get flow entry request for {}", deviceId);
+                            return internalDestroy(deviceId);
+                        },
+                        SERIALIZER::<Boolean>encode,
+                        messageHandlingExecutor);
         clusterCommunicator
                 .addSubscriber(LabelResourceMessageSubjects.LABEL_POOL_APPLY,
-                               new ClusterMessageHandler() {
+                        SERIALIZER::<LabelResourceRequest>decode,
+                        request -> {
+                            log.trace("received get flow entry request for {}", request);
+                            return internalApply(request);
 
-                                   @Override
-                                   public void handle(ClusterMessage message) {
-                                       LabelResourceRequest request = SERIALIZER
-                                               .decode(message.payload());
-                                       log.trace("received get flow entry request for {}",
-                                                 request);
-                                       final Collection<LabelResource> resource = internalApply(request);
-                                       message.respond(SERIALIZER
-                                               .encode(resource));
-                                   }
-                               }, messageHandlingExecutor);
+                        },
+                        SERIALIZER::<Collection<LabelResource>>encode,
+                        messageHandlingExecutor);
         clusterCommunicator
                 .addSubscriber(LabelResourceMessageSubjects.LABEL_POOL_RELEASE,
-                               new ClusterMessageHandler() {
-
-                                   @Override
-                                   public void handle(ClusterMessage message) {
-                                       LabelResourceRequest request = SERIALIZER
-                                               .decode(message.payload());
-                                       log.trace("received get flow entry request for {}",
-                                                 request);
-                                       final boolean isSuccess = internalRelease(request);
-                                       message.respond(SERIALIZER
-                                               .encode(isSuccess));
-                                   }
-                               }, messageHandlingExecutor);
+                        SERIALIZER::<LabelResourceRequest>decode,
+                        request -> {
+                            log.trace("received get flow entry request for {}",
+                                    request);
+                            return internalRelease(request);
+                        },
+                        SERIALIZER::<Boolean>encode,
+                        messageHandlingExecutor);
         log.info("Started");
     }
 
@@ -334,6 +312,10 @@ public class DistributedLabelResourceStore
         DeviceId deviceId = request.deviceId();
         long applyNum = request.applyNum();
         Versioned<LabelResourcePool> poolOld = resourcePool.get(deviceId);
+        if (poolOld == null) {
+            log.info("label resource pool not allocated for deviceId {}.", deviceId);
+            return Collections.emptyList();
+        }
         LabelResourcePool pool = poolOld.value();
         Collection<LabelResource> result = new HashSet<LabelResource>();
         long freeNum = this.getFreeNumOfDevicePool(deviceId);
@@ -419,6 +401,10 @@ public class DistributedLabelResourceStore
         DeviceId deviceId = request.deviceId();
         Collection<LabelResource> release = request.releaseCollection();
         Versioned<LabelResourcePool> poolOld = resourcePool.get(deviceId);
+        if (poolOld == null) {
+            log.info("the label resource pool of device id {} not allocated");
+            return false;
+        }
         LabelResourcePool pool = poolOld.value();
         if (pool == null) {
             log.info("the label resource pool of device id {} does not exist");
@@ -508,7 +494,7 @@ public class DistributedLabelResourceStore
             set.add(resource);
         }
         LabelResourceRequest request = new LabelResourceRequest(DeviceId.deviceId(GLOBAL_RESOURCE_POOL_DEVICE_ID),
-                                                                LabelResourceRequest.Type.APPLY,
+                                                                LabelResourceRequest.Type.RELEASE,
                                                                 0,
                                                                 ImmutableSet.copyOf(set));
         return this.internalRelease(request);

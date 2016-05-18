@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,10 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/**
+ * Handler of ICMP packets that responses or forwards ICMP packets that
+ * are sent to the controller.
+ */
 public class IcmpHandler {
 
     private static Logger log = LoggerFactory.getLogger(IcmpHandler.class);
@@ -164,7 +168,7 @@ public class IcmpHandler {
                     treatment, ByteBuffer.wrap(payload.serialize()));
             srManager.packetService.emit(packet);
         } else {
-            log.warn("Send a MPLS packet as a ICMP response");
+            log.info("Send a MPLS packet as a ICMP response");
             TrafficTreatment treatment = DefaultTrafficTreatment.builder()
                     .setOutput(outport.port())
                     .build();

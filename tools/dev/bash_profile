@@ -16,10 +16,10 @@ if [ -z "${JAVA_HOME}" ]; then
     fi
 fi
 
-export MAVEN=${MAVEN:-/opt/maven/apache-maven-3.2.5}
+export MAVEN=${MAVEN:-~/maven/apache-maven-3.3.9}
 
-export KARAF_VERSION=${KARAF_VERSION:-3.0.3}
-export KARAF_ROOT=${KARAF_ROOT:-/opt/karaf/apache-karaf-$KARAF_VERSION}
+export KARAF_VERSION=${KARAF_VERSION:-3.0.5}
+export KARAF_ROOT=${KARAF_ROOT:-~/karaf/apache-karaf-$KARAF_VERSION}
 export KARAF_LOG=$KARAF_ROOT/data/log/karaf.log
 
 # Setup a path
@@ -41,14 +41,14 @@ export ONOS_SCENARIOS=$ONOS_ROOT/tools/test/scenarios
 # Convenience utility to warp to various ONOS source projects
 # e.g. 'o api', 'o dev', 'o'
 function o {
-    cd $(find $ONOS_ROOT/ -type d | egrep -v '\.git|target|gen-src' | \
-        egrep "${1:-$ONOS_ROOT}" | egrep -v "$ONOS_ROOT/.+/src/" | head -n 1)
+    cd $(find $ONOS_ROOT/ -type d -and \( -name 'buck-out' -o -name '.git' -o -name 'target' -o -name 'gen-src' -o -name 'src' \) -prune -o -type d | \
+        egrep "${1:-$ONOS_ROOT}" | head -n 1)
 }
 
 # Short-hand for 'mvn clean install' for us lazy folk
 alias mci='mvn clean install'
-alias mcis='mvn clean install -DskipTests -Dcheckstyle.skip -U -T 1C'
-alias mis='mvn install -DskipTests -Dcheckstyle.skip -U -T 1C'
+alias mcis='mvn clean install -DskipTests -Dcheckstyle.skip'
+alias mis='mvn install -DskipTests -Dcheckstyle.skip'
 
 # Short-hand for ONOS build, package and test.
 alias ob='onos-build'
@@ -110,9 +110,10 @@ function cell {
         [ ! -f $ONOS_ROOT/tools/test/cells/$1 ] && \
             echo "No such cell: $1" >&2 && return 1
         unset ONOS_CELL ONOS_NIC ONOS_IP ONOS_APPS ONOS_BOOT_FEATURES
-        unset OCI OCN OCT ONOS_INSTANCES ONOS_USER ONOS_GROUP ONOS_FEATURES
+        unset OCI OCN OCT ONOS_INSTANCES ONOS_FEATURES
         unset $(env | sed -n 's:\(^OC[0-9]\{1,\}\)=.*:\1 :g p')
         export ONOS_USER=${ONOS_USER:-sdn}
+        export ONOS_GROUP=${ONOS_GROUP:-sdn}
         export ONOS_WEB_USER=onos
         export ONOS_WEB_PASS=rocks
         export ONOS_CELL=$1
@@ -154,13 +155,14 @@ function nuke {
 function vicell {
     local apply=false
     local create=false
-    local cdf=""
+    local ${cdf:=$ONOS_CELL}
     local cpath="${ONOS_ROOT}/tools/test/cells/"
 
-    if [ -z "$1" ] || [ "$1" = "-h" ] ; then
+    if [ "$1" = "-h" ] ; then
         printf "usage: vicell [file] [options]\n\noptions:\n"
+        printf "\t[file]: cell name (default: current cell)\n"
         printf "\t-a: apply the cell after editing\n"
-        printf "\t-e: [editor] set EDITOR to [editor] (default *vi*)\n"
+        printf "\t-e: [editor] set EDITOR to [editor] (default: *vi*)\n"
         printf "\t-c: create cell file if none exist\n\n"
         return 1
     fi
@@ -175,7 +177,7 @@ function vicell {
         shift
     done
 
-    if [ ! -e "${cpath}${cdf}" ] && [ "$create" = "false" ]; then
+    if [ ! -e "${cpath}${cdf}" ] && ! ($create) ; then
         printf "${cdf} : no such cell\n" && return 1
     fi
 
@@ -192,4 +194,13 @@ function vicell {
 
 
 # Load AT&T MPLS topo GEO data
-alias atttopo='onos-topo-cfg $OCI $ONOS_ROOT/tools/test/topos/attmpls.json'
+alias atttopo='onos-netcfg $OCI $ONOS_ROOT/tools/test/topos/attmpls-cfg.json'
+
+# Load UK topo GEO data
+alias uktopo='onos-netcfg $OCI $ONOS_ROOT/tools/test/topos/uk-cfg.json'
+
+# Git annotated one-line log
+alias gil='git log --oneline --decorate=short'
+
+# Buck (if "buck" is not on the PATH)
+[ -z "$(which buck)" ] && alias buck="onos-buck"

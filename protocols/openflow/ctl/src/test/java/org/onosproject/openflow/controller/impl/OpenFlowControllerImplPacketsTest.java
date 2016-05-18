@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,10 @@
  */
 package org.onosproject.openflow.controller.impl;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Future;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.onosproject.openflow.ExecutorServiceAdapter;
 import org.onosproject.openflow.MockOfFeaturesReply;
-import org.onosproject.openflow.MockOfPacketIn;
 import org.onosproject.openflow.MockOfPortStatus;
 import org.onosproject.openflow.OfMessageAdapter;
 import org.onosproject.openflow.OpenFlowSwitchListenerAdapter;
@@ -36,6 +29,11 @@ import org.onosproject.openflow.controller.OpenFlowSwitch;
 import org.onosproject.openflow.controller.PacketListener;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFType;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static junit.framework.TestCase.fail;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -53,7 +51,7 @@ public class OpenFlowControllerImplPacketsTest {
     OpenFlowSwitch switch1;
     OpenFlowSwitchListenerAdapter switchListener;
     TestPacketListener packetListener;
-    TestExecutorService executorService;
+    TestExecutorService statsExecutorService;
 
     /**
      * Mock packet listener that accumulates packets.
@@ -71,7 +69,6 @@ public class OpenFlowControllerImplPacketsTest {
         }
     }
 
-
     /**
      * Mock executor service that tracks submits.
      */
@@ -83,11 +80,10 @@ public class OpenFlowControllerImplPacketsTest {
         }
 
         @Override
-        public Future<?> submit(Runnable task) {
+        public void execute(Runnable task) {
             OpenFlowControllerImpl.OFMessageHandler handler =
                     (OpenFlowControllerImpl.OFMessageHandler) task;
             submittedMessages.add(handler.msg);
-            return null;
         }
     }
 
@@ -108,12 +104,14 @@ public class OpenFlowControllerImplPacketsTest {
         agent = controller.agent;
         switchListener = new OpenFlowSwitchListenerAdapter();
         controller.addListener(switchListener);
+        controller.monitorAllEvents(true);
 
         packetListener = new TestPacketListener();
         controller.addPacketListener(100, packetListener);
 
-        executorService = new TestExecutorService();
-        controller.executorMsgs = executorService;
+        statsExecutorService = new TestExecutorService();
+
+        controller.executorMsgs = statsExecutorService;
     }
 
     /**
@@ -143,17 +141,6 @@ public class OpenFlowControllerImplPacketsTest {
     }
 
     /**
-     * Tests a packet in operation.
-     */
-    @Test
-    public void testPacketIn() {
-        agent.addConnectedSwitch(dpid1, switch1);
-        OFMessage packetInPacket = new MockOfPacketIn();
-        controller.processPacket(dpid1, packetInPacket);
-        assertThat(packetListener.contexts(), hasSize(1));
-    }
-
-    /**
      * Tests an error operation.
      */
     @Test
@@ -161,7 +148,7 @@ public class OpenFlowControllerImplPacketsTest {
         agent.addConnectedSwitch(dpid1, switch1);
         OfMessageAdapter errorPacket = new OfMessageAdapter(OFType.ERROR);
         controller.processPacket(dpid1, errorPacket);
-        assertThat(executorService.submittedMessages(), hasSize(1));
-        assertThat(executorService.submittedMessages().get(0), is(errorPacket));
+        assertThat(statsExecutorService.submittedMessages(), hasSize(1));
+        assertThat(statsExecutorService.submittedMessages().get(0), is(errorPacket));
     }
 }

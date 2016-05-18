@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,17 @@
  */
 package org.onosproject.codec.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeDiagnosingMatcher;
 import org.onlab.util.HexString;
 import org.onosproject.net.OduSignalId;
 import org.onosproject.net.flow.instructions.Instruction;
-import org.onosproject.net.flow.instructions.Instructions.DropInstruction;
+import org.onosproject.net.flow.instructions.Instructions.GroupInstruction;
+import org.onosproject.net.flow.instructions.Instructions.MeterInstruction;
 import org.onosproject.net.flow.instructions.Instructions.NoActionInstruction;
 import org.onosproject.net.flow.instructions.Instructions.OutputInstruction;
-import org.onosproject.net.flow.instructions.L0ModificationInstruction.ModLambdaInstruction;
+import org.onosproject.net.flow.instructions.Instructions.SetQueueInstruction;
 import org.onosproject.net.flow.instructions.L0ModificationInstruction.ModOchSignalInstruction;
 import org.onosproject.net.flow.instructions.L1ModificationInstruction.ModOduSignalIdInstruction;
 import org.onosproject.net.flow.instructions.L2ModificationInstruction.ModEtherInstruction;
@@ -33,8 +35,6 @@ import org.onosproject.net.flow.instructions.L2ModificationInstruction.ModVlanPc
 import org.onosproject.net.flow.instructions.L2ModificationInstruction.PushHeaderInstructions;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPv6FlowLabelInstruction;
-
-import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * Hamcrest matcher for instructions.
@@ -115,7 +115,7 @@ public final class InstructionJsonMatcher extends TypeSafeDiagnosingMatcher<Json
             }
         } else {
             final String jsonPort = instructionJson.get("port").toString();
-            description.appendText("Unmathcing types ");
+            description.appendText("Unmatching types ");
             description.appendText("instructionToMatch " + instructionToMatch.port().toString());
             description.appendText("jsonPort " + jsonPort);
         }
@@ -124,32 +124,95 @@ public final class InstructionJsonMatcher extends TypeSafeDiagnosingMatcher<Json
     }
 
     /**
-     * Matches the contents of a mod lambda instruction.
+     * Matches the contents of a group instruction.
      *
      * @param instructionJson JSON instruction to match
      * @param description Description object used for recording errors
      * @return true if contents match, false otherwise
      */
-    private boolean matchModLambdaInstruction(JsonNode instructionJson,
-                                              Description description) {
-        ModLambdaInstruction instructionToMatch =
-                (ModLambdaInstruction) instruction;
-        final String jsonSubtype = instructionJson.get("subtype").textValue();
-        if (!instructionToMatch.subtype().name().equals(jsonSubtype)) {
-            description.appendText("subtype was " + jsonSubtype);
-            return false;
-        }
-
+    private boolean matchGroupInstruction(JsonNode instructionJson,
+                                          Description description) {
         final String jsonType = instructionJson.get("type").textValue();
+        GroupInstruction instructionToMatch = (GroupInstruction) instruction;
         if (!instructionToMatch.type().name().equals(jsonType)) {
             description.appendText("type was " + jsonType);
             return false;
         }
 
-        final long jsonLambda = instructionJson.get("lambda").shortValue();
-        if (instructionToMatch.lambda() != jsonLambda) {
-            description.appendText("lambda was " + jsonLambda);
+        final int jsonGroupId = instructionJson.get("groupId").intValue();
+        if (instructionToMatch.groupId().id() != jsonGroupId) {
+            description.appendText("groupId was " + jsonGroupId);
             return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Matches the contents of a meter instruction.
+     *
+     * @param instructionJson JSON instruction to match
+     * @param description Description object used for recording errors
+     * @return true if contents match, false otherwise
+     */
+    private boolean matchMeterInstruction(JsonNode instructionJson,
+                                          Description description) {
+        final String jsonType = instructionJson.get("type").textValue();
+        MeterInstruction instructionToMatch = (MeterInstruction) instruction;
+        if (!instructionToMatch.type().name().equals(jsonType)) {
+            description.appendText("type was " + jsonType);
+            return false;
+        }
+
+        final long jsonMeterId = instructionJson.get("meterId").longValue();
+        if (instructionToMatch.meterId().id() != jsonMeterId) {
+            description.appendText("meterId was " + jsonMeterId);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Matches the contents of a set queue instruction.
+     *
+     * @param instructionJson JSON instruction to match
+     * @param description Description object used for recording errors
+     * @return true if contents match, false otherwise
+     */
+    private boolean matchSetQueueInstruction(JsonNode instructionJson,
+                                             Description description) {
+        final String jsonType = instructionJson.get("type").textValue();
+        SetQueueInstruction instructionToMatch = (SetQueueInstruction) instruction;
+        if (!instructionToMatch.type().name().equals(jsonType)) {
+            description.appendText("type was " + jsonType);
+            return false;
+        }
+
+        final long jsonQueueId = instructionJson.get("queueId").longValue();
+        if (instructionToMatch.queueId() != jsonQueueId) {
+            description.appendText("queueId was " + jsonQueueId);
+            return false;
+        }
+
+        if (instructionJson.get("port").isLong() ||
+                instructionJson.get("port").isInt()) {
+            final long jsonPort = instructionJson.get("port").asLong();
+            if (instructionToMatch.port().toLong() != (jsonPort)) {
+                description.appendText("port was " + jsonPort);
+                return false;
+            }
+        } else if (instructionJson.get("port").isTextual()) {
+            final String jsonPort = instructionJson.get("port").textValue();
+            if (!instructionToMatch.port().toString().equals(jsonPort)) {
+                description.appendText("port was " + jsonPort);
+                return false;
+            }
+        } else {
+            final String jsonPort = instructionJson.get("port").toString();
+            description.appendText("Unmatching types ");
+            description.appendText("instructionToMatch " + instructionToMatch.port().toString());
+            description.appendText("jsonPort " + jsonPort);
         }
 
         return true;
@@ -230,7 +293,7 @@ public final class InstructionJsonMatcher extends TypeSafeDiagnosingMatcher<Json
         final JsonNode jsonOduSignal = instructionJson.get("oduSignalId");
         int jsonTpn = jsonOduSignal.get("tributaryPortNumber").intValue();
         int jsonTsLen = jsonOduSignal.get("tributarySlotLength").intValue();
-        byte [] tributaryBitMap = HexString.fromHexString(jsonOduSignal.get("tributarySlotBitmap").asText());
+        byte[] tributaryBitMap = HexString.fromHexString(jsonOduSignal.get("tributarySlotBitmap").asText());
         OduSignalId  jsonOduSignalId = OduSignalId.oduSignalId(jsonTpn, jsonTsLen, tributaryBitMap);
         if (!instructionToMatch.oduSignalId().equals(jsonOduSignalId)) {
             description.appendText("oduSignalId was " + instructionToMatch);
@@ -429,7 +492,7 @@ public final class InstructionJsonMatcher extends TypeSafeDiagnosingMatcher<Json
         }
 
         final int jsonLabel = instructionJson.get("label").intValue();
-        final int label = instructionToMatch.mplsLabel().toInt();
+        final int label = instructionToMatch.label().toInt();
         if (label != jsonLabel) {
             description.appendText("MPLS label was " + jsonLabel);
             return false;
@@ -452,12 +515,14 @@ public final class InstructionJsonMatcher extends TypeSafeDiagnosingMatcher<Json
 
         if (instruction instanceof PushHeaderInstructions) {
             return matchPushHeaderInstruction(jsonInstruction, description);
-        } else if (instruction instanceof DropInstruction) {
-            return true;
         } else if (instruction instanceof OutputInstruction) {
             return matchOutputInstruction(jsonInstruction, description);
-        } else if (instruction instanceof ModLambdaInstruction) {
-            return matchModLambdaInstruction(jsonInstruction, description);
+        } else if (instruction instanceof GroupInstruction) {
+            return matchGroupInstruction(jsonInstruction, description);
+        } else if (instruction instanceof MeterInstruction) {
+            return matchMeterInstruction(jsonInstruction, description);
+        } else if (instruction instanceof SetQueueInstruction) {
+            return matchSetQueueInstruction(jsonInstruction, description);
         } else if (instruction instanceof ModOchSignalInstruction) {
             return matchModOchSingalInstruction(jsonInstruction, description);
         } else if (instruction instanceof ModEtherInstruction) {
@@ -469,8 +534,7 @@ public final class InstructionJsonMatcher extends TypeSafeDiagnosingMatcher<Json
         } else if (instruction instanceof ModIPInstruction) {
             return matchModIpInstruction(jsonInstruction, description);
         } else if (instruction instanceof ModIPv6FlowLabelInstruction) {
-            return matchModIPv6FlowLabelInstruction(jsonInstruction,
-                                                    description);
+            return matchModIPv6FlowLabelInstruction(jsonInstruction, description);
         } else if (instruction instanceof ModMplsLabelInstruction) {
             return matchModMplsLabelInstruction(jsonInstruction, description);
         } else if (instruction instanceof ModOduSignalIdInstruction) {

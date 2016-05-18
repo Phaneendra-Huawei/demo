@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,9 @@ import org.slf4j.Logger;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Manages the inventory of created next groups.
  */
@@ -66,10 +69,7 @@ public class DistributedFlowObjectiveStore
                                 .build()))
                 .build();
 
-        nextIds = storageService.atomicCounterBuilder()
-                .withName("next-objective-counter")
-                .build();
-
+        nextIds = storageService.getAtomicCounter("next-objective-counter");
         log.info("Started");
     }
 
@@ -102,6 +102,18 @@ public class DistributedFlowObjectiveStore
             return new DefaultNextGroup(versionGroup.value());
         }
         return null;
+    }
+
+    @Override
+    public Map<Integer, NextGroup> getAllGroups() {
+        Map<Integer, NextGroup> nextGroupMappings = new HashMap<>();
+        for (int key : nextGroups.keySet()) {
+            NextGroup nextGroup = getNextGroup(key);
+            if (nextGroup != null) {
+                nextGroupMappings.put(key, nextGroup);
+            }
+        }
+        return nextGroupMappings;
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,13 @@
  */
 package org.onosproject.bgpio.types;
 
-import java.util.Objects;
-
+import com.google.common.base.MoreObjects;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.onosproject.bgpio.exceptions.BgpParseException;
 import org.onosproject.bgpio.util.Constants;
 import org.onosproject.bgpio.util.Validation;
 
-import com.google.common.base.MoreObjects;
+import java.util.Objects;
 
 /**
  * Provides Implementation of mandatory BGP Origin path attribute.
@@ -32,7 +31,7 @@ public class Origin implements BgpValueType {
     /**
      * Enum to provide ORIGIN types.
      */
-    public enum ORIGINTYPE {
+    public enum OriginType {
         IGP(0), EGP(1), INCOMPLETE(2);
         int value;
         /**
@@ -40,7 +39,7 @@ public class Origin implements BgpValueType {
          *
          * @param val ORIGIN type
          */
-        ORIGINTYPE(int val) {
+        OriginType(int val) {
             value = val;
         }
 
@@ -56,6 +55,7 @@ public class Origin implements BgpValueType {
 
     public static final byte ORIGIN_TYPE = 1;
     public static final byte ORIGIN_VALUE_LEN = 1;
+    public static final byte FLAGS = (byte) 0x40;
 
     private boolean isOrigin = false;
     private byte origin;
@@ -84,13 +84,13 @@ public class Origin implements BgpValueType {
      *
      * @return type of Origin in Enum values
      */
-    public ORIGINTYPE origin() {
+    public OriginType origin() {
         if (this.origin == 0) {
-            return ORIGINTYPE.IGP;
+            return OriginType.IGP;
         } else if (this.origin == 1) {
-            return ORIGINTYPE.EGP;
+            return OriginType.EGP;
         } else {
-            return ORIGINTYPE.INCOMPLETE;
+            return OriginType.INCOMPLETE;
         }
     }
 
@@ -118,8 +118,8 @@ public class Origin implements BgpValueType {
 
         byte originValue;
         originValue = cb.readByte();
-        if ((originValue != ORIGINTYPE.INCOMPLETE.value) && (originValue != ORIGINTYPE.IGP.value) &&
-              (originValue != ORIGINTYPE.EGP.value)) {
+        if ((originValue != OriginType.INCOMPLETE.value) && (originValue != OriginType.IGP.value) &&
+              (originValue != OriginType.EGP.value)) {
             throw new BgpParseException(BgpErrorType.UPDATE_MESSAGE_ERROR, BgpErrorType.INVALID_ORIGIN_ATTRIBUTE, data);
         }
         return new Origin(originValue);
@@ -132,8 +132,12 @@ public class Origin implements BgpValueType {
 
     @Override
     public int write(ChannelBuffer cb) {
-        //Not required to Implement as of now
-        return 0;
+        int iLenStartIndex = cb.writerIndex();
+        cb.writeByte(FLAGS);
+        cb.writeByte(ORIGIN_TYPE);
+        cb.writeByte(1);
+        cb.writeByte(origin().value);
+        return cb.writerIndex() - iLenStartIndex;
     }
 
     @Override

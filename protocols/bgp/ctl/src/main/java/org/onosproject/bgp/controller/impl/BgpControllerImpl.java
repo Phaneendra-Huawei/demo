@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,6 @@
 
 package org.onosproject.bgp.controller.impl;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -31,9 +23,10 @@ import org.apache.felix.scr.annotations.Service;
 import org.onosproject.bgp.controller.BgpCfg;
 import org.onosproject.bgp.controller.BgpController;
 import org.onosproject.bgp.controller.BgpId;
+import org.onosproject.bgp.controller.BgpLinkListener;
 import org.onosproject.bgp.controller.BgpLocalRib;
-import org.onosproject.bgp.controller.BgpPeer;
 import org.onosproject.bgp.controller.BgpNodeListener;
+import org.onosproject.bgp.controller.BgpPeer;
 import org.onosproject.bgp.controller.BgpPeerManager;
 import org.onosproject.bgpio.exceptions.BgpParseException;
 import org.onosproject.bgpio.protocol.BgpMessage;
@@ -43,6 +36,14 @@ import org.onosproject.bgpio.types.MpReachNlri;
 import org.onosproject.bgpio.types.MpUnReachNlri;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Component(immediate = true)
 @Service
@@ -54,10 +55,11 @@ public class BgpControllerImpl implements BgpController {
 
     protected BgpPeerManagerImpl peerManager = new BgpPeerManagerImpl();
 
-    private BgpLocalRib bgplocalRIB = new BgpLocalRibImpl(this);
-    private BgpLocalRib bgplocalRIBVpn = new BgpLocalRibImpl(this);
+    private BgpLocalRib bgplocalRib = new BgpLocalRibImpl(this);
+    private BgpLocalRib bgplocalRibVpn = new BgpLocalRibImpl(this);
 
     protected Set<BgpNodeListener> bgpNodeListener = new CopyOnWriteArraySet<>();
+    protected Set<BgpLinkListener> bgpLinkListener = new CopyOnWriteArraySet<>();
 
     final Controller ctrl = new Controller(this);
 
@@ -108,7 +110,7 @@ public class BgpControllerImpl implements BgpController {
     }
 
     @Override
-    public void processBGPPacket(BgpId bgpId, BgpMessage msg) throws BgpParseException {
+    public void processBgpPacket(BgpId bgpId, BgpMessage msg) throws BgpParseException {
 
         BgpPeer peer = getPeer(bgpId);
 
@@ -131,10 +133,19 @@ public class BgpControllerImpl implements BgpController {
             }
             Iterator<BgpValueType> listIterator = pathAttr.iterator();
             boolean isLinkstate = false;
+
             while (listIterator.hasNext()) {
                 BgpValueType attr = listIterator.next();
-                if ((attr instanceof MpReachNlri) || (attr instanceof MpUnReachNlri)) {
-                    isLinkstate = true;
+                if (attr instanceof MpReachNlri) {
+                    MpReachNlri mpReach = (MpReachNlri) attr;
+                    if (mpReach.bgpFlowSpecNlri() == null) {
+                        isLinkstate = true;
+                    }
+                } else if (attr instanceof MpUnReachNlri) {
+                    MpUnReachNlri mpUnReach = (MpUnReachNlri) attr;
+                    if (mpUnReach.bgpFlowSpecNlri() == null) {
+                        isLinkstate = true;
+                    }
                 }
             }
             if (isLinkstate) {
@@ -251,7 +262,7 @@ public class BgpControllerImpl implements BgpController {
      */
     @Override
     public BgpLocalRib bgpLocalRib() {
-        return bgplocalRIB;
+        return bgplocalRib;
     }
 
     /**
@@ -261,6 +272,21 @@ public class BgpControllerImpl implements BgpController {
      */
     @Override
     public BgpLocalRib bgpLocalRibVpn() {
-        return bgplocalRIBVpn;
+        return bgplocalRibVpn;
+    }
+
+    @Override
+    public void addLinkListener(BgpLinkListener listener) {
+        this.bgpLinkListener.add(listener);
+    }
+
+    @Override
+    public void removeLinkListener(BgpLinkListener listener) {
+        this.bgpLinkListener.remove(listener);
+    }
+
+    @Override
+    public Set<BgpLinkListener> linkListener() {
+        return bgpLinkListener;
     }
 }

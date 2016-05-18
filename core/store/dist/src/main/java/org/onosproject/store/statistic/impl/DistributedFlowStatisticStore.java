@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import com.google.common.base.Objects;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
+import org.apache.felix.scr.annotations.Modified;
+import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
@@ -39,18 +41,24 @@ import org.onosproject.net.statistic.FlowStatisticStore;
 import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.serializers.KryoSerializer;
+import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 
 import java.util.Collections;
+import java.util.Dictionary;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static org.onlab.util.Tools.get;
 import static org.onlab.util.Tools.groupedThreads;
 import static org.onosproject.store.statistic.impl.StatisticStoreMessageSubjects.GET_CURRENT;
 import static org.onosproject.store.statistic.impl.StatisticStoreMessageSubjects.GET_PREVIOUS;
@@ -65,8 +73,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class DistributedFlowStatisticStore implements FlowStatisticStore {
     private final Logger log = getLogger(getClass());
 
-    // TODO: Make configurable.
-    private static final int MESSAGE_HANDLER_THREAD_POOL_SIZE = 4;
+    private static final String FORMAT = "Setting: messageHandlerThreadPoolSize={}";
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected MastershipService mastershipService;
@@ -97,6 +104,12 @@ public class DistributedFlowStatisticStore implements FlowStatisticStore {
     private NodeId local;
     private ExecutorService messageHandlingExecutor;
 
+    private static final int DEFAULT_MESSAGE_HANDLER_THREAD_POOL_SIZE = 4;
+    @Property(name = "messageHandlerThreadPoolSize", intValue = DEFAULT_MESSAGE_HANDLER_THREAD_POOL_SIZE,
+            label = "Size of thread pool to assign message handler")
+    private static int messageHandlerThreadPoolSize = DEFAULT_MESSAGE_HANDLER_THREAD_POOL_SIZE;
+
+
     private static final long STATISTIC_STORE_TIMEOUT_MILLIS = 3000;
 
     @Activate
@@ -104,8 +117,8 @@ public class DistributedFlowStatisticStore implements FlowStatisticStore {
         local = clusterService.getLocalNode().id();
 
         messageHandlingExecutor = Executors.newFixedThreadPool(
-                MESSAGE_HANDLER_THREAD_POOL_SIZE,
-                groupedThreads("onos/store/statistic", "message-handlers"));
+                messageHandlerThreadPoolSize,
+                groupedThreads("onos/store/statistic", "message-handlers", log));
 
         clusterCommunicator.addSubscriber(
                 GET_CURRENT, SERIALIZER::decode, this::getCurrentStatisticInternal, SERIALIZER::encode,
@@ -126,6 +139,32 @@ public class DistributedFlowStatisticStore implements FlowStatisticStore {
         log.info("Stopped");
     }
 
+    @Modified
+    public void modified(ComponentContext context) {
+        Dictionary<?, ?> properties = context != null ? context.getProperties() : new Properties();
+
+        int newMessageHandlerThreadPoolSize;
+
+        try {
+            String s = get(properties, "messageHandlerThreadPoolSize");
+
+            newMessageHandlerThreadPoolSize =
+                    isNullOrEmpty(s) ? messageHandlerThreadPoolSize : Integer.parseInt(s.trim());
+
+        } catch (NumberFormatException e) {
+            log.warn(e.getMessage());
+            newMessageHandlerThreadPoolSize = messageHandlerThreadPoolSize;
+        }
+
+        // Any change in the following parameters implies thread pool restart
+        if (newMessageHandlerThreadPoolSize != messageHandlerThreadPoolSize) {
+            setMessageHandlerThreadPoolSize(newMessageHandlerThreadPoolSize);
+            restartMessageHandlerThreadPool();
+        }
+
+        log.info(FORMAT, messageHandlerThreadPoolSize);
+    }
+
     @Override
     public synchronized void removeFlowStatistic(FlowRule rule) {
         ConnectPoint cp = buildConnectPoint(rule);
@@ -134,10 +173,16 @@ public class DistributedFlowStatisticStore implements FlowStatisticStore {
         }
 
         // remove this rule if present from current map
-        current.computeIfPresent(cp, (c, e) -> { e.remove(rule); return e;  });
+        current.computeIfPresent(cp, (c, e) -> {
+            e.remove(rule);
+            return e;
+        });
 
         // remove this on if present from previous map
-        previous.computeIfPresent(cp, (c, e) -> { e.remove(rule); return e; });
+        previous.computeIfPresent(cp, (c, e) -> {
+            e.remove(rule);
+            return e;
+        });
     }
 
     @Override
@@ -155,6 +200,7 @@ public class DistributedFlowStatisticStore implements FlowStatisticStore {
         previous.computeIfPresent(cp, (c, e) -> { e.remove(rule); return e; });
     }
 
+    @Override
     public synchronized void updateFlowStatistic(FlowEntry rule) {
         ConnectPoint cp = buildConnectPoint(rule);
         if (cp == null) {
@@ -280,10 +326,35 @@ public class DistributedFlowStatisticStore implements FlowStatisticStore {
                 Instructions.OutputInstruction out = (Instructions.OutputInstruction) i;
                 return out.port();
             }
-            if (i.type() == Instruction.Type.DROP) {
-                return PortNumber.P0;
-            }
         }
         return null;
+    }
+
+    /**
+     * Sets thread pool size of message handler.
+     *
+     * @param poolSize
+     */
+    private void setMessageHandlerThreadPoolSize(int poolSize) {
+        checkArgument(poolSize >= 0, "Message handler pool size must be 0 or more");
+        messageHandlerThreadPoolSize = poolSize;
+    }
+
+    /**
+     * Restarts thread pool of message handler.
+     */
+    private void restartMessageHandlerThreadPool() {
+        ExecutorService prevExecutor = messageHandlingExecutor;
+        messageHandlingExecutor = Executors.newFixedThreadPool(getMessageHandlerThreadPoolSize());
+        prevExecutor.shutdown();
+    }
+
+    /**
+     * Gets current thread pool size of message handler.
+     *
+     * @return messageHandlerThreadPoolSize
+     */
+    private int getMessageHandlerThreadPoolSize() {
+        return messageHandlerThreadPoolSize;
     }
 }

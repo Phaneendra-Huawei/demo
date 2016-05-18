@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import com.google.common.annotations.Beta;
 import org.onosproject.event.ListenerService;
 import org.onosproject.net.ConnectPoint;
 
-import java.util.List;
+import java.util.Set;
 
 /**
  * A service interface for maintaining multicast information.
@@ -41,6 +41,13 @@ public interface MulticastRouteService
      * @param route a multicast route
      */
     void remove(McastRoute route);
+
+    /**
+     * Gets all multicast routes in the system.
+     *
+     * @return set of multicast routes
+     */
+    Set<McastRoute> getRoutes();
 
     /**
      * Adds a source connection to the route from where the
@@ -82,5 +89,5 @@ public interface MulticastRouteService
      * @param route a multicast route
      * @return a list of connect points
      */
-    List<ConnectPoint> fetchSinks(McastRoute route);
+    Set<ConnectPoint> fetchSinks(McastRoute route);
 }

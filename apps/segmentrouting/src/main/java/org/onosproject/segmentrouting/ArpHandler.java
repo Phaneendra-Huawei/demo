@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import org.onlab.packet.VlanId;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.Host;
-import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.packet.DefaultOutboundPacket;
@@ -41,6 +40,10 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/**
+ * Handler of ARP packets that responses or forwards ARP packets that
+ * are sent to the controller.
+ */
 public class ArpHandler {
 
     private static Logger log = LoggerFactory.getLogger(ArpHandler.class);
@@ -72,7 +75,7 @@ public class ArpHandler {
      * hosts in the same subnet.
      * For an ARP packet with broadcast destination MAC,
      * some switches pipelines will send it to the controller due to table miss,
-     * other swithches will flood the packets directly in the data plane without
+     * other switches will flood the packets directly in the data plane without
      * packet in.
      * We can deal with both cases.
      *
@@ -84,14 +87,7 @@ public class ArpHandler {
         ARP arp = (ARP) ethernet.getPayload();
 
         ConnectPoint connectPoint = pkt.receivedFrom();
-        PortNumber inPort = connectPoint.port();
         DeviceId deviceId = connectPoint.deviceId();
-        byte[] senderMacAddressByte = arp.getSenderHardwareAddress();
-        Ip4Address hostIpAddress = Ip4Address.valueOf(arp.getSenderProtocolAddress());
-
-        srManager.routingRulePopulator.populateIpRuleForHost(deviceId, hostIpAddress, MacAddress.
-                valueOf(senderMacAddressByte), inPort);
-
         if (arp.getOpCode() == ARP.OP_REQUEST) {
             handleArpRequest(deviceId, connectPoint, ethernet);
         } else {
@@ -227,13 +223,11 @@ public class ArpHandler {
                 .setSourceMACAddress(targetMac.toBytes())
                 .setEtherType(Ethernet.TYPE_ARP).setPayload(arpReply);
 
-
-        HostId dstId = HostId.hostId(
-                MacAddress.valueOf(arpReply.getTargetHardwareAddress()),
-                vlanId);
+        MacAddress hostMac = MacAddress.valueOf(arpReply.getTargetHardwareAddress());
+        HostId dstId = HostId.hostId(hostMac, vlanId);
         Host dst = srManager.hostService.getHost(dstId);
         if (dst == null) {
-            log.warn("Cannot send ARP response to unknown device");
+            log.warn("Cannot send ARP response to host {}", dstId);
             return;
         }
 
@@ -256,15 +250,23 @@ public class ArpHandler {
                 ((ARP) packet.getPayload()).getTargetProtocolAddress()
         );
 
-        srManager.deviceConfiguration.getSubnetPortsMap(inPort.deviceId()).forEach((subnet, ports) -> {
-            if (subnet.contains(targetProtocolAddress)) {
-                ports.stream()
-                        .filter(port -> port != inPort.port())
-                        .forEach(port -> {
-                            removeVlanAndForward(packet, new ConnectPoint(inPort.deviceId(), port));
-                        });
-            }
-        });
+        try {
+            srManager.deviceConfiguration
+                 .getSubnetPortsMap(inPort.deviceId()).forEach((subnet, ports) -> {
+                     if (subnet.contains(targetProtocolAddress)) {
+                         ports.stream()
+                         .filter(port -> port != inPort.port())
+                         .forEach(port -> {
+                             removeVlanAndForward(packet,
+                                 new ConnectPoint(inPort.deviceId(), port));
+                         });
+                     }
+                 });
+        } catch (DeviceConfigNotFoundException e) {
+            log.warn(e.getMessage()
+                    + " Cannot flood in subnet as device config not available"
+                    + " for device: " + inPort.deviceId());
+        }
     }
 
     /**

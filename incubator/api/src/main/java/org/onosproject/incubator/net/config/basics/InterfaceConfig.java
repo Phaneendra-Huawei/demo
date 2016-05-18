@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.Beta;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.VlanId;
 import org.onosproject.incubator.net.intf.Interface;
@@ -29,7 +31,11 @@ import org.onosproject.net.config.Config;
 import org.onosproject.net.host.InterfaceIpAddress;
 
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Configuration for interfaces.
@@ -41,7 +47,34 @@ public class InterfaceConfig extends Config<ConnectPoint> {
     public static final String MAC = "mac";
     public static final String VLAN = "vlan";
 
-    public static final String CONFIG_VALUE_ERROR = "Error parsing config value";
+    private static final String CONFIG_VALUE_ERROR = "Error parsing config value";
+    private static final String INTF_NULL_ERROR = "Interface cannot be null";
+    private static final String INTF_NAME_ERROR = "Interface must have a valid name";
+
+    @Override
+    public boolean isValid() {
+        for (JsonNode node : array) {
+            if (!hasOnlyFields((ObjectNode) node, NAME, IPS, MAC, VLAN)) {
+                return false;
+            }
+
+            ObjectNode obj = (ObjectNode) node;
+
+            if (!(isString(obj, NAME, FieldPresence.OPTIONAL) &&
+                    isMacAddress(obj, MAC, FieldPresence.OPTIONAL) &&
+                    isIntegralNumber(obj, VLAN, FieldPresence.OPTIONAL, 0, VlanId.MAX_VLAN))) {
+                return false;
+            }
+
+
+            for (JsonNode ipNode : node.path(IPS)) {
+                if (!ipNode.isTextual() || IpPrefix.valueOf(ipNode.asText()) == null) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 
     /**
      * Retrieves all interfaces configured on this port.
@@ -56,7 +89,7 @@ public class InterfaceConfig extends Config<ConnectPoint> {
             for (JsonNode intfNode : array) {
                 String name = intfNode.path(NAME).asText(null);
 
-                Set<InterfaceIpAddress> ips = getIps(intfNode);
+                List<InterfaceIpAddress> ips = getIps(intfNode);
 
                 String mac = intfNode.path(MAC).asText();
                 MacAddress macAddr = mac.isEmpty() ? null : MacAddress.valueOf(mac);
@@ -78,6 +111,12 @@ public class InterfaceConfig extends Config<ConnectPoint> {
      * @param intf interface to add
      */
     public void addInterface(Interface intf) {
+        checkNotNull(intf, INTF_NULL_ERROR);
+        checkArgument(!intf.name().equals(Interface.NO_INTERFACE_NAME), INTF_NAME_ERROR);
+
+        // Remove old interface with this name if it exists
+        removeInterface(intf.name());
+
         ObjectNode intfNode = array.addObject();
 
         intfNode.put(NAME, intf.name());
@@ -87,7 +126,7 @@ public class InterfaceConfig extends Config<ConnectPoint> {
         }
 
         if (!intf.ipAddresses().isEmpty()) {
-            intfNode.set(IPS, putIps(intf.ipAddresses()));
+            intfNode.set(IPS, putIps(intf.ipAddressesList()));
         }
 
         if (!intf.vlan().equals(VlanId.NONE)) {
@@ -101,6 +140,9 @@ public class InterfaceConfig extends Config<ConnectPoint> {
      * @param name name of the interface to remove
      */
     public void removeInterface(String name) {
+        checkNotNull(name, INTF_NULL_ERROR);
+        checkArgument(!name.equals(Interface.NO_INTERFACE_NAME), INTF_NAME_ERROR);
+
         Iterator<JsonNode> it = array.iterator();
         while (it.hasNext()) {
             JsonNode node = it.next();
@@ -119,8 +161,8 @@ public class InterfaceConfig extends Config<ConnectPoint> {
         return vlan;
     }
 
-    private Set<InterfaceIpAddress> getIps(JsonNode node) {
-        Set<InterfaceIpAddress> ips = Sets.newHashSet();
+    private List<InterfaceIpAddress> getIps(JsonNode node) {
+        List<InterfaceIpAddress> ips = Lists.newArrayList();
 
         JsonNode ipsNode = node.get(IPS);
         if (ipsNode != null) {
@@ -131,7 +173,7 @@ public class InterfaceConfig extends Config<ConnectPoint> {
         return ips;
     }
 
-    private ArrayNode putIps(Set<InterfaceIpAddress> intfIpAddresses) {
+    private ArrayNode putIps(List<InterfaceIpAddress> intfIpAddresses) {
         ArrayNode ipArray = mapper.createArrayNode();
 
         intfIpAddresses.forEach(i -> ipArray.add(i.toString()));

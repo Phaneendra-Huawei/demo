@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ public class PortChainWebResource extends AbstractWebResource {
      *
      * @param stream port chain from JSON
      * @return status of the request - CREATED if the JSON is correct,
-     * BAD_REQUEST if the JSON is invalid
+     *         BAD_REQUEST if the JSON is invalid
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -128,7 +128,7 @@ public class PortChainWebResource extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     public Response updatePortPain(@PathParam("chain_id") String id,
-                                   final InputStream stream) {
+            final InputStream stream) {
         try {
             ObjectNode jsonTree = (ObjectNode) mapper().readTree(stream);
             JsonNode port = jsonTree.get("port_chain");
@@ -149,6 +149,7 @@ public class PortChainWebResource extends AbstractWebResource {
      */
     @Path("{chain_id}")
     @DELETE
+    @Consumes(MediaType.APPLICATION_JSON)
     public void deletePortPain(@PathParam("chain_id") String id) {
         log.debug("Deletes port chain by identifier {}.", id);
         PortChainId portChainId = PortChainId.of(id);

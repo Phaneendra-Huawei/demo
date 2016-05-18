@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,7 +125,8 @@ public class DeviceManager
 
     @Activate
     public void activate() {
-        backgroundService = newSingleThreadScheduledExecutor(groupedThreads("onos/device", "manager-background"));
+        backgroundService = newSingleThreadScheduledExecutor(
+                             groupedThreads("onos/device", "manager-background", log));
         localNodeId = clusterService.getLocalNode().id();
 
         store.setDelegate(delegate);
@@ -247,6 +248,22 @@ public class DeviceManager
     }
 
     @Override
+    public void changePortState(DeviceId deviceId, PortNumber portNumber,
+                                boolean enable) {
+        checkNotNull(deviceId, DEVICE_ID_NULL);
+        checkNotNull(deviceId, PORT_NUMBER_NULL);
+        DeviceProvider provider = getProvider(deviceId);
+        if (provider != null) {
+            log.warn("Port {} on device {} being administratively brought {}",
+                     portNumber, deviceId,
+                     (enable) ? "UP" : "DOWN");
+            provider.changePortState(deviceId, portNumber, enable);
+        } else {
+            log.warn("Provider not found for {}", deviceId);
+        }
+    }
+
+    @Override
     protected DeviceProviderService createProviderService(
             DeviceProvider provider) {
         return new InternalDeviceProviderService(provider);
@@ -339,6 +356,7 @@ public class DeviceManager
                 log.trace("event: {} {}", event.type(), event);
                 post(event);
             }
+
         }
 
         @Override
@@ -352,7 +370,8 @@ public class DeviceManager
             final Device device = getDevice(deviceId);
 
             List<PortDescription> descs = ports.stream().map(
-              port -> (!(Device.Type.ROADM.equals(device.type()))) ?
+              port -> (!(Device.Type.ROADM.equals(device.type()) ||
+                        (Device.Type.OTN.equals(device.type())))) ?
                   new DefaultPortDescription(port.number(), false,
                           port.type(), port.portSpeed()) :
                       OpticalPortOperator.descriptionOf(port, false)
@@ -417,8 +436,10 @@ public class DeviceManager
                     .collect(Collectors.toList());
             List<DeviceEvent> events = store.updatePorts(this.provider().id(),
                                                          deviceId, portDescriptions);
-            for (DeviceEvent event : events) {
-                post(event);
+            if (events != null) {
+                for (DeviceEvent event : events) {
+                    post(event);
+                }
             }
         }
 
@@ -437,7 +458,8 @@ public class DeviceManager
                 return;
             }
             Device device = nullIsNotFound(getDevice(deviceId), "Device not found");
-            if ((Device.Type.ROADM.equals(device.type()))) {
+            if ((Device.Type.ROADM.equals(device.type())) ||
+                (Device.Type.OTN.equals(device.type()))) {
                 Port port = getPort(deviceId, portDescription.portNumber());
                 portDescription = OpticalPortOperator.descriptionOf(port, portDescription.isEnabled());
             }
@@ -482,7 +504,7 @@ public class DeviceManager
 
             if (requested == null && response == null) {
                 // something was off with DeviceProvider, maybe check channel too?
-                log.warn("Failed to assert role [{}] onto Device {}", requested, deviceId);
+                log.warn("Failed to assert role onto Device {}", deviceId);
                 mastershipService.relinquishMastership(deviceId);
                 return;
             }
@@ -491,9 +513,12 @@ public class DeviceManager
                 if (Objects.equals(requested, mastershipService.getLocalRole(deviceId))) {
                     return;
                 } else {
-                    return;
-                    // FIXME roleManager got the device to comply, but doesn't agree with
+                    log.warn("Role mismatch on {}. set to {}, but store demands {}",
+                             deviceId, response, mastershipService.getLocalRole(deviceId));
+                    // roleManager got the device to comply, but doesn't agree with
                     // the store; use the store's view, then try to reassert.
+                    backgroundService.execute(() -> reassertRole(deviceId, mastershipService.getLocalRole(deviceId)));
+                    return;
                 }
             } else {
                 // we didn't get back what we asked for. Reelect someone else.
@@ -547,6 +572,7 @@ public class DeviceManager
         provider.roleChanged(deviceId, newRole);
 
         if (newRole.equals(MastershipRole.MASTER)) {
+            log.debug("sent TriggerProbe({})", deviceId);
             // only trigger event when request was sent to provider
             provider.triggerProbe(deviceId);
         }
@@ -565,12 +591,19 @@ public class DeviceManager
 
         MastershipRole myNextRole = nextRole;
         if (myNextRole == NONE) {
-            mastershipService.requestRoleFor(did);
-            MastershipTerm term = termService.getMastershipTerm(did);
-            if (term != null && localNodeId.equals(term.master())) {
-                myNextRole = MASTER;
-            } else {
-                myNextRole = STANDBY;
+            try {
+                mastershipService.requestRoleFor(did).get();
+                MastershipTerm term = termService.getMastershipTerm(did);
+                if (term != null && localNodeId.equals(term.master())) {
+                    myNextRole = MASTER;
+                } else {
+                    myNextRole = STANDBY;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Interrupted waiting for Mastership", e);
+            } catch (ExecutionException e) {
+                log.error("Encountered an error waiting for Mastership", e);
             }
         }
 
@@ -669,7 +702,7 @@ public class DeviceManager
 
         @Override
         public void event(MastershipEvent event) {
-            backgroundService.submit(() -> {
+            backgroundService.execute(() -> {
                 try {
                     handleMastershipEvent(event);
                 } catch (Exception e) {
@@ -730,7 +763,7 @@ public class DeviceManager
         public void event(NetworkConfigEvent event) {
             DeviceEvent de = null;
             if (event.configClass().equals(BasicDeviceConfig.class)) {
-                log.info("Detected Device network config event {}", event.type());
+                log.debug("Detected device network config event {}", event.type());
                 DeviceId did = (DeviceId) event.subject();
                 BasicDeviceConfig cfg = networkConfigService.getConfig(did, BasicDeviceConfig.class);
 
@@ -774,4 +807,5 @@ public class DeviceManager
             }
         }
     }
+
 }

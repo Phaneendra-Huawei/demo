@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ import org.onosproject.net.topology.TopologyService;
 import org.onosproject.ui.JsonUtils;
 import org.onosproject.ui.UiConnection;
 import org.onosproject.ui.UiMessageHandler;
-import org.onosproject.ui.impl.topo.ServicesBundle;
+import org.onosproject.ui.impl.topo.util.ServicesBundle;
 import org.onosproject.ui.topo.PropertyPanel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,7 +81,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static org.onosproject.cluster.ControllerNode.State.ACTIVE;
 import static org.onosproject.net.DefaultEdgeLink.createEdgeLink;
 import static org.onosproject.net.PortNumber.portNumber;
 import static org.onosproject.ui.topo.TopoConstants.CoreButtons;
@@ -230,7 +229,8 @@ public abstract class TopologyViewMessageHandlerBase extends UiMessageHandler {
         ObjectNode payload = objectNode()
                 .put("id", node.id().toString())
                 .put("ip", node.ip().toString())
-                .put("online", clusterService.getState(node.id()) == ACTIVE)
+                .put("online", clusterService.getState(node.id()).isActive())
+                .put("ready", clusterService.getState(node.id()).isReady())
                 .put("uiAttached", node.equals(clusterService.getLocalNode()))
                 .put("switches", switchCount);
 
@@ -278,6 +278,7 @@ public abstract class TopologyViewMessageHandlerBase extends UiMessageHandler {
         ObjectNode payload = objectNode()
                 .put("id", compactLinkString(link))
                 .put("type", link.type().toString().toLowerCase())
+                .put("expected", link.isExpected())
                 .put("online", link.state() == Link.State.ACTIVE)
                 .put("linkWidth", 1.2)
                 .put("src", link.src().deviceId().toString())
@@ -356,18 +357,24 @@ public abstract class TopologyViewMessageHandlerBase extends UiMessageHandler {
             return;
         }
 
-        String slat = annotations.value(AnnotationKeys.LATITUDE);
         String slng = annotations.value(AnnotationKeys.LONGITUDE);
+        String slat = annotations.value(AnnotationKeys.LATITUDE);
+        boolean haveLng = slng != null && !slng.isEmpty();
+        boolean haveLat = slat != null && !slat.isEmpty();
         try {
-            if (slat != null && slng != null && !slat.isEmpty() && !slng.isEmpty()) {
-                double lat = Double.parseDouble(slat);
+            if (haveLng && haveLat) {
                 double lng = Double.parseDouble(slng);
+                double lat = Double.parseDouble(slat);
                 ObjectNode loc = objectNode()
-                        .put("type", "latlng").put("lat", lat).put("lng", lng);
+                        .put("type", "lnglat")
+                        .put("lng", lng)
+                        .put("lat", lat);
                 payload.set("location", loc);
+            } else {
+                log.trace("missing Lng/Lat: lng={}, lat={}", slng, slat);
             }
         } catch (NumberFormatException e) {
-            log.warn("Invalid geo data latitude={}; longiture={}", slat, slng);
+            log.warn("Invalid geo data: longitude={}, latitude={}", slng, slat);
         }
     }
 
@@ -432,7 +439,8 @@ public abstract class TopologyViewMessageHandlerBase extends UiMessageHandler {
             .addButton(CoreButtons.SHOW_DEVICE_VIEW)
             .addButton(CoreButtons.SHOW_FLOW_VIEW)
             .addButton(CoreButtons.SHOW_PORT_VIEW)
-            .addButton(CoreButtons.SHOW_GROUP_VIEW);
+            .addButton(CoreButtons.SHOW_GROUP_VIEW)
+            .addButton(CoreButtons.SHOW_METER_VIEW);
 
         return pp;
     }

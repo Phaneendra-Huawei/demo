@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ public interface FilteringObjective extends Objective {
     Collection<Criterion> conditions();
 
     /**
-     * Auxiliary optional information provided to the device-driver.Typically
+     * Auxiliary optional information provided to the device driver. Typically
      * conveys information about changes (treatments) to packets that are
      * permitted into the pipeline by the PERMIT filtering condition.
      *
@@ -149,6 +149,7 @@ public interface FilteringObjective extends Objective {
          *
          * @return a filtering objective
          */
+        @Override
         FilteringObjective add();
 
         /**
@@ -156,6 +157,7 @@ public interface FilteringObjective extends Objective {
          *
          * @return a filtering objective.
          */
+        @Override
         FilteringObjective remove();
 
         /**
@@ -165,6 +167,7 @@ public interface FilteringObjective extends Objective {
          * @param context an objective context
          * @return a filtering objective
          */
+        @Override
         FilteringObjective add(ObjectiveContext context);
 
         /**
@@ -174,6 +177,7 @@ public interface FilteringObjective extends Objective {
          * @param context an objective context
          * @return a filtering objective
          */
+        @Override
         FilteringObjective remove(ObjectiveContext context);
 
 

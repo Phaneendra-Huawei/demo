@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -134,11 +134,13 @@ public class PathManager implements PathService {
 
     @Override
     public Set<DisjointPath> getDisjointPaths(ElementId src, ElementId dst) {
+        checkPermission(TOPOLOGY_READ);
         return getDisjointPaths(src, dst, (LinkWeight) null);
     }
 
     @Override
     public Set<DisjointPath> getDisjointPaths(ElementId src, ElementId dst, LinkWeight weight) {
+        checkPermission(TOPOLOGY_READ);
         checkNotNull(src, ELEMENT_ID_NULL);
         checkNotNull(dst, ELEMENT_ID_NULL);
 
@@ -173,12 +175,14 @@ public class PathManager implements PathService {
     @Override
     public Set<DisjointPath> getDisjointPaths(ElementId src, ElementId dst,
                                               Map<Link, Object> riskProfile) {
+        checkPermission(TOPOLOGY_READ);
         return getDisjointPaths(src, dst, null, riskProfile);
     }
 
     @Override
     public Set<DisjointPath> getDisjointPaths(ElementId src, ElementId dst, LinkWeight weight,
                                               Map<Link, Object> riskProfile) {
+        checkPermission(TOPOLOGY_READ);
         checkNotNull(src, ELEMENT_ID_NULL);
         checkNotNull(dst, ELEMENT_ID_NULL);
 
@@ -277,8 +281,14 @@ public class PathManager implements PathService {
 
     // Produces a direct edge-to-edge path.
     private DisjointPath edgeToEdgePathD(EdgeLink srcLink, EdgeLink dstLink, DisjointPath path) {
-        return new DefaultDisjointPath(PID, (DefaultPath) edgeToEdgePath(srcLink, dstLink, path.primary()),
-                                       (DefaultPath) edgeToEdgePath(srcLink, dstLink, path.backup()));
+        Path primary = null;
+        Path backup = null;
+        if (path != null) {
+            primary = path.primary();
+            backup = path.backup();
+        }
+        return new DefaultDisjointPath(PID, (DefaultPath) edgeToEdgePath(srcLink, dstLink, primary),
+                                       (DefaultPath) edgeToEdgePath(srcLink, dstLink, backup));
     }
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.karaf.shell.commands.Command;
 import org.onosproject.cli.AbstractShellCommand;
-import org.onosproject.cordvtn.CordVtnService;
-import org.onosproject.cordvtn.CordVtnNode;
+import org.onosproject.cordvtn.impl.CordVtnNodeManager;
+import org.onosproject.cordvtn.api.CordVtnNode;
 
 import java.util.Collections;
 import java.util.List;
@@ -34,41 +34,47 @@ import java.util.List;
         description = "Lists all nodes registered in CORD VTN service")
 public class CordVtnNodeListCommand extends AbstractShellCommand {
 
+    private static final String COMPLETE = "COMPLETE";
+    private static final String INCOMPLETE = "INCOMPLETE";
+
     @Override
     protected void execute() {
-        CordVtnService service = AbstractShellCommand.get(CordVtnService.class);
-        List<CordVtnNode> nodes = service.getNodes();
+        CordVtnNodeManager nodeManager = AbstractShellCommand.get(CordVtnNodeManager.class);
+        List<CordVtnNode> nodes = nodeManager.getNodes();
         Collections.sort(nodes, CordVtnNode.CORDVTN_NODE_COMPARATOR);
 
         if (outputJson()) {
-            print("%s", json(service, nodes));
+            print("%s", json(nodeManager, nodes));
         } else {
             for (CordVtnNode node : nodes) {
-                print("hostname=%s, ovsdb=%s, br-int=%s, init=%s",
+                print("hostname=%s, hostMgmtIp=%s, dpIp=%s, br-int=%s, dpIntf=%s, init=%s",
                       node.hostname(),
-                      node.ovsdbIp().toString() + ":" + node.ovsdbPort().toString(),
+                      node.hostMgmtIp().cidr(),
+                      node.dpIp().cidr(),
                       node.intBrId().toString(),
-                      getState(service, node));
+                      node.dpIntf(),
+                      getState(nodeManager, node));
             }
-            print("Total %s nodes", service.getNodeCount());
+            print("Total %s nodes", nodeManager.getNodeCount());
         }
     }
 
-    private JsonNode json(CordVtnService service, List<CordVtnNode> nodes) {
+    private JsonNode json(CordVtnNodeManager nodeManager, List<CordVtnNode> nodes) {
         ObjectMapper mapper = new ObjectMapper();
         ArrayNode result = mapper.createArrayNode();
         for (CordVtnNode node : nodes) {
-            String ipPort = node.ovsdbIp().toString() + ":" + node.ovsdbPort().toString();
             result.add(mapper.createObjectNode()
                                .put("hostname", node.hostname())
-                               .put("ovsdb", ipPort)
-                               .put("brInt", node.intBrId().toString())
-                               .put("init", getState(service, node)));
+                               .put("hostManagementIp", node.hostMgmtIp().cidr())
+                               .put("dataPlaneIp", node.dpIp().cidr())
+                               .put("bridgeId", node.intBrId().toString())
+                               .put("dataPlaneInterface", node.dpIntf())
+                               .put("init", getState(nodeManager, node)));
         }
         return result;
     }
 
-    private String getState(CordVtnService service, CordVtnNode node) {
-        return service.getNodeInitState(node) ? "COMPLETE" : "INCOMPLETE";
+    private String getState(CordVtnNodeManager nodeManager, CordVtnNode node) {
+        return nodeManager.isNodeInitComplete(node) ? COMPLETE : INCOMPLETE;
     }
 }

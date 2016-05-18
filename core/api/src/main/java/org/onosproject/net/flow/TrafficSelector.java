@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,12 +97,30 @@ public interface TrafficSelector {
         Builder matchEthDst(MacAddress addr);
 
         /**
+         * Matches a l2 dst address with mask.
+         *
+         * @param addr a l2 address
+         * @param mask a mask for an l2 address
+         * @return a selection builder
+         */
+        Builder matchEthDstMasked(MacAddress addr, MacAddress mask);
+
+        /**
          * Matches a l2 src address.
          *
          * @param addr a l2 address
          * @return a selection builder
          */
         Builder matchEthSrc(MacAddress addr);
+
+        /**
+         * Matches a l2 src address with mask.
+         *
+         * @param addr a l2 address
+         * @param mask a mask for an l2 address
+         * @return a selection builder
+         */
+        Builder matchEthSrcMasked(MacAddress addr, MacAddress mask);
 
         /**
          * Matches the ethernet type.
@@ -127,6 +145,22 @@ public interface TrafficSelector {
          * @return a selection builder
          */
         Builder matchVlanPcp(byte vlanPcp);
+
+        /**
+         * Matches the inner vlan id.
+         *
+         * @param vlanId a vlan id
+         * @return a selection builder
+         */
+        Builder matchInnerVlanId(VlanId vlanId);
+
+        /**
+         * Matches a vlan priority.
+         *
+         * @param vlanPcp a vlan priority
+         * @return a selection builder
+         */
+        Builder matchInnerVlanPcp(byte vlanPcp);
 
         /**
          * Matches an IP DSCP (6 bits in ToS field).
@@ -173,28 +207,8 @@ public interface TrafficSelector {
          *
          * @param tcpPort a TCP source port number
          * @return a selection builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder matchTcpSrc(short tcpPort);
-
-        /**
-         * Matches a TCP source port number.
-         *
-         * @param tcpPort a TCP source port number
-         * @return a selection builder
          */
         Builder matchTcpSrc(TpPort tcpPort);
-
-        /**
-         * Matches a TCP destination port number.
-         *
-         * @param tcpPort a TCP destination port number
-         * @return a selection builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder matchTcpDst(short tcpPort);
 
         /**
          * Matches a TCP destination port number.
@@ -209,28 +223,8 @@ public interface TrafficSelector {
          *
          * @param udpPort an UDP source port number
          * @return a selection builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder matchUdpSrc(short udpPort);
-
-        /**
-         * Matches an UDP source port number.
-         *
-         * @param udpPort an UDP source port number
-         * @return a selection builder
          */
         Builder matchUdpSrc(TpPort udpPort);
-
-        /**
-         * Matches an UDP destination port number.
-         *
-         * @param udpPort an UDP destination port number
-         * @return a selection builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder matchUdpDst(short udpPort);
 
         /**
          * Matches an UDP destination port number.
@@ -245,28 +239,8 @@ public interface TrafficSelector {
          *
          * @param sctpPort a SCTP source port number
          * @return a selection builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder matchSctpSrc(short sctpPort);
-
-        /**
-         * Matches a SCTP source port number.
-         *
-         * @param sctpPort a SCTP source port number
-         * @return a selection builder
          */
         Builder matchSctpSrc(TpPort sctpPort);
-
-        /**
-         * Matches a SCTP destination port number.
-         *
-         * @param sctpPort a SCTP destination port number
-         * @return a selection builder
-         * @deprecated in Drake release
-         */
-        @Deprecated
-        Builder matchSctpDst(short sctpPort);
 
         /**
          * Matches a SCTP destination port number.

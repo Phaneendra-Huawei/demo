@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,14 @@
 
 package org.onosproject.pcepio.types;
 
-import java.util.Arrays;
-
+import com.google.common.base.MoreObjects;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.onosproject.pcepio.protocol.PcepVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.MoreObjects.ToStringHelper;
+import java.util.Arrays;
 
 /**
  * Provides IPv6 Sub Object.
@@ -115,15 +114,15 @@ public class IPv6SubObject implements PcepValueType {
      */
     public static IPv6SubObject of(final byte[] raw) {
         //check NONE_VAL
-        boolean bFoundNONE = true;
+        boolean bFoundNone = true;
         //value starts from 3rd byte.
         for (int i = 2; i < 20; ++i) {
             if (NONE_VAL[i] != raw[i]) {
-                bFoundNONE = false;
+                bFoundNone = false;
             }
         }
 
-        if (bFoundNONE) {
+        if (bFoundNone) {
             return NONE;
         }
 

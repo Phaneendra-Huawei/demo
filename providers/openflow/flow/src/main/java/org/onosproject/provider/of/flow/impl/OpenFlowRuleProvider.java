@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ import org.onosproject.openflow.controller.OpenFlowSwitch;
 import org.onosproject.openflow.controller.OpenFlowSwitchListener;
 import org.onosproject.openflow.controller.RoleState;
 import org.onosproject.openflow.controller.ThirdPartyMessage;
+import org.onosproject.provider.of.flow.util.FlowEntryBuilder;
 import org.osgi.service.component.ComponentContext;
 import org.projectfloodlight.openflow.protocol.OFBadRequestCode;
 import org.projectfloodlight.openflow.protocol.OFBarrierRequest;
@@ -114,7 +115,7 @@ public class OpenFlowRuleProvider extends AbstractProvider
             label = "Frequency (in seconds) for polling flow statistics")
     private int flowPollFrequency = DEFAULT_POLL_FREQUENCY;
 
-    private static final boolean DEFAULT_ADAPTIVE_FLOW_SAMPLING = true;
+    private static final boolean DEFAULT_ADAPTIVE_FLOW_SAMPLING = false;
     @Property(name = "adaptiveFlowSampling", boolValue = DEFAULT_ADAPTIVE_FLOW_SAMPLING,
             label = "Adaptive Flow Sampling is on or off")
     private boolean adaptiveFlowSampling = DEFAULT_ADAPTIVE_FLOW_SAMPLING;
@@ -146,6 +147,8 @@ public class OpenFlowRuleProvider extends AbstractProvider
         providerService = providerRegistry.register(this);
         controller.addListener(listener);
         controller.addEventListener(listener);
+
+        modified(context);
 
         pendingBatches = createBatchCache();
 
@@ -217,7 +220,8 @@ public class OpenFlowRuleProvider extends AbstractProvider
     private void createCollector(OpenFlowSwitch sw) {
         if (adaptiveFlowSampling) {
             // NewAdaptiveFlowStatsCollector Constructor
-            NewAdaptiveFlowStatsCollector fsc = new NewAdaptiveFlowStatsCollector(sw, flowPollFrequency);
+            NewAdaptiveFlowStatsCollector fsc =
+                    new NewAdaptiveFlowStatsCollector(driverService, sw, flowPollFrequency);
             fsc.start();
             afsCollectors.put(new Dpid(sw.getId()), fsc);
         } else {
@@ -265,6 +269,10 @@ public class OpenFlowRuleProvider extends AbstractProvider
         Dpid dpid = Dpid.dpid(flowRule.deviceId().uri());
         OpenFlowSwitch sw = controller.getSwitch(dpid);
 
+        if (sw == null) {
+            return;
+        }
+
         FlowRuleExtPayLoad flowRuleExtPayLoad = flowRule.payLoad();
         if (hasPayload(flowRuleExtPayLoad)) {
             OFMessage msg = new ThirdPartyMessage(flowRuleExtPayLoad.payLoad());
@@ -293,6 +301,10 @@ public class OpenFlowRuleProvider extends AbstractProvider
     private void removeRule(FlowRule flowRule) {
         Dpid dpid = Dpid.dpid(flowRule.deviceId().uri());
         OpenFlowSwitch sw = controller.getSwitch(dpid);
+
+        if (sw == null) {
+            return;
+        }
 
         FlowRuleExtPayLoad flowRuleExtPayLoad = flowRule.payLoad();
         if (hasPayload(flowRuleExtPayLoad)) {
@@ -422,12 +434,16 @@ public class OpenFlowRuleProvider extends AbstractProvider
 
         @Override
         public void handleMessage(Dpid dpid, OFMessage msg) {
-            OpenFlowSwitch sw = controller.getSwitch(dpid);
+            if (providerService == null) {
+                // We are shutting down, nothing to be done
+                return;
+            }
+            DeviceId deviceId = DeviceId.deviceId(Dpid.uri(dpid));
             switch (msg.getType()) {
                 case FLOW_REMOVED:
                     OFFlowRemoved removed = (OFFlowRemoved) msg;
 
-                    FlowEntry fr = new FlowEntryBuilder(dpid, removed, driverService).build();
+                    FlowEntry fr = new FlowEntryBuilder(deviceId, removed, driverService).build();
                     providerService.flowRemoved(fr);
 
                     if (adaptiveFlowSampling) {
@@ -478,7 +494,7 @@ public class OpenFlowRuleProvider extends AbstractProvider
                             InternalCacheEntry entry =
                                     pendingBatches.getIfPresent(msg.getXid());
                             if (entry != null) {
-                                entry.appendFailure(new FlowEntryBuilder(dpid, fm, driverService).build());
+                                entry.appendFailure(new FlowEntryBuilder(deviceId, fm, driverService).build());
                             } else {
                                 log.error("No matching batch for this error: {}", error);
                             }
@@ -488,7 +504,7 @@ public class OpenFlowRuleProvider extends AbstractProvider
                                               + " tell us which one.");
                         }
                     }
-
+                    break;
                 default:
                     log.debug("Unhandled message type: {}", msg.getType());
             }
@@ -505,7 +521,7 @@ public class OpenFlowRuleProvider extends AbstractProvider
             DeviceId did = DeviceId.deviceId(Dpid.uri(dpid));
 
             List<FlowEntry> flowEntries = replies.getEntries().stream()
-                    .map(entry -> new FlowEntryBuilder(dpid, entry, driverService).build())
+                    .map(entry -> new FlowEntryBuilder(did, entry, driverService).build())
                     .collect(Collectors.toList());
 
             if (adaptiveFlowSampling)  {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,8 @@ public final class CriterionCodec extends JsonCodec<Criterion> {
     protected static final String METADATA = "metadata";
 
     protected static final String VLAN_ID = "vlanId";
+    protected static final String INNER_VLAN_ID = "innerVlanId";
+    protected static final String INNER_PRIORITY = "innerPriority";
     protected static final String PRIORITY = "priority";
     protected static final String IP_DSCP = "ipDscp";
     protected static final String IP_ECN = "ipEcn";

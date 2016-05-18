@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,28 +16,31 @@
 package org.onosproject.incubator.net.faultmanagement.alarm;
 
 import com.google.common.annotations.Beta;
+import org.onlab.util.Identifier;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-
+import static com.google.common.base.Preconditions.checkArgument;
 /**
  * Alarm identifier suitable as an external key.
  * <p>
  * This class is immutable.</p>
  */
 @Beta
-public final class AlarmId {
+public final class AlarmId extends Identifier<Long> {
 
-    private final long id;
+    public static final AlarmId NONE = new AlarmId();
 
     /**
      * Instantiates a new Alarm id.
      *
      * @param id the id
      */
-    public AlarmId(final long id) {
-        this.id = id;
+    private AlarmId(long id) {
+        super(id);
+        checkArgument(id != 0L, "id must be non-zero");
+    }
+
+    private AlarmId() {
+        super(0L);
     }
 
     /**
@@ -46,7 +49,7 @@ public final class AlarmId {
      * @param value long value
      * @return intent identifier
      */
-    public static AlarmId valueOf(final long value) {
+    public static AlarmId alarmId(long value) {
         return new AlarmId(value);
     }
 
@@ -56,29 +59,6 @@ public final class AlarmId {
      * @return backing integer index
      */
     public long fingerprint() {
-        return id;
+        return identifier;
     }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id);
-    }
-
-    @Override
-    public boolean equals(final Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj instanceof AlarmId) {
-            final AlarmId other = (AlarmId) obj;
-            return Objects.equals(this.id, other.id);
-        }
-        return false;
-    }
-
-    @Override
-    public String toString() {
-        return toStringHelper(this).add("id", id).toString();
-    }
-
 }

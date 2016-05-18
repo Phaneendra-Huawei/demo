@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!--
-  ~ Copyright 2015 Open Networking Laboratory
+  ~ Copyright 2015-present Open Networking Laboratory
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -21,5 +21,7 @@
         <feature>onos-drivers</feature>
         <bundle>mvn:${project.groupId}/onos-app-fm-mgr/${project.version}</bundle>
         <bundle>mvn:${project.groupId}/onos-app-fm-web/${project.version}</bundle>
+        <bundle>mvn:${project.groupId}/onos-app-fm-gui/${project.version}</bundle>
+        <bundle>mvn:${project.groupId}/onos-app-fm-cli/${project.version}</bundle>
     </feature>
 </features>

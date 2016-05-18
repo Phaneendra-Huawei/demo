@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package org.onosproject.net.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
@@ -25,7 +26,7 @@ import java.util.Set;
 public class NetworkConfigServiceAdapter implements NetworkConfigService {
     @Override
     public Set<Class> getSubjectClasses() {
-        return null;
+        return ImmutableSet.of();
     }
 
     @Override
@@ -45,17 +46,17 @@ public class NetworkConfigServiceAdapter implements NetworkConfigService {
 
     @Override
     public <S> Set<S> getSubjects(Class<S> subjectClass) {
-        return null;
+        return ImmutableSet.of();
     }
 
     @Override
     public <S, C extends Config<S>> Set<S> getSubjects(Class<S> subjectClass, Class<C> configClass) {
-        return null;
+        return ImmutableSet.of();
     }
 
     @Override
     public <S> Set<? extends Config<S>> getConfigs(S subject) {
-        return null;
+        return ImmutableSet.of();
     }
 
     @Override

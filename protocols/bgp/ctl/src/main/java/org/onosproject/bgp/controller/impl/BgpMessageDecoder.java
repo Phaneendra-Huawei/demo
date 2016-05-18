@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,13 +48,27 @@ public class BgpMessageDecoder extends FrameDecoder {
         HexDump.dump(buffer);
 
         BgpMessageReader<BgpMessage> reader = BgpFactories.getGenericReader();
-        List<BgpMessage> msgList = new LinkedList<BgpMessage>();
+        List<BgpMessage> msgList = (List<BgpMessage>) ctx.getAttachment();
 
-        while (buffer.readableBytes() > 0) {
-            BgpHeader bgpHeader = new BgpHeader();
-            BgpMessage message = reader.readFrom(buffer, bgpHeader);
-            msgList.add(message);
+        if (msgList == null) {
+            msgList = new LinkedList<>();
         }
-        return msgList;
+
+        try {
+            while (buffer.readableBytes() > 0) {
+                buffer.markReaderIndex();
+                BgpHeader bgpHeader = new BgpHeader();
+                BgpMessage message = reader.readFrom(buffer, bgpHeader);
+                msgList.add(message);
+            }
+
+            return msgList;
+        } catch (Exception e) {
+            log.debug("Bgp protocol message decode error");
+            buffer.resetReaderIndex();
+            buffer.discardReadBytes();
+            ctx.setAttachment(msgList);
+        }
+        return null;
     }
 }

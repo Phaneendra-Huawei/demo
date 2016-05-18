@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -252,7 +252,7 @@ public class HostManager
             if ((event.type() == NetworkConfigEvent.Type.CONFIG_ADDED ||
                     event.type() == NetworkConfigEvent.Type.CONFIG_UPDATED) &&
                     event.configClass().equals(BasicHostConfig.class)) {
-                log.info("Detected Host network config event {}", event.type());
+                log.debug("Detected host network config event {}", event.type());
                 kickOutBadHost(((HostId) event.subject()));
             }
         }

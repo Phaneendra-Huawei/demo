@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,9 +50,9 @@ public class MainNavResource extends AbstractInjectionResource {
             "<!-- {INJECTED-VIEW-NAV-END} -->";
 
     private static final String HDR_FORMAT =
-            "<div class=\"nav-hdr\">%s</div>\n";
+            "<div class=\"nav-hdr\">%s</div>%n";
     private static final String NAV_FORMAT =
-            "<a ng-click=\"navCtrl.hideNav()\" href=\"#/%s\">%s %s</a>\n";
+            "<a ng-click=\"navCtrl.hideNav()\" href=\"#/%s\">%s %s</a>%n";
 
     private static final String BLANK_GLYPH = "unknown";
 

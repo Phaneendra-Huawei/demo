@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.onosproject.store.service.DistributedSetBuilder;
 import org.onosproject.store.service.DistributedQueueBuilder;
 import org.onosproject.store.service.AtomicCounterBuilder;
 import org.onosproject.store.service.AtomicValueBuilder;
+import org.onosproject.store.service.LeaderElectorBuilder;
 import org.onosproject.store.service.TransactionContextBuilder;
 import org.onosproject.store.service.StorageService;
 
@@ -60,6 +61,11 @@ public class VtnStorageServiceAdapter implements StorageService {
 
     @Override
     public TransactionContextBuilder transactionContextBuilder() {
+        return null;
+    }
+
+    @Override
+    public LeaderElectorBuilder leaderElectorBuilder() {
         return null;
     }
 }

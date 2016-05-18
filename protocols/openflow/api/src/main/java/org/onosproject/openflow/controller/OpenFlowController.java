@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +63,13 @@ public interface OpenFlowController {
      * @return the interface to this switch
      */
     OpenFlowSwitch getEqualSwitch(Dpid dpid);
+
+    /**
+     * If this set to be true, all incoming events are monitored.
+     * Other wise, only stats related incoming events are monitored
+     * @param monitor monitoring flag
+     */
+    void monitorAllEvents(boolean monitor);
 
     /**
      * Register a listener for meta events that occur to OF

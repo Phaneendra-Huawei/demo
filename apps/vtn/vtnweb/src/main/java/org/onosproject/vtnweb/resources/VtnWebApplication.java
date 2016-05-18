@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 package org.onosproject.vtnweb.resources;
 
-import org.onlab.rest.AbstractWebApplication;
-
 import java.util.Set;
+
+import org.onlab.rest.AbstractWebApplication;
 
 /**
  * VTN REST API web application.
@@ -34,7 +34,9 @@ public class VtnWebApplication extends AbstractWebApplication {
                           PortPairGroupWebResource.class,
                           PortPairWebResource.class,
                           FloatingIpWebResource.class,
-                          RouterWebResource.class);
+                          RouterWebResource.class,
+                          ClassifierWebResource.class,
+                          PortChainSfMapWebResource.class,
+                          PortChainDeviceMapWebResource.class);
     }
 }
-

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 package org.onosproject.net.flow.instructions;
 
+import java.util.Objects;
+
 import com.google.common.annotations.Beta;
 import com.google.common.base.MoreObjects;
-
-import java.util.Objects;
 
 /**
  * Type of treatment extensions.
@@ -28,23 +28,40 @@ import java.util.Objects;
 public final class ExtensionTreatmentType {
 
     /**
-     * A list of well-known named extension instruction type codes.
-     * These numbers have no impact on the actual OF type id.
+     * A list of well-known named extension instruction type codes. These
+     * numbers have no impact on the actual OF type id.
      */
     public enum ExtensionTreatmentTypes {
         NICIRA_SET_TUNNEL_DST(0),
         NICIRA_RESUBMIT(1),
-        NICIRA_RESUBMIT_TABLE(14),
-        NICIRA_SET_NSH_SPI(32),
-        NICIRA_SET_NSH_SI(33),
-        NICIRA_SET_NSH_CH1(34),
-        NICIRA_SET_NSH_CH2(35),
-        NICIRA_SET_NSH_CH3(36),
-        NICIRA_SET_NSH_CH4(37),
         NICIRA_MOV_ARP_SHA_TO_THA(2),
         NICIRA_MOV_ARP_SPA_TO_TPA(3),
         NICIRA_MOV_ETH_SRC_TO_DST(4),
-        NICIRA_MOV_IP_SRC_TO_DST(5);
+        NICIRA_MOV_IP_SRC_TO_DST(5),
+        NICIRA_MOV_NSH_C1_TO_C1(6),
+        NICIRA_MOV_NSH_C2_TO_C2(7),
+        NICIRA_MOV_NSH_C3_TO_C3(8),
+        NICIRA_MOV_NSH_C4_TO_C4(9),
+        NICIRA_MOV_TUN_IPV4_DST_TO_TUN_IPV4_DST(10),
+        NICIRA_MOV_TUN_ID_TO_TUN_ID(11),
+        NICIRA_MOV_NSH_C2_TO_TUN_ID(12),
+        NICIRA_RESUBMIT_TABLE(14),
+        NICIRA_PUSH_NSH(38),
+        NICIRA_POP_NSH(39),
+        OFDPA_SET_VLAN_ID(64),
+        NICIRA_TUN_GPE_NP(111),
+        NICIRA_SET_NSH_SPI(113),
+        NICIRA_SET_NSH_SI(114),
+        NICIRA_SET_NSH_CH1(115),
+        NICIRA_SET_NSH_CH2(116),
+        NICIRA_SET_NSH_CH3(117),
+        NICIRA_SET_NSH_CH4(118),
+        NICIRA_NSH_MDTYPE(119),
+        NICIRA_NSH_NP(120),
+        NICIRA_ENCAP_ETH_SRC(121),
+        NICIRA_ENCAP_ETH_DST(122),
+        NICIRA_ENCAP_ETH_TYPE(123),
+        P4_BMV2_ACTION(128);
 
         private ExtensionTreatmentType type;
 
@@ -78,6 +95,15 @@ public final class ExtensionTreatmentType {
         this.type = type;
     }
 
+    /**
+     * Returns extension treatment type.
+     *
+     * @return extension treatment type
+     */
+    public int type() {
+        return type;
+    }
+
     @Override
     public int hashCode() {
         return Objects.hash(type);
@@ -97,8 +123,6 @@ public final class ExtensionTreatmentType {
 
     @Override
     public String toString() {
-        return MoreObjects.toStringHelper(ExtensionTreatmentType.class)
-                .add("type", type)
-                .toString();
+        return MoreObjects.toStringHelper(ExtensionTreatmentType.class).add("type", type).toString();
     }
 }

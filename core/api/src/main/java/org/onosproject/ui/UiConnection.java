@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * Abstraction of a user interface session connection.
  */
 public interface UiConnection {
+
+    /**
+     * Returns the name of the logged-in user for which this connection exists.
+     *
+     * @return logged in user name
+     */
+    String userName();
 
     /**
      * Sends the specified JSON message to the user interface client.

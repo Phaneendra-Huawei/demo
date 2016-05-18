@@ -15,7 +15,15 @@
  */
 package org.onosproject.aaa;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -48,16 +56,9 @@ import org.onosproject.net.packet.OutboundPacket;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketService;
-import org.onosproject.xosintegration.VoltTenantService;
 import org.slf4j.Logger;
 
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.nio.ByteBuffer;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import static org.onosproject.net.config.basics.SubjectFactories.APP_SUBJECT_FACTORY;
 import static org.onosproject.net.packet.PacketPriority.CONTROL;
@@ -80,9 +81,6 @@ public class AaaManager {
     // to receive Packet-in events that we'll respond to
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected PacketService packetService;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected VoltTenantService voltTenantService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected NetworkConfigRegistry netCfgService;
@@ -166,6 +164,21 @@ public class AaaManager {
         return eth;
     }
 
+    private void initializeLocalState() {
+        try {
+            radiusSocket = new DatagramSocket(null);
+            radiusSocket.setReuseAddress(true);
+            radiusSocket.bind(new InetSocketAddress(radiusServerPort));
+        } catch (Exception ex) {
+            log.error("Can't open RADIUS socket", ex);
+        }
+
+        executor = Executors.newSingleThreadExecutor(
+                new ThreadFactoryBuilder()
+                        .setNameFormat("AAA-radius-%d").build());
+        executor.execute(radiusListener);
+    }
+
     @Activate
     public void activate() {
         netCfgService.addListener(cfgListener);
@@ -182,16 +195,7 @@ public class AaaManager {
 
         StateMachine.initializeMaps();
 
-        try {
-            radiusSocket = new DatagramSocket(radiusServerPort);
-        } catch (Exception ex) {
-            log.error("Can't open RADIUS socket", ex);
-        }
-
-        executor = Executors.newSingleThreadExecutor(
-                new ThreadFactoryBuilder()
-                        .setNameFormat("AAA-radius-%d").build());
-        executor.execute(radiusListener);
+        initializeLocalState();
         log.info("Started");
     }
 
@@ -327,7 +331,7 @@ public class AaaManager {
             String sessionId = deviceId.toString() + portNumber.toString();
             StateMachine stateMachine = StateMachine.lookupStateMachineBySessionId(sessionId);
             if (stateMachine == null) {
-                stateMachine = new StateMachine(sessionId, voltTenantService);
+                stateMachine = new StateMachine(sessionId);
             }
 
 
@@ -347,6 +351,12 @@ public class AaaManager {
                     stateMachine.setVlanId(ethPkt.getVlanID());
 
                     sendPacketToSupplicant(eth, stateMachine.supplicantConnectpoint());
+
+                    break;
+                case EAPOL.EAPOL_LOGOFF:
+                    if (stateMachine.state() == StateMachine.STATE_AUTHORIZED) {
+                        stateMachine.logoff();
+                    }
 
                     break;
                 case EAPOL.EAPOL_PACKET:
@@ -380,8 +390,10 @@ public class AaaManager {
                                                          stateMachine.identifier(),
                                                          eapPacket);
 
-                                radiusPayload.setAttribute(RADIUSAttribute.RADIUS_ATTR_STATE,
-                                                           stateMachine.challengeState());
+                                if (stateMachine.challengeState() != null) {
+                                    radiusPayload.setAttribute(RADIUSAttribute.RADIUS_ATTR_STATE,
+                                            stateMachine.challengeState());
+                                }
                                 radiusPayload.addMessageAuthenticator(AaaManager.this.radiusSecret);
                                 sendRadiusPacket(radiusPayload);
                             }
@@ -390,8 +402,10 @@ public class AaaManager {
                             // request id access to RADIUS
                             radiusPayload = getRadiusPayload(stateMachine, stateMachine.identifier(), eapPacket);
 
-                            radiusPayload.setAttribute(RADIUSAttribute.RADIUS_ATTR_STATE,
-                                    stateMachine.challengeState());
+                            if (stateMachine.challengeState() != null) {
+                                radiusPayload.setAttribute(RADIUSAttribute.RADIUS_ATTR_STATE,
+                                        stateMachine.challengeState());
+                            }
                             stateMachine.setRequestAuthenticator(radiusPayload.generateAuthCode());
 
                             radiusPayload.addMessageAuthenticator(AaaManager.this.radiusSecret);
@@ -432,8 +446,11 @@ public class AaaManager {
             Ethernet eth;
             switch (radiusPacket.getCode()) {
                 case RADIUS.RADIUS_CODE_ACCESS_CHALLENGE:
-                    byte[] challengeState =
-                            radiusPacket.getAttribute(RADIUSAttribute.RADIUS_ATTR_STATE).getValue();
+                    RADIUSAttribute radiusAttrState = radiusPacket.getAttribute(RADIUSAttribute.RADIUS_ATTR_STATE);
+                    byte[] challengeState = null;
+                    if (radiusAttrState != null) {
+                        challengeState = radiusAttrState.getValue();
+                    }
                     eapPayload = radiusPacket.decapsulateMessage();
                     stateMachine.setChallengeInfo(eapPayload.getIdentifier(), challengeState);
                     eth = buildEapolResponse(stateMachine.supplicantAddress(),
@@ -508,7 +525,8 @@ public class AaaManager {
     private class InternalConfigListener implements NetworkConfigListener {
 
         /**
-         * Reconfigures the DHCP Server according to the configuration parameters passed.
+         * Reconfigures the AAA application according to the
+         * configuration parameters passed.
          *
          * @param cfg configuration object
          */
@@ -554,6 +572,9 @@ public class AaaManager {
 
                 AaaConfig cfg = netCfgService.getConfig(appId, AaaConfig.class);
                 reconfigureNetwork(cfg);
+                radiusSocket.close();
+                executor.shutdownNow();
+                initializeLocalState();
                 log.info("Reconfigured");
             }
         }

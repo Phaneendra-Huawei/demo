@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 package org.onosproject.net.flow.criteria;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 
 import java.util.Objects;
 
@@ -54,8 +52,7 @@ public final class ArpOpCriterion implements Criterion {
 
     @Override
     public String toString() {
-        return toStringHelper(type().toString())
-                .add("arpOp", arpOp).toString();
+        return type().toString() + SEPARATOR + arpOp;
     }
 
     @Override

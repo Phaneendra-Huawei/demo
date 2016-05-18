@@ -5,21 +5,21 @@ export ONOS_ROOT=${ONOS_ROOT:-~/onos}
 
 # M2 repository and Karaf gold bits
 export M2_REPO=${M2_REPO:-~/.m2/repository}
-export KARAF_VERSION=${KARAF_VERSION:-3.0.3}
+export KARAF_VERSION=${KARAF_VERSION:-3.0.5}
 export KARAF_ZIP=${KARAF_ZIP:-~/Downloads/apache-karaf-$KARAF_VERSION.zip}
 export KARAF_TAR=${KARAF_TAR:-~/Downloads/apache-karaf-$KARAF_VERSION.tar.gz}
 export KARAF_DIST=$(basename $KARAF_ZIP .zip)
 
 # Add ONOS-specific directories to the exectable PATH
-export PATH="$PATH:$ONOS_ROOT/tools/dev/bin:$ONOS_ROOT/tools/test/bin"
-export PATH="$PATH:$ONOS_ROOT/tools/build"
+export PATH="$ONOS_ROOT/tools/dev/bin:$ONOS_ROOT/tools/test/bin:$PATH"
+export PATH="$ONOS_ROOT/tools/build:$PATH"
 
 # Fallback build number us derived from from the user name & time
 export BUILD_NUMBER=${BUILD_NUMBER:-$(id -un)~$(date +'%Y/%m/%d@%H:%M')}
 
 # ONOS Version and onos.tar.gz staging environment
-export ONOS_POM_VERSION="1.4.1-SNAPSHOT"
-export ONOS_VERSION=${ONOS_VERSION:-1.4.1.$BUILD_NUMBER}
+export ONOS_POM_VERSION="1.6.0-SNAPSHOT"
+export ONOS_VERSION=${ONOS_VERSION:-1.6.0.$BUILD_NUMBER}
 
 # ONOS production bits (onos.tar.gz, onos.zip, onos.deb, onos.rpm) staging environment
 export ONOS_BITS=onos-${ONOS_VERSION%~*}
@@ -45,7 +45,7 @@ export ONOS_TEST_TAR=$ONOS_TEST_STAGE.tar.gz
 # fi
 export ONOS_INSTALL_DIR="/opt/onos"     # Installation directory on remote
 export OCI="${OCI:-192.168.56.101}"     # ONOS Controller Instance
-export ONOS_USER="root1"    # ONOS user on remote system
+export ONOS_USER="${ONOS_USER:-sdn}"    # ONOS user on remote system
 export ONOS_GROUP="${ONOS_GROUP:-sdn}"  # ONOS group on remote system
-export ONOS_PWD="root123"                 # ONOS user password on remote system
+export ONOS_PWD="rocks"                 # ONOS user password on remote system
 export ONOS_SCENARIOS=$ONOS_ROOT/tools/test/scenarios

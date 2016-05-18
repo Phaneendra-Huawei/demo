@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -122,9 +122,11 @@ public class DefaultTopologyTest {
 
     // Short-hand for creating a link.
     public static Link link(String src, int sp, String dst, int dp) {
-        return new DefaultLink(PID, new ConnectPoint(did(src), portNumber(sp)),
-                               new ConnectPoint(did(dst), portNumber(dp)),
-                               Link.Type.DIRECT);
+        return DefaultLink.builder().providerId(PID)
+                .src(new ConnectPoint(did(src), portNumber(sp)))
+                .dst(new ConnectPoint(did(dst), portNumber(dp)))
+                .type(Link.Type.DIRECT)
+                .build();
     }
 
     // Crates a new device with the specified id

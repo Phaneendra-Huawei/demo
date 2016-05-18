@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,9 +39,9 @@ import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.Key;
 import org.onosproject.net.intent.MockIdGenerator;
 import org.onosproject.net.link.LinkEvent;
-import org.onosproject.net.newresource.ResourceEvent;
-import org.onosproject.net.newresource.ResourceListener;
-import org.onosproject.net.newresource.ResourcePath;
+import org.onosproject.net.resource.ResourceEvent;
+import org.onosproject.net.resource.ResourceListener;
+import org.onosproject.net.resource.Resources;
 import org.onosproject.net.topology.Topology;
 import org.onosproject.net.topology.TopologyEvent;
 import org.onosproject.net.topology.TopologyListener;
@@ -54,7 +54,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.onosproject.net.newresource.ResourceEvent.Type.*;
+import static org.onosproject.net.resource.ResourceEvent.Type.*;
 import static org.onosproject.net.NetTestTools.APP_ID;
 import static org.onosproject.net.NetTestTools.device;
 import static org.onosproject.net.NetTestTools.link;
@@ -232,7 +232,7 @@ public class ObjectiveTrackerTest {
     @Test
     public void testResourceEvent() throws Exception {
         ResourceEvent event = new ResourceEvent(RESOURCE_ADDED,
-                ResourcePath.discrete(DeviceId.deviceId("a"), PortNumber.portNumber(1)));
+                Resources.discrete(DeviceId.deviceId("a"), PortNumber.portNumber(1)).resource());
         resourceListener.event(event);
 
         assertThat(

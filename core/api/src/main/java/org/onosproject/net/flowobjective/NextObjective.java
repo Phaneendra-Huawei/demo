@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ public interface NextObjective extends Objective {
     Type type();
 
     /**
-     * Auxiliary optional information provided to the device-driver.Typically
+     * Auxiliary optional information provided to the device driver. Typically
      * conveys information about selectors (matches) that are intended to
      * use this Next Objective.
      *
@@ -154,6 +154,7 @@ public interface NextObjective extends Objective {
          *
          * @return a next objective
          */
+        @Override
         NextObjective add();
 
         /**
@@ -161,6 +162,7 @@ public interface NextObjective extends Objective {
          *
          * @return a next objective.
          */
+        @Override
         NextObjective remove();
 
         /**
@@ -170,6 +172,7 @@ public interface NextObjective extends Objective {
          * @param context an objective context
          * @return a next objective
          */
+        @Override
         NextObjective add(ObjectiveContext context);
 
         /**
@@ -179,6 +182,7 @@ public interface NextObjective extends Objective {
          * @param context an objective context
          * @return a next objective
          */
+        @Override
         NextObjective remove(ObjectiveContext context);
 
         /**

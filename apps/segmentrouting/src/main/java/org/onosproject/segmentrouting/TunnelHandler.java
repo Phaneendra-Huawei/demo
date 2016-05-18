@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,16 +43,54 @@ public class TunnelHandler {
     private Map<DeviceId, DefaultGroupHandler> groupHandlerMap;
     private LinkService linkService;
 
+    /**
+     * Result of tunnel creation or removal.
+     */
     public enum Result {
+        /**
+         * Success.
+         */
         SUCCESS,
+
+        /**
+         * More than one router needs to specified to created a tunnel.
+         */
         WRONG_PATH,
+
+        /**
+         * The same tunnel exists already.
+         */
         TUNNEL_EXISTS,
+
+        /**
+         * The same tunnel ID exists already.
+         */
         ID_EXISTS,
+
+        /**
+         * Tunnel not found.
+         */
         TUNNEL_NOT_FOUND,
+
+        /**
+         * Cannot remove the tunnel used by a policy.
+         */
         TUNNEL_IN_USE,
+
+        /**
+         * Failed to create/remove groups for the tunnel.
+         */
         INTERNAL_ERROR
     }
 
+    /**
+     * Constructs tunnel handler.
+     *
+     * @param linkService link service
+     * @param deviceConfiguration device configuration
+     * @param groupHandlerMap group handler map
+     * @param tunnelStore tunnel store
+     */
     public TunnelHandler(LinkService linkService,
                          DeviceConfiguration deviceConfiguration,
                          Map<DeviceId, DefaultGroupHandler> groupHandlerMap,

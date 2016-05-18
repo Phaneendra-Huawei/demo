@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
@@ -13,9 +13,12 @@
 
 package org.onosproject.bgp.controller.impl;
 
+import java.util.List;
+
 import org.onosproject.bgp.controller.BgpId;
 import org.onosproject.bgp.controller.BgpSessionInfo;
 import org.onosproject.bgpio.protocol.BgpVersion;
+import org.onosproject.bgpio.types.BgpValueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +35,7 @@ public class BgpSessionInfoImpl implements BgpSessionInfo {
     private int remoteBgpIdentifier;
     private short negotiatedholdTime;
     private boolean isIbgpSession;
+    List<BgpValueType> remoteBgpCapability;
 
     /**
      * Initialize session info.
@@ -43,10 +47,11 @@ public class BgpSessionInfoImpl implements BgpSessionInfo {
      *@param remoteBgpIdentifier remote peer identifier
      *@param negotiatedholdTime negotiated hold time
      *@param isIbgpSession session type ibgp/ebgp
+     *@param remoteBgpCapability remote peer capabilities
      */
     public BgpSessionInfoImpl(BgpId remoteBgpId, BgpVersion remoteBgpVersion, long remoteBgpASNum,
                               short remoteBgpholdTime, int remoteBgpIdentifier, short negotiatedholdTime,
-                              boolean isIbgpSession) {
+                              boolean isIbgpSession, List<BgpValueType> remoteBgpCapability) {
         this.remoteBgpId = remoteBgpId;
         this.remoteBgpVersion = remoteBgpVersion;
         this.remoteBgpASNum = remoteBgpASNum;
@@ -54,6 +59,12 @@ public class BgpSessionInfoImpl implements BgpSessionInfo {
         this.remoteBgpIdentifier = remoteBgpIdentifier;
         this.negotiatedholdTime = negotiatedholdTime;
         this.isIbgpSession = isIbgpSession;
+        this.remoteBgpCapability = remoteBgpCapability;
+    }
+
+    @Override
+    public List<BgpValueType> remoteBgpCapability() {
+        return remoteBgpCapability;
     }
 
     @Override

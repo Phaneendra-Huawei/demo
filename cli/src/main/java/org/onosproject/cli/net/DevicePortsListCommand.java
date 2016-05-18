@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,12 @@ import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
 import org.apache.karaf.shell.commands.Option;
 import org.onlab.util.Frequency;
-import org.onosproject.cli.Comparators;
+import org.onosproject.utils.Comparators;
 import org.onosproject.net.Device;
 import org.onosproject.net.OchPort;
 import org.onosproject.net.OduCltPort;
 import org.onosproject.net.OmsPort;
+import org.onosproject.net.OtuPort;
 import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceService;
@@ -47,7 +48,7 @@ public class DevicePortsListCommand extends DevicesListCommand {
 
     private static final String FMT = "  port=%s, state=%s, type=%s, speed=%s %s";
     private static final String FMT_OCH = "  port=%s, state=%s, type=%s, signalType=%s, isTunable=%s %s";
-    private static final String FMT_ODUCLT = "  port=%s, state=%s, type=%s, signalType=%s %s";
+    private static final String FMT_ODUCLT_OTU = "  port=%s, state=%s, type=%s, signalType=%s %s";
     private static final String FMT_OMS = "  port=%s, state=%s, type=%s, Freqs= %s / %s / %s GHz, totalChannels=%s %s";
 
     @Option(name = "-e", aliases = "--enabled", description = "Show only enabled ports",
@@ -158,7 +159,7 @@ public class DevicePortsListCommand extends DevicesListCommand {
                              ((OchPort) port).isTunable() ? "yes" : "no", annotations);
                      break;
                 case ODUCLT:
-                     print(FMT_ODUCLT, portName, portIsEnabled, portType,
+                     print(FMT_ODUCLT_OTU, portName, portIsEnabled, portType,
                             ((OduCltPort) port).signalType().toString(), annotations);
                      break;
                 case OMS:
@@ -167,6 +168,10 @@ public class DevicePortsListCommand extends DevicesListCommand {
                                 ((OmsPort) port).maxFrequency().asHz() / Frequency.ofGHz(1).asHz(),
                                 ((OmsPort) port).grid().asHz() / Frequency.ofGHz(1).asHz(),
                                 ((OmsPort) port).totalChannels(), annotations);
+                    break;
+                case OTU:
+                    print(FMT_ODUCLT_OTU, portName, portIsEnabled, portType,
+                                ((OtuPort) port).signalType().toString(), annotations);
                     break;
                 default:
                      print(FMT, portName, portIsEnabled, portType, port.portSpeed(), annotations);

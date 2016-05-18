@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.onlab.packet.IpAddress;
 import org.onosproject.net.Device;
 import org.onosproject.net.driver.AbstractHandlerBehaviour;
 import org.onosproject.openflow.controller.Dpid;
+import org.onosproject.openflow.controller.OpenFlowEventListener;
 import org.onosproject.openflow.controller.RoleState;
 import org.projectfloodlight.openflow.protocol.OFDescStatsReply;
 import org.projectfloodlight.openflow.protocol.OFErrorMsg;
@@ -36,6 +37,7 @@ import org.projectfloodlight.openflow.protocol.OFPortDescStatsReply;
 import org.projectfloodlight.openflow.protocol.OFPortStatus;
 import org.projectfloodlight.openflow.protocol.OFRoleReply;
 import org.projectfloodlight.openflow.protocol.OFRoleRequest;
+import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.protocol.OFVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,9 +48,15 @@ import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import static org.onlab.util.Tools.groupedThreads;
 
 /**
  * An abstract representation of an OpenFlow switch. Can be extended by others
@@ -82,6 +90,14 @@ public abstract class AbstractOpenFlowSwitch extends AbstractHandlerBehaviour
     protected OFFeaturesReply features;
     protected OFDescStatsReply desc;
 
+    protected Set<OpenFlowEventListener> ofOutgoingMsgListener = new CopyOnWriteArraySet<>();
+
+    protected ExecutorService executorMsgs =
+            Executors.newCachedThreadPool(groupedThreads("onos/of", "event-outgoing-msg-stats-%d", log));
+
+    // messagesPendingMastership is used as synchronization variable for
+    // all mastership related changes. In this block, mastership (including
+    // role update) will have either occurred or not.
     private final AtomicReference<List<OFMessage>> messagesPendingMastership
             = new AtomicReference<>();
 
@@ -150,9 +166,23 @@ public abstract class AbstractOpenFlowSwitch extends AbstractHandlerBehaviour
         }
     }
 
+    private void countOutgoingMsg(List<OFMessage> msgs) {
+        // listen to outgoing control messages only if listeners are registered
+        if (ofOutgoingMsgListener.size() != 0) {
+            msgs.forEach(m -> {
+                if (m.getType() == OFType.PACKET_OUT ||
+                        m.getType() == OFType.FLOW_MOD ||
+                        m.getType() == OFType.STATS_REQUEST) {
+                    executorMsgs.execute(new OFMessageHandler(dpid, m));
+                }
+            });
+        }
+    }
+
     private void sendMsgsOnChannel(List<OFMessage> msgs) {
         if (channel.isConnected()) {
             channel.write(msgs);
+            countOutgoingMsg(msgs);
         } else {
             log.warn("Dropping messages for switch {} because channel is not connected: {}",
                      dpid, msgs);
@@ -171,7 +201,8 @@ public abstract class AbstractOpenFlowSwitch extends AbstractHandlerBehaviour
     }
 
     @Override
-    public final void sendHandshakeMessage(OFMessage message) {
+    public final void
+    sendHandshakeMessage(OFMessage message) {
         if (!this.isDriverHandshakeComplete()) {
             sendMsgsOnChannel(Collections.singletonList(message));
         }
@@ -251,6 +282,8 @@ public abstract class AbstractOpenFlowSwitch extends AbstractHandlerBehaviour
     public final void handleMessage(OFMessage m) {
         if (this.role == RoleState.MASTER || m instanceof OFPortStatus) {
             this.agent.processMessage(dpid, m);
+        } else {
+            log.trace("Dropping received message {}, was not MASTER", m);
         }
     }
 
@@ -285,7 +318,8 @@ public abstract class AbstractOpenFlowSwitch extends AbstractHandlerBehaviour
         synchronized (messagesPendingMastership) {
             List<OFMessage> messages = messagesPendingMastership.get();
             if (messages != null) {
-                this.sendMsg(messages);
+                // Cannot use sendMsg here. It will only append to pending list.
+                sendMsgsOnChannel(messages);
                 log.debug("Sending {} pending messages to switch {}",
                           messages.size(), dpid);
                 messagesPendingMastership.set(null);
@@ -298,6 +332,16 @@ public abstract class AbstractOpenFlowSwitch extends AbstractHandlerBehaviour
     @Override
     public final void removeConnectedSwitch() {
         this.agent.removeConnectedSwitch(dpid);
+    }
+
+    @Override
+    public void addEventListener(OpenFlowEventListener listener) {
+        ofOutgoingMsgListener.add(listener);
+    }
+
+    @Override
+    public void removeEventListener(OpenFlowEventListener listener) {
+        ofOutgoingMsgListener.remove(listener);
     }
 
     @Override
@@ -490,5 +534,26 @@ public abstract class AbstractOpenFlowSwitch extends AbstractHandlerBehaviour
         return this.getClass().getName() + " [" + ((channel != null)
                 ? channel.getRemoteAddress() : "?")
                 + " DPID[" + ((getStringId() != null) ? getStringId() : "?") + "]]";
+    }
+
+    /**
+     * OpenFlow message handler for outgoing control messages.
+     */
+    protected final class OFMessageHandler implements Runnable {
+
+        protected final OFMessage msg;
+        protected final Dpid dpid;
+
+        public OFMessageHandler(Dpid dpid, OFMessage msg) {
+            this.msg = msg;
+            this.dpid = dpid;
+        }
+
+        @Override
+        public void run() {
+            for (OpenFlowEventListener listener : ofOutgoingMsgListener) {
+                listener.handleMessage(dpid, msg);
+            }
+        }
     }
 }

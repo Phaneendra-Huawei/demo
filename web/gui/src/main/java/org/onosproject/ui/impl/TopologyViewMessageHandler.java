@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -611,12 +611,14 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
     private void sendAllDevices() {
         // Send optical first, others later for layered rendering
         for (Device device : deviceService.getDevices()) {
-            if (device.type() == Device.Type.ROADM) {
+            if ((device.type() == Device.Type.ROADM) ||
+                    (device.type() == Device.Type.OTN))  {
                 sendMessage(deviceMessage(new DeviceEvent(DEVICE_ADDED, device)));
             }
         }
         for (Device device : deviceService.getDevices()) {
-            if (device.type() != Device.Type.ROADM) {
+            if ((device.type() != Device.Type.ROADM) &&
+                    (device.type() != Device.Type.OTN))  {
                 sendMessage(deviceMessage(new DeviceEvent(DEVICE_ADDED, device)));
             }
         }
@@ -712,6 +714,8 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
     }
 
     // Cluster event listener.
+    // TODO: Superceded by UiSharedTopologyModel.ModelEventListener
+    @Deprecated
     private class InternalClusterListener implements ClusterEventListener {
         @Override
         public void event(ClusterEvent event) {
@@ -720,6 +724,8 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
     }
 
     // Mastership change listener
+    // TODO: Superceded by UiSharedTopologyModel.ModelEventListener
+    @Deprecated
     private class InternalMastershipListener implements MastershipListener {
         @Override
         public void event(MastershipEvent event) {
@@ -734,35 +740,46 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
     }
 
     // Device event listener.
+    // TODO: Superceded by UiSharedTopologyModel.ModelEventListener
+    @Deprecated
     private class InternalDeviceListener implements DeviceListener {
         @Override
         public void event(DeviceEvent event) {
             if (event.type() != PORT_STATS_UPDATED) {
                 msgSender.execute(() -> sendMessage(deviceMessage(event)));
+                msgSender.execute(traffic::pokeIntent);
                 eventAccummulator.add(event);
             }
         }
     }
 
     // Link event listener.
+    // TODO: Superceded by UiSharedTopologyModel.ModelEventListener
+    @Deprecated
     private class InternalLinkListener implements LinkListener {
         @Override
         public void event(LinkEvent event) {
             msgSender.execute(() -> sendMessage(linkMessage(event)));
+            msgSender.execute(traffic::pokeIntent);
             eventAccummulator.add(event);
         }
     }
 
     // Host event listener.
+    // TODO: Superceded by UiSharedTopologyModel.ModelEventListener
+    @Deprecated
     private class InternalHostListener implements HostListener {
         @Override
         public void event(HostEvent event) {
             msgSender.execute(() -> sendMessage(hostMessage(event)));
+            msgSender.execute(traffic::pokeIntent);
             eventAccummulator.add(event);
         }
     }
 
     // Intent event listener.
+    // TODO: Superceded by UiSharedTopologyModel.ModelEventListener
+    @Deprecated
     private class InternalIntentListener implements IntentListener {
         @Override
         public void event(IntentEvent event) {
@@ -772,6 +789,8 @@ public class TopologyViewMessageHandler extends TopologyViewMessageHandlerBase {
     }
 
     // Intent event listener.
+    // TODO: Superceded by UiSharedTopologyModel.ModelEventListener
+    @Deprecated
     private class InternalFlowListener implements FlowRuleListener {
         @Override
         public void event(FlowRuleEvent event) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,10 +49,12 @@
 
         devIcon_SWITCH: 'switch',
         devIcon_ROADM: 'roadm',
+        devIcon_OTN: 'otn',
         deviceTable: 'switch',
         flowTable: 'flowTable',
         portTable: 'portTable',
         groupTable: 'groupTable',
+        meterTable: 'meterTable',
 
         hostIcon_endstation: 'endstation',
         hostIcon_router: 'router',
@@ -71,12 +73,11 @@
 
     function ensureIconLibDefs() {
         var body = d3.select('body'),
-            svg = body.select('svg#IconLibDefs'),
-            defs;
+            svg = body.select('svg#IconLibDefs');
 
         if (svg.empty()) {
             svg = body.append('svg').attr('id', 'IconLibDefs');
-            defs = svg.append('defs');
+            svg.append('defs');
         }
         return svg.select('defs');
     }
@@ -208,29 +209,29 @@
     }
 
     function sortIcons() {
-        function sortAsc(div) {
+        function _s(div, gid) {
             div.style('display', 'inline-block');
-            loadEmbeddedIcon(div, 'upArrow', 10);
+            loadEmbeddedIcon(div, gid, 10);
             div.classed('tableColSort', true);
-        }
-
-        function sortDesc(div) {
-            div.style('display', 'inline-block');
-            loadEmbeddedIcon(div, 'downArrow', 10);
-            div.classed('tableColSort', true);
-        }
-
-        function sortNone(div) {
-            div.remove();
         }
 
         return {
-            sortAsc: sortAsc,
-            sortDesc: sortDesc,
-            sortNone: sortNone
+            asc: function (div) { _s(div, 'upArrow'); },
+            desc: function (div) { _s(div, 'downArrow'); },
+            none: function (div) { div.remove(); }
         };
     }
 
+    function registerIconMapping(iconId, glyphId) {
+        if (glyphMapping[iconId]) {
+            $log.warn('Icon with id', iconId, 'already mapped. Ignoring.');
+        } else {
+            // map icon-->glyph
+            glyphMapping[iconId] = glyphId;
+            // make sure definition is installed
+            gs.loadDefs(ensureIconLibDefs(), [glyphId], true);
+        }
+    }
 
     // =========================
     // === DEFINE THE MODULE
@@ -265,7 +266,8 @@
                 addDeviceIcon: addDeviceIcon,
                 addHostIcon: addHostIcon,
                 iconConfig: function () { return config; },
-                sortIcons: sortIcons
+                sortIcons: sortIcons,
+                registerIconMapping: registerIconMapping
             };
         }]);
 

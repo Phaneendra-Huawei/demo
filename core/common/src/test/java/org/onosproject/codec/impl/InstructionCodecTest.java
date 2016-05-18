@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ import org.onosproject.codec.CodecContext;
 import org.onosproject.codec.JsonCodec;
 import org.onosproject.net.ChannelSpacing;
 import org.onosproject.net.GridType;
-import org.onosproject.net.IndexedLambda;
 import org.onosproject.net.Lambda;
 import org.onosproject.net.OduSignalId;
 import org.onosproject.net.PortNumber;
@@ -73,37 +72,12 @@ public class InstructionCodecTest {
     }
 
     /**
-     * Tests the encoding of drop instructions.
-     */
-    @Test
-    public void dropInstructionTest() {
-        final Instructions.DropInstruction instruction =
-                Instructions.createDrop();
-        final ObjectNode instructionJson =
-                instructionCodec.encode(instruction, context);
-        assertThat(instructionJson, matchesInstruction(instruction));
-    }
-
-    /**
      * Tests the encoding of output instructions.
      */
     @Test
     public void outputInstructionTest() {
         final Instructions.OutputInstruction instruction =
                 Instructions.createOutput(PortNumber.portNumber(22));
-        final ObjectNode instructionJson =
-                instructionCodec.encode(instruction, context);
-        assertThat(instructionJson, matchesInstruction(instruction));
-    }
-
-    /**
-     * Tests the encoding of mod lambda instructions.
-     */
-    @Test
-    public void modLambdaInstructionTest() {
-        final L0ModificationInstruction.ModLambdaInstruction instruction =
-                (L0ModificationInstruction.ModLambdaInstruction)
-                        Instructions.modL0Lambda(new IndexedLambda(55));
         final ObjectNode instructionJson =
                 instructionCodec.encode(instruction, context);
         assertThat(instructionJson, matchesInstruction(instruction));
@@ -127,7 +101,7 @@ public class InstructionCodecTest {
      */
     @Test
     public void modOduSignalIdInstructionTest() {
-        OduSignalId oduSignalId = OduSignalId.oduSignalId(1, 8, new byte [] {8, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        OduSignalId oduSignalId = OduSignalId.oduSignalId(1, 8, new byte[] {8, 0, 0, 0, 0, 0, 0, 0, 0, 0});
         L1ModificationInstruction.ModOduSignalIdInstruction instruction =
                 (L1ModificationInstruction.ModOduSignalIdInstruction)
                     Instructions.modL1OduSignalId(oduSignalId);

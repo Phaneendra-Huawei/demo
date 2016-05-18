@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ public class RouterId implements RouteIdentifier {
     /**
      * Constructor to initialize its parameters.
      *
-     * @param routerId Router ID of designated router
+     * @param routerId  Router ID of designated router
+     * @param type      protocol type
      */
     public RouterId(int routerId, ProtocolType type) {
         this.routerId = routerId;

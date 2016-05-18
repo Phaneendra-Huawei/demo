@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,8 +31,8 @@ import org.onosproject.bgpio.types.BgpLSIdentifierTlv;
 import org.onosproject.bgpio.types.BgpValueType;
 import org.onosproject.bgpio.types.IsIsNonPseudonode;
 import org.onosproject.bgpio.types.IsIsPseudonode;
-import org.onosproject.bgpio.types.OSPFNonPseudonode;
-import org.onosproject.bgpio.types.OSPFPseudonode;
+import org.onosproject.bgpio.types.OspfNonPseudonode;
+import org.onosproject.bgpio.types.OspfPseudonode;
 import org.onosproject.bgpio.util.UnSupportedAttribute;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -193,9 +193,9 @@ public class NodeDescriptors {
                     }
                 } else if (protocolId == OSPF_V2_PROTOCOL_ID || protocolId == OSPF_V3_PROTOCOL_ID) {
                     if (length == OSPFNONPSEUDONODE_LEN) {
-                        tlv = OSPFNonPseudonode.read(tempCb);
+                        tlv = OspfNonPseudonode.read(tempCb);
                     } else if (length == OSPFPSEUDONODE_LEN) {
-                        tlv = OSPFPseudonode.read(tempCb);
+                        tlv = OspfPseudonode.read(tempCb);
                     }
                 }
                 break;
@@ -234,31 +234,50 @@ public class NodeDescriptors {
                 .toString();
     }
 
+    /**
+     * Compares this and o object.
+     *
+     * @param o object to be compared with this object
+     * @return which object is greater
+     */
     public int compareTo(Object o) {
         if (this.equals(o)) {
             return 0;
         }
         ListIterator<BgpValueType> listIterator = subTlvs.listIterator();
-        ListIterator<BgpValueType> listIteratorOther = ((NodeDescriptors) o).subTlvs.listIterator();
         int countOtherSubTlv = ((NodeDescriptors) o).subTlvs.size();
         int countObjSubTlv = subTlvs.size();
+        boolean tlvFound = false;
         if (countOtherSubTlv != countObjSubTlv) {
-             if (countOtherSubTlv > countObjSubTlv) {
-                 return 1;
-             } else {
-                 return -1;
-             }
+            if (countOtherSubTlv > countObjSubTlv) {
+                return 1;
+            } else {
+                return -1;
+            }
         } else {
             while (listIterator.hasNext()) {
-            BgpValueType tlv = listIterator.next();
+                BgpValueType tlv1 = listIterator.next();
                 log.debug("NodeDescriptor compare subtlv's");
-                if (subTlvs.contains(tlv) && ((NodeDescriptors) o).subTlvs.contains(tlv)) {
-                    int result = subTlvs.get(subTlvs.indexOf(tlv)).compareTo(
-                            ((NodeDescriptors) o).subTlvs.get(((NodeDescriptors) o).subTlvs.indexOf(tlv)));
-                    if (result != 0) {
-                        return result;
+                for (BgpValueType tlv : ((NodeDescriptors) o).subTlvs) {
+                    if (tlv.getType() == tlv1.getType()) {
+                        if (tlv.getType() == IGP_ROUTERID_TYPE) {
+                            if ((tlv1 instanceof IsIsNonPseudonode && tlv instanceof IsIsPseudonode)
+                                || (tlv1 instanceof IsIsPseudonode && tlv instanceof IsIsNonPseudonode)
+                                || (tlv1 instanceof OspfNonPseudonode && tlv instanceof OspfPseudonode)
+                                || (tlv1 instanceof OspfPseudonode && tlv instanceof OspfNonPseudonode)) {
+                                continue;
+                            }
+                        }
+                        int result = subTlvs.get(subTlvs.indexOf(tlv1)).compareTo(
+                                ((NodeDescriptors) o).subTlvs.get(((NodeDescriptors) o).subTlvs.indexOf(tlv)));
+                        if (result != 0) {
+                            return result;
+                        }
+                        tlvFound = true;
+                        break;
                     }
-                } else {
+                }
+                if (!tlvFound) {
                     return 1;
                 }
             }

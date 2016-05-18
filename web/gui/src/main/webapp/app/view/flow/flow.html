@@ -30,6 +30,11 @@
                  icon icon-id="groupTable" icon-size="36"
                  tooltip tt-msg="groupTip"
                  ng-click="nav('group')"></div>
+
+            <div class="active"
+                 icon icon-id="meterTable" icon-size="36"
+                 tooltip tt-msg="meterTip"
+                 ng-click="nav('meter')"></div>
         </div>
     </div>
 
@@ -45,8 +50,8 @@
                     <td colId="timeout" sortable>Timeout </td>
                     <td colId="permanent" sortable>Permanent </td>
                     <td colId="state" sortable>State </td>
-                    <td colId="packets" sortable>Packets </td>
-                    <td colId="bytes" sortable>Bytes </td>
+                    <td class="right" colId="packets" sortable>Packets </td>
+                    <td class="right" colId="bytes" sortable>Bytes </td>
                 </tr>
             </table>
         </div>
@@ -55,7 +60,7 @@
             <table onos-flash-changes id-prop="id">
                 <tr ng-if="!tableData.length" class="no-data">
                     <td colspan="10">
-                        No Flows found
+                        {{annots.no_rows_msg}}
                     </td>
                 </tr>
 
@@ -69,8 +74,8 @@
                     <td>{{flow.timeout}}</td>
                     <td>{{flow.permanent}}</td>
                     <td>{{flow.state}}</td>
-                    <td>{{flow.packets}}</td>
-                    <td>{{flow.bytes}}</td>
+                    <td class="right">{{flow.packets}}</td>
+                    <td class="right">{{flow.bytes}}</td>
                 </tr>
                 <tr row-id="{{flow.id}}">
                     <td class="selector" colspan="10">{{flow.selector}}</td>

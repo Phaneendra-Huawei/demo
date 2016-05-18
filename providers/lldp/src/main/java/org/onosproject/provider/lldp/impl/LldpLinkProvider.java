@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,28 +15,9 @@
  */
 package org.onosproject.provider.lldp.impl;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.onlab.packet.Ethernet.TYPE_BSN;
-import static org.onlab.packet.Ethernet.TYPE_LLDP;
-import static org.onlab.util.Tools.get;
-import static org.onlab.util.Tools.groupedThreads;
-import static org.onosproject.net.Link.Type.DIRECT;
-import static org.onosproject.net.config.basics.SubjectFactories.APP_SUBJECT_FACTORY;
-import static org.onosproject.net.config.basics.SubjectFactories.CONNECT_POINT_SUBJECT_FACTORY;
-import static org.onosproject.net.config.basics.SubjectFactories.DEVICE_SUBJECT_FACTORY;
-import static org.slf4j.LoggerFactory.getLogger;
-
-import java.util.Dictionary;
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
-
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -45,8 +26,11 @@ import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.onlab.packet.Ethernet;
+import org.onlab.util.SharedExecutors;
 import org.onlab.util.Tools;
 import org.onosproject.cfg.ComponentConfigService;
+import org.onosproject.cluster.ClusterMetadata;
+import org.onosproject.cluster.ClusterMetadataService;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
@@ -63,6 +47,7 @@ import org.onosproject.net.config.NetworkConfigEvent;
 import org.onosproject.net.config.NetworkConfigListener;
 import org.onosproject.net.config.NetworkConfigRegistry;
 import org.onosproject.net.device.DeviceEvent;
+import org.onosproject.net.device.DeviceEvent.Type;
 import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.flow.DefaultTrafficSelector;
@@ -78,13 +63,34 @@ import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
+import org.onosproject.provider.lldpcommon.LinkDiscoveryContext;
+import org.onosproject.provider.lldpcommon.LinkDiscovery;
 import org.onosproject.store.service.ConsistentMapException;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
+import java.util.Dictionary;
+import java.util.EnumSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.onlab.packet.Ethernet.TYPE_BSN;
+import static org.onlab.packet.Ethernet.TYPE_LLDP;
+import static org.onlab.util.Tools.get;
+import static org.onlab.util.Tools.groupedThreads;
+import static org.onosproject.cluster.ClusterMetadata.NO_NAME;
+import static org.onosproject.net.Link.Type.DIRECT;
+import static org.onosproject.net.config.basics.SubjectFactories.APP_SUBJECT_FACTORY;
+import static org.onosproject.net.config.basics.SubjectFactories.CONNECT_POINT_SUBJECT_FACTORY;
+import static org.onosproject.net.config.basics.SubjectFactories.DEVICE_SUBJECT_FACTORY;
+import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Provider which uses LLDP and BDDP packets to detect network infrastructure links.
@@ -133,6 +139,9 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected NetworkConfigRegistry cfgRegistry;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ClusterMetadataService clusterMetadataService;
+
     private LinkProviderService providerService;
 
     private ScheduledExecutorService executor;
@@ -152,18 +161,18 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
     private boolean useBddp = true;
 
     private static final String PROP_PROBE_RATE = "probeRate";
-    private static final int DEFAULT_PROBE_RATE = 3_000;
+    private static final int DEFAULT_PROBE_RATE = 3000;
     @Property(name = PROP_PROBE_RATE, intValue = DEFAULT_PROBE_RATE,
             label = "LLDP and BDDP probe rate specified in millis")
     private int probeRate = DEFAULT_PROBE_RATE;
 
     private static final String PROP_STALE_LINK_AGE = "staleLinkAge";
-    private static final int DEFAULT_STALE_LINK_AGE = 10_000;
+    private static final int DEFAULT_STALE_LINK_AGE = 10000;
     @Property(name = PROP_STALE_LINK_AGE, intValue = DEFAULT_STALE_LINK_AGE,
             label = "Number of millis beyond which links will be considered stale")
     private int staleLinkAge = DEFAULT_STALE_LINK_AGE;
 
-    private final DiscoveryContext context = new InternalDiscoveryContext();
+    private final LinkDiscoveryContext context = new InternalDiscoveryContext();
     private final InternalRoleListener roleListener = new InternalRoleListener();
     private final InternalDeviceListener deviceListener = new InternalDeviceListener();
     private final InternalPacketProcessor packetProcessor = new InternalPacketProcessor();
@@ -178,13 +187,14 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
     private ApplicationId appId;
 
     static final SuppressionRules DEFAULT_RULES
-        = new SuppressionRules(EnumSet.of(Device.Type.ROADM),
+        = new SuppressionRules(EnumSet.of(Device.Type.ROADM, Device.Type.FIBER_SWITCH, Device.Type.OTN),
                                ImmutableMap.of(NO_LLDP, SuppressionRules.ANY_VALUE));
 
     private SuppressionRules rules = LldpLinkProvider.DEFAULT_RULES;
 
     public static final String CONFIG_KEY = "suppression";
     public static final String FEATURE_NAME = "linkDiscovery";
+    public static final String FINGERPRINT_FEATURE_NAME = "fingerprint";
 
     private final Set<ConfigFactory<?, ?>> factories = ImmutableSet.of(
             new ConfigFactory<ApplicationId, SuppressionConfig>(APP_SUBJECT_FACTORY,
@@ -208,6 +218,13 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
                 public LinkDiscoveryFromPort createConfig() {
                     return new LinkDiscoveryFromPort();
                 }
+            },
+            new ConfigFactory<DeviceId, FingerprintProbeFromDevice>(DEVICE_SUBJECT_FACTORY,
+                    FingerprintProbeFromDevice.class, FINGERPRINT_FEATURE_NAME) {
+                @Override
+                public FingerprintProbeFromDevice createConfig() {
+                    return new FingerprintProbeFromDevice();
+                }
             }
     );
 
@@ -229,7 +246,9 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
         cfgRegistry.addListener(cfgListener);
         factories.forEach(cfgRegistry::registerConfigFactory);
 
-        SuppressionConfig cfg = cfgRegistry.getConfig(appId, SuppressionConfig.class);
+        SuppressionConfig cfg =
+                Tools.retryable(() -> cfgRegistry.getConfig(appId, SuppressionConfig.class),
+                                ConsistentMapException.class, MAX_RETRIES, RETRY_DELAY).get();
         if (cfg == null) {
             // If no configuration is found, register default.
             cfg = Tools.retryable(this::setDefaultSuppressionConfig,
@@ -319,7 +338,7 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
 
         loadDevices();
 
-        executor = newSingleThreadScheduledExecutor(groupedThreads("onos/link", "discovery-%d"));
+        executor = newSingleThreadScheduledExecutor(groupedThreads("onos/link", "discovery-%d", log));
         executor.scheduleAtFixedRate(new SyncDeviceInfoTask(),
                                      DEVICE_SYNC_DELAY, DEVICE_SYNC_DELAY, SECONDS);
         executor.scheduleAtFixedRate(new LinkPrunerTask(),
@@ -385,6 +404,14 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
         return isBlacklisted(new ConnectPoint(port.element().id(), port.number()));
     }
 
+    private boolean isFingerprinted(DeviceId did) {
+        FingerprintProbeFromDevice cfg = cfgRegistry.getConfig(did, FingerprintProbeFromDevice.class);
+        if (cfg == null) {
+            return false;
+        }
+        return cfg.enabled();
+    }
+
     /**
      * Updates discovery helper for specified device.
      *
@@ -403,8 +430,14 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
             removeDevice(device.id());
             return Optional.empty();
         }
+
         LinkDiscovery ld = discoverers.computeIfAbsent(device.id(),
                                      did -> new LinkDiscovery(device, context));
+        if (isFingerprinted(device.id())) {
+            ld.enableFingerprint();
+        } else {
+            ld.disableFingerprint();
+        }
         if (ld.isStopped()) {
             ld.start();
         }
@@ -543,6 +576,9 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
     private class InternalDeviceListener implements DeviceListener {
         @Override
         public void event(DeviceEvent event) {
+            if (event.type() == Type.PORT_STATS_UPDATED) {
+                return;
+            }
             Device device = event.subject();
             Port port = event.port();
             if (device == null) {
@@ -685,7 +721,7 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
     /**
      * Provides processing context for the device link discovery helpers.
      */
-    private class InternalDiscoveryContext implements DiscoveryContext {
+    private class InternalDiscoveryContext implements LinkDiscoveryContext {
         @Override
         public MastershipService mastershipService() {
             return masterService;
@@ -715,6 +751,17 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
         public void touchLink(LinkKey key) {
             linkTimes.put(key, System.currentTimeMillis());
         }
+
+        @Override
+        public String fingerprint() {
+            ClusterMetadata mdata = clusterMetadataService.getClusterMetadata();
+            return mdata == null ? NO_NAME : mdata.getName();
+        }
+
+        @Override
+        public DeviceService deviceService() {
+            return deviceService;
+        }
     }
 
     static final EnumSet<NetworkConfigEvent.Type> CONFIG_CHANGED
@@ -738,35 +785,46 @@ public class LldpLinkProvider extends AbstractProvider implements LinkProvider {
 
         @Override
         public void event(NetworkConfigEvent event) {
-            if (event.configClass() == LinkDiscoveryFromDevice.class &&
-                CONFIG_CHANGED.contains(event.type())) {
+            SharedExecutors.getPoolThreadExecutor().execute(() -> {
+                if (event.configClass() == LinkDiscoveryFromDevice.class &&
+                        CONFIG_CHANGED.contains(event.type())) {
 
-                if (event.subject() instanceof DeviceId) {
-                    final DeviceId did = (DeviceId) event.subject();
-                    Device device = deviceService.getDevice(did);
-                    updateDevice(device).ifPresent(ld -> updatePorts(ld, did));
-                }
-
-            } else if (event.configClass() == LinkDiscoveryFromPort.class &&
-                       CONFIG_CHANGED.contains(event.type())) {
-
-                if (event.subject() instanceof ConnectPoint) {
-                    ConnectPoint cp = (ConnectPoint) event.subject();
-                    if (cp.elementId() instanceof DeviceId) {
-                        final DeviceId did = (DeviceId) cp.elementId();
+                    if (event.subject() instanceof DeviceId) {
+                        final DeviceId did = (DeviceId) event.subject();
                         Device device = deviceService.getDevice(did);
-                        Port port = deviceService.getPort(did, cp.port());
-                        updateDevice(device).ifPresent(ld -> updatePort(ld, port));
+                        updateDevice(device).ifPresent(ld -> updatePorts(ld, did));
                     }
-                }
 
-            } else if (event.configClass().equals(SuppressionConfig.class) &&
-                (event.type() == NetworkConfigEvent.Type.CONFIG_ADDED ||
-                 event.type() == NetworkConfigEvent.Type.CONFIG_UPDATED)) {
-                SuppressionConfig cfg = cfgRegistry.getConfig(appId, SuppressionConfig.class);
-                reconfigureSuppressionRules(cfg);
-                log.trace("Network config reconfigured");
-            }
+                } else if (event.configClass() == LinkDiscoveryFromPort.class &&
+                        CONFIG_CHANGED.contains(event.type())) {
+
+                    if (event.subject() instanceof ConnectPoint) {
+                        ConnectPoint cp = (ConnectPoint) event.subject();
+                        if (cp.elementId() instanceof DeviceId) {
+                            final DeviceId did = (DeviceId) cp.elementId();
+                            Device device = deviceService.getDevice(did);
+                            Port port = deviceService.getPort(did, cp.port());
+                            updateDevice(device).ifPresent(ld -> updatePort(ld, port));
+                        }
+                    }
+
+                } else if (event.configClass() == FingerprintProbeFromDevice.class &&
+                        CONFIG_CHANGED.contains(event.type())) {
+
+                    if (event.subject() instanceof DeviceId) {
+                        final DeviceId did = (DeviceId) event.subject();
+                        Device device = deviceService.getDevice(did);
+                        updateDevice(device);
+                    }
+
+                } else if (event.configClass().equals(SuppressionConfig.class) &&
+                        (event.type() == NetworkConfigEvent.Type.CONFIG_ADDED ||
+                                event.type() == NetworkConfigEvent.Type.CONFIG_UPDATED)) {
+                    SuppressionConfig cfg = cfgRegistry.getConfig(appId, SuppressionConfig.class);
+                    reconfigureSuppressionRules(cfg);
+                    log.trace("Network config reconfigured");
+                }
+            });
         }
     }
 }

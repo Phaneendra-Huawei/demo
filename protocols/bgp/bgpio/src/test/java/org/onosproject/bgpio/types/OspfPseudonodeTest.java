@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@ public class OspfPseudonodeTest {
     private final int value2 = 0xc3223406;
     private final Ip4Address drInterface1 = Ip4Address.valueOf(0xaf91e01);
     private final Ip4Address drInterface2 = Ip4Address.valueOf(0xaf91e02);
-    private final OSPFPseudonode tlv1 = OSPFPseudonode.of(value1, drInterface1);
-    private final OSPFPseudonode sameAsTlv1 = OSPFPseudonode.of(value1, drInterface1);
-    private final OSPFPseudonode tlv2 = OSPFPseudonode.of(value2, drInterface2);
+    private final OspfPseudonode tlv1 = OspfPseudonode.of(value1, drInterface1);
+    private final OspfPseudonode sameAsTlv1 = OspfPseudonode.of(value1, drInterface1);
+    private final OspfPseudonode tlv2 = OspfPseudonode.of(value2, drInterface2);
 
     @Test
     public void testEquality() {

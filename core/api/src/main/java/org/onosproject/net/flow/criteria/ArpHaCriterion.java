@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,11 @@
  */
 package org.onosproject.net.flow.criteria;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import org.onlab.packet.MacAddress;
 
 import java.util.Objects;
 
-import org.onlab.packet.MacAddress;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Implementation of arp_eth_src address or arp_eth_dst address criterion.
@@ -59,8 +58,7 @@ public final class ArpHaCriterion implements Criterion {
 
     @Override
     public String toString() {
-        return toStringHelper(type().toString())
-                .add("mac", mac).toString();
+        return type().toString() + SEPARATOR + mac;
     }
 
     @Override

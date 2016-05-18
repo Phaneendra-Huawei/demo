@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.onosproject.store.service;
 import java.util.function.Function;
 
 import org.joda.time.DateTime;
+import org.onlab.util.ByteArraySizeHashPrinter;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
@@ -111,6 +112,16 @@ public class Versioned<V> {
         return versioned == null ? defaultValue : versioned.value();
     }
 
+    /**
+     * Returns the value of the specified Versioned object if non-null or else returns null.
+     * @param versioned versioned object
+     * @param <U> type of the versioned value
+     * @return versioned value or null if versioned object is null
+     */
+    public static <U> U valueOrNull(Versioned<U> versioned) {
+        return valueOrElse(versioned, null);
+    }
+
     @Override
     public int hashCode() {
         return Objects.hashCode(value, version, creationTime);
@@ -130,7 +141,7 @@ public class Versioned<V> {
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
-            .add("value", value)
+            .add("value", value instanceof byte[] ? new ByteArraySizeHashPrinter((byte[]) value) : value)
             .add("version", version)
             .add("creationTime", new DateTime(creationTime))
             .toString();

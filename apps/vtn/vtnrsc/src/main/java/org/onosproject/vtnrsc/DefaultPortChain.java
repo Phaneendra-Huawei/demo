@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,17 @@ package org.onosproject.vtnrsc;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.onosproject.net.DeviceId;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 /**
  * Implementation of port chain.
@@ -34,6 +41,11 @@ public final class DefaultPortChain implements PortChain {
     private final String description;
     private final List<PortPairGroupId> portPairGroupList;
     private final List<FlowClassifierId> flowClassifierList;
+
+    private final Map<FiveTuple, LoadBalanceId> sfcLoadBalanceIdMap = new ConcurrentHashMap<>();
+    private final Map<LoadBalanceId, List<PortPairId>> sfcLoadBalancePathMap = new ConcurrentHashMap<>();
+    private final Map<LoadBalanceId, List<DeviceId>> sfcClassifiersMap = new ConcurrentHashMap<>();
+    private final Map<LoadBalanceId, List<DeviceId>> sfcForwardersMap = new ConcurrentHashMap<>();
 
     /**
      * Default constructor to create port chain.
@@ -58,6 +70,23 @@ public final class DefaultPortChain implements PortChain {
         this.flowClassifierList = flowClassifierList;
     }
 
+    /**
+     * Match for two given paths.
+     *
+     * @param path1 path of sfc
+     * @param path2 path of sfc
+     * @return true if the given path are same false otherwise
+     */
+    private boolean comparePath(List<PortPairId> path1, List<PortPairId> path2) {
+        Iterator it = path1.iterator();
+        for (PortPairId portPairId : path2) {
+            if (!portPairId.equals(it.next())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     public PortChainId portChainId() {
         return portChainId;
@@ -80,12 +109,100 @@ public final class DefaultPortChain implements PortChain {
 
     @Override
     public List<PortPairGroupId> portPairGroups() {
-        return  ImmutableList.copyOf(portPairGroupList);
+        return ImmutableList.copyOf(portPairGroupList);
     }
 
     @Override
     public List<FlowClassifierId> flowClassifiers() {
         return ImmutableList.copyOf(flowClassifierList);
+    }
+
+    @Override
+    public void addLoadBalancePath(FiveTuple fiveTuple, LoadBalanceId id,
+            List<PortPairId> path) {
+        this.sfcLoadBalanceIdMap.put(fiveTuple, id);
+        this.sfcLoadBalancePathMap.put(id, path);
+    }
+
+    @Override
+    public void addSfcClassifiers(LoadBalanceId id, List<DeviceId> classifierList) {
+        this.sfcClassifiersMap.put(id, classifierList);
+    }
+
+    @Override
+    public void addSfcForwarders(LoadBalanceId id, List<DeviceId> forwarderList) {
+        this.sfcForwardersMap.put(id, forwarderList);
+    }
+
+    @Override
+    public void removeSfcClassifiers(LoadBalanceId id, List<DeviceId> classifierList) {
+        List<DeviceId> list = sfcClassifiersMap.get(id);
+        list.removeAll(classifierList);
+        this.sfcForwardersMap.put(id, list);
+    }
+
+    @Override
+    public void removeSfcForwarders(LoadBalanceId id, List<DeviceId> forwarderList) {
+        List<DeviceId> list = sfcForwardersMap.get(id);
+        list.removeAll(forwarderList);
+        this.sfcForwardersMap.put(id, list);
+    }
+
+    @Override
+    public List<DeviceId> getSfcClassifiers(LoadBalanceId id) {
+        return ImmutableList.copyOf(this.sfcClassifiersMap.get(id));
+    }
+
+    @Override
+    public List<DeviceId> getSfcForwarders(LoadBalanceId id) {
+        return ImmutableList.copyOf(this.sfcForwardersMap.get(id));
+    }
+
+    @Override
+    public LoadBalanceId getLoadBalanceId(FiveTuple fiveTuple) {
+        return this.sfcLoadBalanceIdMap.get(fiveTuple);
+    }
+
+    @Override
+    public Set<FiveTuple> getLoadBalanceIdMapKeys() {
+        return ImmutableSet.copyOf(sfcLoadBalanceIdMap.keySet());
+    }
+
+    @Override
+    public Set<LoadBalanceId> getLoadBalancePathMapKeys() {
+        return ImmutableSet.copyOf(sfcLoadBalancePathMap.keySet());
+    }
+
+    @Override
+    public List<PortPairId> getLoadBalancePath(LoadBalanceId id) {
+        return ImmutableList.copyOf(this.sfcLoadBalancePathMap.get(id));
+    }
+
+    @Override
+    public List<PortPairId> getLoadBalancePath(FiveTuple fiveTuple) {
+        return ImmutableList.copyOf(this.sfcLoadBalancePathMap.get(this.sfcLoadBalanceIdMap.get(fiveTuple)));
+    }
+
+    @Override
+    public int getLoadBalancePathSize() {
+        if (sfcLoadBalanceIdMap.isEmpty()) {
+            return 0;
+        }
+        return sfcLoadBalanceIdMap.size();
+    }
+
+    @Override
+    public LoadBalanceId matchPath(List<PortPairId> path) {
+
+        LoadBalanceId id = null;
+        for (Map.Entry<LoadBalanceId, List<PortPairId>> entry : sfcLoadBalancePathMap.entrySet()) {
+            List<PortPairId> tempPath = entry.getValue();
+            if (comparePath(path, tempPath)) {
+                id = entry.getKey();
+                break;
+            }
+        }
+        return id;
     }
 
     @Override

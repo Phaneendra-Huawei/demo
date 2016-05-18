@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,26 +16,38 @@
 package org.onosproject.net.intent.impl.compiler;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+
 import org.onlab.packet.MplsLabel;
-import org.onosproject.net.newresource.ResourceAllocation;
-import org.onosproject.net.newresource.ResourceConsumer;
-import org.onosproject.net.newresource.ResourceListener;
-import org.onosproject.net.newresource.ResourcePath;
-import org.onosproject.net.newresource.ResourceService;
+import org.onlab.packet.VlanId;
+import org.onlab.util.Tools;
+import org.onosproject.net.TributarySlot;
+import org.onosproject.net.resource.ContinuousResourceId;
+import org.onosproject.net.resource.DiscreteResource;
+import org.onosproject.net.resource.DiscreteResourceId;
+import org.onosproject.net.resource.ResourceAllocation;
+import org.onosproject.net.resource.ResourceConsumer;
+import org.onosproject.net.resource.ResourceId;
+import org.onosproject.net.resource.ResourceListener;
+import org.onosproject.net.resource.Resource;
+import org.onosproject.net.resource.ResourceService;
+import org.onosproject.net.resource.Resources;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 class MockResourceService implements ResourceService {
 
-    private final Map<ResourcePath, ResourceConsumer> assignment = new HashMap<>();
+    private final Map<Resource, ResourceConsumer> assignment = new HashMap<>();
 
     @Override
-    public List<ResourceAllocation> allocate(ResourceConsumer consumer, List<ResourcePath> resources) {
+    public List<ResourceAllocation> allocate(ResourceConsumer consumer, List<Resource> resources) {
         assignment.putAll(
                 resources.stream().collect(Collectors.toMap(x -> x, x -> consumer))
         );
@@ -54,7 +66,7 @@ class MockResourceService implements ResourceService {
 
     @Override
     public boolean release(ResourceConsumer consumer) {
-        List<ResourcePath> resources = assignment.entrySet().stream()
+        List<Resource> resources = assignment.entrySet().stream()
                 .filter(x -> x.getValue().equals(consumer))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
@@ -66,16 +78,21 @@ class MockResourceService implements ResourceService {
     }
 
     @Override
-    public Optional<ResourceAllocation> getResourceAllocation(ResourcePath resource) {
-        return Optional.ofNullable(assignment.get(resource))
-                .map(x -> new ResourceAllocation(resource, x));
+    public List<ResourceAllocation> getResourceAllocations(ResourceId id) {
+        if (id instanceof ContinuousResourceId) {
+            return ImmutableList.of();
+        }
+        DiscreteResource discrete = Resources.discrete((DiscreteResourceId) id).resource();
+        return Optional.ofNullable(assignment.get(discrete))
+                .map(x -> ImmutableList.of(new ResourceAllocation(discrete, x)))
+                .orElse(ImmutableList.of());
     }
 
     @Override
-    public <T> Collection<ResourceAllocation> getResourceAllocations(ResourcePath parent, Class<T> cls) {
+    public <T> Collection<ResourceAllocation> getResourceAllocations(DiscreteResourceId parent, Class<T> cls) {
         return assignment.entrySet().stream()
                 .filter(x -> x.getKey().parent().isPresent())
-                .filter(x -> x.getKey().parent().get().equals(parent))
+                .filter(x -> x.getKey().parent().get().id().equals(parent))
                 .map(x -> new ResourceAllocation(x.getKey(), x.getValue()))
                 .collect(Collectors.toList());
     }
@@ -89,13 +106,43 @@ class MockResourceService implements ResourceService {
     }
 
     @Override
-    public Collection<ResourcePath> getAvailableResources(ResourcePath parent) {
-        ResourcePath resource = parent.child(MplsLabel.mplsLabel(10));
-        return ImmutableList.of(resource);
+    public Set<Resource> getAvailableResources(DiscreteResourceId parent) {
+        Collection<Resource> resources = new HashSet<>();
+        resources.add(Resources.discrete(parent).resource().child(VlanId.vlanId((short) 10)));
+        resources.add(Resources.discrete(parent).resource().child(MplsLabel.mplsLabel(10)));
+        resources.add(Resources.discrete(parent).resource().child(TributarySlot.of(1)));
+        resources.add(Resources.discrete(parent).resource().child(TributarySlot.of(2)));
+        resources.add(Resources.discrete(parent).resource().child(TributarySlot.of(3)));
+        resources.add(Resources.discrete(parent).resource().child(TributarySlot.of(4)));
+        resources.add(Resources.discrete(parent).resource().child(TributarySlot.of(5)));
+        resources.add(Resources.discrete(parent).resource().child(TributarySlot.of(6)));
+        resources.add(Resources.discrete(parent).resource().child(TributarySlot.of(7)));
+        resources.add(Resources.discrete(parent).resource().child(TributarySlot.of(8)));
+        return ImmutableSet.copyOf(resources);
     }
 
     @Override
-    public boolean isAvailable(ResourcePath resource) {
+    public <T> Set<Resource> getAvailableResources(DiscreteResourceId parent, Class<T> cls) {
+        return getAvailableResources(parent).stream()
+                .filter(x -> x.isTypeOf(cls))
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public <T> Set<T> getAvailableResourceValues(DiscreteResourceId parent, Class<T> cls) {
+        return getAvailableResources(parent).stream()
+                .filter(x -> x.isTypeOf(cls))
+                .flatMap(x -> Tools.stream(x.valueAs(cls)))
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public Set<Resource> getRegisteredResources(DiscreteResourceId parent) {
+        return getAvailableResources(parent);
+    }
+
+    @Override
+    public boolean isAvailable(Resource resource) {
         return true;
     }
 

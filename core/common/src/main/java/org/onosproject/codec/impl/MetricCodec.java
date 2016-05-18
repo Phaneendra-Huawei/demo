@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.onosproject.codec.CodecContext;
 import org.onosproject.codec.JsonCodec;
+
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -96,6 +98,6 @@ public class MetricCodec extends JsonCodec<Metric> {
     }
 
     private double nanoToMs(double nano) {
-        return nano / 1_000_000D;
+        return TimeUnit.MILLISECONDS.convert((long) nano, TimeUnit.NANOSECONDS);
     }
 }

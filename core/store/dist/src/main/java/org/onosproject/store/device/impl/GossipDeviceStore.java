@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ import org.onosproject.net.MastershipRole;
 import org.onosproject.net.OchPort;
 import org.onosproject.net.OduCltPort;
 import org.onosproject.net.OmsPort;
+import org.onosproject.net.OtuPort;
 import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DefaultPortStatistics;
@@ -59,6 +60,7 @@ import org.onosproject.net.device.DeviceStoreDelegate;
 import org.onosproject.net.device.OchPortDescription;
 import org.onosproject.net.device.OduCltPortDescription;
 import org.onosproject.net.device.OmsPortDescription;
+import org.onosproject.net.device.OtuPortDescription;
 import org.onosproject.net.device.PortDescription;
 import org.onosproject.net.device.PortStatistics;
 import org.onosproject.net.provider.ProviderId;
@@ -94,13 +96,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.base.Verify.verify;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.apache.commons.lang3.concurrent.ConcurrentUtils.createIfAbsentUnchecked;
 import static org.onlab.util.Tools.groupedThreads;
@@ -198,10 +200,10 @@ public class GossipDeviceStore
 
     @Activate
     public void activate() {
-        executor = Executors.newCachedThreadPool(groupedThreads("onos/device", "fg-%d"));
+        executor = newCachedThreadPool(groupedThreads("onos/device", "fg-%d", log));
 
         backgroundExecutor =
-                newSingleThreadScheduledExecutor(minPriority(groupedThreads("onos/device", "bg-%d")));
+                newSingleThreadScheduledExecutor(minPriority(groupedThreads("onos/device", "bg-%d", log)));
 
         clusterCommunicator.addSubscriber(
                 GossipDeviceStoreMessageSubjects.DEVICE_UPDATE, new InternalDeviceEventListener(), executor);
@@ -330,6 +332,11 @@ public class GossipDeviceStore
             }
 
         } else {
+            // Only forward for ConfigProvider
+            // Forwarding was added as a workaround for ONOS-490
+            if (!providerId.scheme().equals("cfg")) {
+                return null;
+            }
             // FIXME Temporary hack for NPE (ONOS-1171).
             // Proper fix is to implement forwarding to master on ConfigProvider
             // redo ONOS-490
@@ -434,8 +441,7 @@ public class GossipDeviceStore
             if (!replaced) {
                 verify(replaced,
                        "Replacing devices cache failed. PID:%s [expected:%s, found:%s, new=%s]",
-                       providerId, oldDevice, devices.get(newDevice.id())
-                        , newDevice);
+                       providerId, oldDevice, devices.get(newDevice.id()), newDevice);
             }
 
             event = new DeviceEvent(DeviceEvent.Type.DEVICE_UPDATED, newDevice, null);
@@ -579,6 +585,11 @@ public class GossipDeviceStore
             }
 
         } else {
+            // Only forward for ConfigProvider
+            // Forwarding was added as a workaround for ONOS-490
+            if (!providerId.scheme().equals("cfg")) {
+                return Collections.emptyList();
+            }
             // FIXME Temporary hack for NPE (ONOS-1171).
             // Proper fix is to implement forwarding to master on ConfigProvider
             // redo ONOS-490
@@ -1086,6 +1097,9 @@ public class GossipDeviceStore
             case ODUCLT:
                 OduCltPortDescription oduDesc = (OduCltPortDescription) description;
                 return new OduCltPort(device, number, isEnabled, oduDesc.signalType(), annotations);
+            case OTU:
+                OtuPortDescription otuDesc = (OtuPortDescription) description;
+                return new OtuPort(device, number, isEnabled, otuDesc.signalType(), annotations);
             default:
                 return new DefaultPort(device, number, isEnabled, description.type(),
                         description.portSpeed(), annotations);
@@ -1283,7 +1297,7 @@ public class GossipDeviceStore
 
     /**
      * Responds to anti-entropy advertisement message.
-     * <p/>
+     * <p>
      * Notify sender about out-dated information using regular replication message.
      * Send back advertisement to sender if not in sync.
      *

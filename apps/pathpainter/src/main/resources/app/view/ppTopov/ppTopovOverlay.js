@@ -152,17 +152,16 @@
 
         // Key bindings for traffic overlay buttons
         // NOTE: fully qual. button ID is derived from overlay-id and key-name
-        // FIXME: use into [ and ] instead of 1 and 2
         // FIXME: find better keys for shortest paths & disjoint paths modes
         keyBindings: {
-            1: {
+            openBracket: {
                 cb: function () {
                     pps.setSrc(selection);
                 },
                 tt: 'Set source node',
                 gid: '*src'
             },
-            2: {
+            closeBracket: {
                 cb: function () {
                     pps.setDst(selection);
                 },
@@ -211,9 +210,16 @@
                 tt: 'Highlight next path',
                 gid: 'nextIntent'
             },
+            0: {
+                cb: function () {
+                    pps.clear();
+                },
+                tt: 'Clear source and destination',
+                gid: 'xMark'
+            },
 
             _keyOrder: [
-                '1', '2', '3', '4', '5', '6', 'leftArrow', 'rightArrow'
+                'openBracket', 'closeBracket', '3', '4', '5', '6', 'leftArrow', 'rightArrow', '0'
             ]
         },
 

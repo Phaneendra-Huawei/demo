@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -255,6 +255,27 @@ public class SimpleFlowRuleStore
             }
         }
         return null;
+    }
+
+    @Override
+    public FlowRuleEvent pendingFlowRule(FlowEntry rule) {
+        List<StoredFlowEntry> entries = getFlowEntries(rule.deviceId(), rule.id());
+        synchronized (entries) {
+            for (StoredFlowEntry entry : entries) {
+                if (entry.equals(rule) &&
+                        entry.state() != FlowEntryState.PENDING_ADD) {
+                    synchronized (entry) {
+                        entry.setState(FlowEntryState.PENDING_ADD);
+                        return new FlowRuleEvent(Type.RULE_UPDATED, rule);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public void purgeFlowRule(DeviceId deviceId) {
+        flowEntries.remove(deviceId);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,11 @@ import java.util.Set;
  */
 @Beta
 public interface VirtualNetworkService {
+
+    /**
+     * The topic used for obtaining globally unique ids.
+     */
+    String VIRTUAL_NETWORK_TOPIC = "virtual-network-ids";
 
     /**
      * Returns a collection of all virtual networks created on behalf of the

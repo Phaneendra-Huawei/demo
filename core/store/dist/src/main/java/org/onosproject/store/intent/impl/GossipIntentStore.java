@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.IntentStore;
 import org.onosproject.net.intent.IntentStoreDelegate;
 import org.onosproject.net.intent.Key;
-import org.onosproject.net.intent.PartitionService;
+import org.onosproject.net.intent.IntentPartitionService;
 import org.onosproject.store.AbstractStore;
 import org.onosproject.store.service.MultiValuedTimestamp;
 import org.onosproject.store.service.WallClockTimestamp;
@@ -83,7 +83,7 @@ public class GossipIntentStore
     protected StorageService storageService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected PartitionService partitionService;
+    protected IntentPartitionService partitionService;
 
     private final AtomicLong sequenceNumber = new AtomicLong(0);
 
@@ -166,10 +166,8 @@ public class GossipIntentStore
         if (data != null) {
             return data.installables();
         }
-        return null;
+        return ImmutableList.of();
     }
-
-
 
     @Override
     public void write(IntentData newData) {
@@ -219,8 +217,8 @@ public class GossipIntentStore
                 .map(ControllerNode::id)
                 .filter(node -> !Objects.equals(node, me))
                 .collect(Collectors.toList());
-        if (nodes.size() == 0) {
-            return null;
+        if (nodes.isEmpty()) {
+            return ImmutableList.of();
         }
         return ImmutableList.of(nodes.get(RandomUtils.nextInt(nodes.size())));
     }
@@ -253,10 +251,12 @@ public class GossipIntentStore
         checkNotNull(data);
 
         if (data.version() == null) {
-            data.setVersion(new WallClockTimestamp());
+            pendingMap.put(data.key(), new IntentData(data.intent(), data.state(),
+                    new WallClockTimestamp(), clusterService.getLocalNode().id()));
+        } else {
+            pendingMap.put(data.key(), new IntentData(data.intent(), data.state(),
+                    data.version(), clusterService.getLocalNode().id()));
         }
-        data.setOrigin(clusterService.getLocalNode().id());
-        pendingMap.put(data.key(), new IntentData(data));
     }
 
     @Override
@@ -286,12 +286,6 @@ public class GossipIntentStore
                 .collect(Collectors.toList());
     }
 
-    private void notifyDelegateIfNotNull(IntentEvent event) {
-        if (event != null) {
-            notifyDelegate(event);
-        }
-    }
-
     private final class InternalCurrentListener implements
             EventuallyConsistentMapListener<Key, IntentData> {
         @Override
@@ -305,7 +299,7 @@ public class GossipIntentStore
                 if (delegate != null && isMaster(event.value().intent().key())) {
                     delegate.onUpdate(new IntentData(intentData)); // copy for safety, likely unnecessary
                 }
-                notifyDelegateIfNotNull(IntentEvent.getEvent(intentData));
+                IntentEvent.getEvent(intentData).ifPresent(e -> notifyDelegate(e));
             }
         }
     }
@@ -325,7 +319,7 @@ public class GossipIntentStore
                     }
                 }
 
-                notifyDelegateIfNotNull(IntentEvent.getEvent(event.value()));
+                IntentEvent.getEvent(event.value()).ifPresent(e -> notifyDelegate(e));
             }
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package org.onosproject.net.intent.impl.compiler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -43,10 +43,10 @@ import org.onosproject.net.intent.IntentExtensionService;
 import org.onosproject.net.intent.OpticalConnectivityIntent;
 import org.onosproject.net.intent.OpticalPathIntent;
 import org.onosproject.net.intent.impl.IntentCompilationException;
-import org.onosproject.net.newresource.ResourceAllocation;
-import org.onosproject.net.newresource.ResourcePath;
-import org.onosproject.net.newresource.ResourceService;
-import org.onosproject.net.resource.link.LinkResourceAllocations;
+import org.onosproject.net.resource.ResourceAllocation;
+import org.onosproject.net.resource.Resource;
+import org.onosproject.net.resource.ResourceService;
+import org.onosproject.net.resource.Resources;
 import org.onosproject.net.topology.LinkWeight;
 import org.onosproject.net.topology.Topology;
 import org.onosproject.net.topology.TopologyService;
@@ -56,6 +56,8 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -96,8 +98,7 @@ public class OpticalConnectivityIntentCompiler implements IntentCompiler<Optical
 
     @Override
     public List<Intent> compile(OpticalConnectivityIntent intent,
-                                List<Intent> installable,
-                                Set<LinkResourceAllocations> resources) {
+                                List<Intent> installable) {
         // Check if source and destination are optical OCh ports
         ConnectPoint src = intent.getSrc();
         ConnectPoint dst = intent.getDst();
@@ -108,95 +109,120 @@ public class OpticalConnectivityIntentCompiler implements IntentCompiler<Optical
 
         log.debug("Compiling optical connectivity intent between {} and {}", src, dst);
 
-        // Reserve OCh ports
-        ResourcePath srcPortPath = ResourcePath.discrete(src.deviceId(), src.port());
-        ResourcePath dstPortPath = ResourcePath.discrete(dst.deviceId(), dst.port());
-        List<org.onosproject.net.newresource.ResourceAllocation> allocation =
-                resourceService.allocate(intent.id(), srcPortPath, dstPortPath);
-        if (allocation.isEmpty()) {
-            throw new IntentCompilationException("Unable to reserve ports for intent " + intent);
+        // Release of intent resources here is only a temporary solution for handling the
+        // case of recompiling due to intent restoration (when intent state is FAILED).
+        // TODO: try to release intent resources in IntentManager.
+        resourceService.release(intent.id());
+
+        // Check OCh port availability
+        Resource srcPortResource = Resources.discrete(src.deviceId(), src.port()).resource();
+        Resource dstPortResource = Resources.discrete(dst.deviceId(), dst.port()).resource();
+        // If ports are not available, compilation fails
+        if (!Stream.of(srcPortResource, dstPortResource).allMatch(resourceService::isAvailable)) {
+            throw new IntentCompilationException("Ports for the intent are not available. Intent: " + intent);
         }
+
+        List<Resource> resources = new ArrayList<>();
+        resources.add(srcPortResource);
+        resources.add(dstPortResource);
 
         // Calculate available light paths
         Set<Path> paths = getOpticalPaths(intent);
 
-        // Use first path that can be successfully reserved
-        for (Path path : paths) {
-
-            // Static or dynamic lambda allocation
-            String staticLambda = srcPort.annotations().value(AnnotationKeys.STATIC_LAMBDA);
-            OchPort srcOchPort = (OchPort) srcPort;
-            OchPort dstOchPort = (OchPort) dstPort;
-            OchSignal ochSignal;
-
-            // FIXME: need to actually reserve the lambda for static lambda's
-            if (staticLambda != null) {
-                ochSignal = new OchSignal(Frequency.ofHz(Long.parseLong(staticLambda)),
-                        srcOchPort.lambda().channelSpacing(),
-                        srcOchPort.lambda().slotGranularity());
-            } else if (!srcOchPort.isTunable() || !dstOchPort.isTunable()) {
-                // FIXME: also check destination OCh port
-                ochSignal = srcOchPort.lambda();
-            } else {
-                // Request and reserve lambda on path
-                List<OchSignal> lambdas = assignWavelength(intent, path);
-                if (lambdas.isEmpty()) {
-                    continue;
-                }
-                ochSignal = OchSignal.toFixedGrid(lambdas, ChannelSpacing.CHL_50GHZ);
-            }
-
-            // Create installable optical path intent
-            // Only support fixed grid for now
-            OchSignalType signalType = OchSignalType.FIXED_GRID;
-
-            Intent newIntent = OpticalPathIntent.builder()
-                    .appId(intent.appId())
-                    .src(intent.getSrc())
-                    .dst(intent.getDst())
-                    .path(path)
-                    .lambda(ochSignal)
-                    .signalType(signalType)
-                    .bidirectional(intent.isBidirectional())
-                    .build();
-
-            return ImmutableList.of(newIntent);
+        if (paths.isEmpty()) {
+            throw new IntentCompilationException("Unable to find suitable lightpath for intent " + intent);
         }
 
-        // Release port allocations if unsuccessful
-        resourceService.release(intent.id());
+        // Static or dynamic lambda allocation
+        String staticLambda = srcPort.annotations().value(AnnotationKeys.STATIC_LAMBDA);
+        OchPort srcOchPort = (OchPort) srcPort;
+        OchPort dstOchPort = (OchPort) dstPort;
 
-        throw new IntentCompilationException("Unable to find suitable lightpath for intent " + intent);
+        Path firstPath = paths.iterator().next();
+        // FIXME: need to actually reserve the lambda for static lambda's
+        // static lambda case: early return
+        if (staticLambda != null) {
+            allocateResources(intent, resources);
+
+            OchSignal lambda = new OchSignal(Frequency.ofHz(Long.parseLong(staticLambda)),
+                    srcOchPort.lambda().channelSpacing(),
+                    srcOchPort.lambda().slotGranularity());
+            return ImmutableList.of(createIntent(intent, firstPath, lambda));
+        }
+
+        // FIXME: also check destination OCh port
+        // non-tunable case: early return
+        if (!srcOchPort.isTunable() || !dstOchPort.isTunable()) {
+            allocateResources(intent, resources);
+
+            OchSignal lambda = srcOchPort.lambda();
+            return ImmutableList.of(createIntent(intent, firstPath, lambda));
+        }
+
+        // remaining cases
+        // Use first path that the required resources are available
+        Optional<Map.Entry<Path, List<OchSignal>>> found = paths.stream()
+                .map(path -> Maps.immutableEntry(path, findFirstAvailableOch(path)))
+                .filter(entry -> !entry.getValue().isEmpty())
+                .filter(entry -> convertToResources(entry.getKey().links(),
+                        entry.getValue()).stream().allMatch(resourceService::isAvailable))
+                .findFirst();
+
+        if (found.isPresent()) {
+            resources.addAll(convertToResources(found.get().getKey().links(), found.get().getValue()));
+
+            allocateResources(intent, resources);
+
+            OchSignal ochSignal = OchSignal.toFixedGrid(found.get().getValue(), ChannelSpacing.CHL_50GHZ);
+            return ImmutableList.of(createIntent(intent, found.get().getKey(), ochSignal));
+        } else {
+            throw new IntentCompilationException("Unable to find suitable lightpath for intent " + intent);
+        }
     }
 
-    /**
-     * Request and reserve first available wavelength across path.
-     *
-     * @param path path in WDM topology
-     * @return first available lambda allocated
-     */
-    private List<OchSignal> assignWavelength(Intent intent, Path path) {
+    private Intent createIntent(OpticalConnectivityIntent parentIntent, Path path, OchSignal lambda) {
+        // Create installable optical path intent
+        // Only support fixed grid for now
+        OchSignalType signalType = OchSignalType.FIXED_GRID;
+
+        return OpticalPathIntent.builder()
+                .appId(parentIntent.appId())
+                .src(parentIntent.getSrc())
+                .dst(parentIntent.getDst())
+                // calling paths.iterator().next() is safe because of non-empty set
+                .path(path)
+                .lambda(lambda)
+                .signalType(signalType)
+                .bidirectional(parentIntent.isBidirectional())
+                .build();
+    }
+
+    private void allocateResources(Intent intent, List<Resource> resources) {
+        // reserve all of required resources
+        List<ResourceAllocation> allocations = resourceService.allocate(intent.id(), resources);
+        if (allocations.isEmpty()) {
+            log.info("Resource allocation for {} failed (resource request: {})", intent, resources);
+            throw new IntentCompilationException("Unable to allocate resources: " + resources);
+        }
+    }
+
+    private List<OchSignal> findFirstAvailableOch(Path path) {
         Set<OchSignal> lambdas = findCommonLambdasOverLinks(path.links());
         if (lambdas.isEmpty()) {
             return Collections.emptyList();
         }
 
-        List<OchSignal> minLambda = findFirstLambda(lambdas, slotCount());
-        List<ResourcePath> lambdaResources = path.links().stream()
+        return findFirstLambda(lambdas, slotCount());
+    }
+
+    private List<Resource> convertToResources(List<Link> links, List<OchSignal> lambda) {
+        return links.stream()
                 .flatMap(x -> Stream.of(
-                        ResourcePath.discrete(x.src().deviceId(), x.src().port()),
-                        ResourcePath.discrete(x.dst().deviceId(), x.dst().port())
+                        Resources.discrete(x.src().deviceId(), x.src().port()).resource(),
+                        Resources.discrete(x.dst().deviceId(), x.dst().port()).resource()
                 ))
-                .flatMap(x -> minLambda.stream().map(l -> x.child(l)))
+                .flatMap(x -> lambda.stream().map(x::child))
                 .collect(Collectors.toList());
-
-        List<ResourceAllocation> allocations = resourceService.allocate(intent.id(), lambdaResources);
-        if (allocations.isEmpty()) {
-            log.info("Resource allocation for {} failed (resource request: {})", intent, lambdaResources);
-            return Collections.emptyList();
-        }
-
-        return minLambda;
     }
 
     /**
@@ -214,12 +240,10 @@ public class OpticalConnectivityIntentCompiler implements IntentCompiler<Optical
     private Set<OchSignal> findCommonLambdasOverLinks(List<Link> links) {
         return links.stream()
                 .flatMap(x -> Stream.of(
-                        ResourcePath.discrete(x.src().deviceId(), x.src().port()),
-                        ResourcePath.discrete(x.dst().deviceId(), x.dst().port())
+                        Resources.discrete(x.src().deviceId(), x.src().port()).id(),
+                        Resources.discrete(x.dst().deviceId(), x.dst().port()).id()
                 ))
-                .map(resourceService::getAvailableResources)
-                .map(x -> Iterables.filter(x, r -> r.last() instanceof OchSignal))
-                .map(x -> Iterables.transform(x, r -> (OchSignal) r.last()))
+                .map(x -> resourceService.getAvailableResourceValues(x, OchSignal.class))
                 .map(x -> (Set<OchSignal>) ImmutableSet.copyOf(x))
                 .reduce(Sets::intersection)
                 .orElse(Collections.emptySet());

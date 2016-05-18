@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,8 @@ public class BgpAppConfig extends Config<ApplicationId> {
     public static final String LS_CAPABILITY = "lsCapability";
     public static final String HOLD_TIME = "holdTime";
     public static final String LARGE_AS_CAPABILITY = "largeAsCapability";
+    public static final String FLOW_SPEC_CAPABILITY = "flowSpecCapability";
+    public static final String FLOW_SPEC_RPD_CAPABILITY = "flowSpecRpdCapability";
 
     public static final String BGP_PEER = "bgpPeer";
     public static final String PEER_IP = "peerIp";
@@ -59,6 +61,12 @@ public class BgpAppConfig extends Config<ApplicationId> {
     static final int MAX_SHORT_AS_NUMBER = 65535;
     static final long MAX_LONG_AS_NUMBER = 4294967295L;
 
+    static final int MIN_SESSION_NUMBER = 1;
+    static final long MAX_SESSION_NUMBER = 21;
+
+    static final int MIN_HOLDTIME = 0;
+    static final long MAX_HOLDTIME = 65535;
+
     @Override
     public boolean isValid() {
         boolean fields = false;
@@ -67,10 +75,12 @@ public class BgpAppConfig extends Config<ApplicationId> {
         bgpConfig = bgpController.getConfig();
 
         fields = hasOnlyFields(ROUTER_ID, LOCAL_AS, MAX_SESSION, LS_CAPABILITY,
-                HOLD_TIME, LARGE_AS_CAPABILITY, BGP_PEER) &&
+                HOLD_TIME, LARGE_AS_CAPABILITY, FLOW_SPEC_CAPABILITY, FLOW_SPEC_RPD_CAPABILITY, BGP_PEER) &&
                 isIpAddress(ROUTER_ID, MANDATORY) && isNumber(LOCAL_AS, MANDATORY) &&
-                isNumber(MAX_SESSION, OPTIONAL, 20) && isNumber(HOLD_TIME, OPTIONAL, 180) &&
-                isBoolean(LS_CAPABILITY, OPTIONAL) && isBoolean(LARGE_AS_CAPABILITY, OPTIONAL);
+                isNumber(MAX_SESSION, OPTIONAL, MIN_SESSION_NUMBER, MAX_SESSION_NUMBER)
+                && isNumber(HOLD_TIME, OPTIONAL, MIN_HOLDTIME, MAX_HOLDTIME) &&
+                isBoolean(LS_CAPABILITY, OPTIONAL) && isBoolean(LARGE_AS_CAPABILITY, OPTIONAL) &&
+                isString(FLOW_SPEC_CAPABILITY, OPTIONAL) && isBoolean(FLOW_SPEC_RPD_CAPABILITY, OPTIONAL);
 
         if (!fields) {
             return fields;
@@ -116,6 +126,15 @@ public class BgpAppConfig extends Config<ApplicationId> {
     }
 
     /**
+     * Returns flow spec route policy distribution capability support from the configuration.
+     *
+     * @return true if flow spec route policy distribution capability is set otherwise false
+     */
+    public boolean rpdCapability() {
+        return Boolean.parseBoolean(get(FLOW_SPEC_RPD_CAPABILITY, null));
+    }
+
+    /**
      * Returns largeAs capability support from the configuration.
      *
      * @return largeAs capability
@@ -125,12 +144,52 @@ public class BgpAppConfig extends Config<ApplicationId> {
     }
 
     /**
+     * Returns flow specification capability support from the configuration.
+     *
+     * @return flow specification capability
+     */
+    public String flowSpecCapability() {
+        return get(FLOW_SPEC_CAPABILITY, null);
+    }
+
+    /**
      * Returns holdTime of the local node from the configuration.
      *
      * @return holdTime
      */
     public short holdTime() {
         return Short.parseShort(get(HOLD_TIME, null));
+    }
+
+    /**
+     * Validates the flow specification capability.
+     *
+     * @return true if valid else false
+     */
+    public boolean validateFlowSpec() {
+        if (flowSpecCapability() != null) {
+            String flowSpec = flowSpecCapability();
+            if ((flowSpec.equals("IPV4")) || (flowSpec.equals("VPNV4")) || (flowSpec.equals("IPV4_VPNV4"))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Validates the hold time value.
+     *
+     * @return true if valid else false
+     */
+    public boolean validateHoldTime() {
+        if (holdTime() != 0) {
+            short holdTime = holdTime();
+            if ((holdTime == 1) || (holdTime == 2)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -152,6 +211,13 @@ public class BgpAppConfig extends Config<ApplicationId> {
             return false;
         }
 
+        if (!validateFlowSpec()) {
+            return false;
+        }
+
+        if (!validateHoldTime()) {
+            return false;
+        }
         return true;
     }
 
@@ -164,10 +230,6 @@ public class BgpAppConfig extends Config<ApplicationId> {
 
         long localAs = 0;
         localAs = localAs();
-
-        if (bgpController.connectedPeerCount() != 0) {
-            return false;
-        }
 
         if (largeAsCapability()) {
 
@@ -186,6 +248,7 @@ public class BgpAppConfig extends Config<ApplicationId> {
     /**
      * Validates the Bgp peer As number.
      *
+     * @param remoteAs remote As number
      * @return true if valid else false
      */
     public boolean validateRemoteAs(long remoteAs) {
@@ -209,15 +272,14 @@ public class BgpAppConfig extends Config<ApplicationId> {
      */
     public boolean validateRouterId() {
         String routerId = routerId();
-        if (bgpController.connectedPeerCount() != 0) {
-            return false;
-        }
+        // TODO: router ID validation
         return true;
     }
 
     /**
      * Validates the Bgp peer holdTime.
      *
+     * @param remoteAs remote As number
      * @return true if valid else false
      */
     public boolean validatePeerHoldTime(long remoteAs) {

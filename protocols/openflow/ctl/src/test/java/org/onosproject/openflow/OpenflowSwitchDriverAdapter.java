@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.onosproject.net.Device;
 import org.onosproject.net.driver.DriverData;
 import org.onosproject.net.driver.DriverHandler;
 import org.onosproject.openflow.controller.Dpid;
+import org.onosproject.openflow.controller.OpenFlowEventListener;
 import org.onosproject.openflow.controller.RoleState;
 import org.onosproject.openflow.controller.driver.OpenFlowAgent;
 import org.onosproject.openflow.controller.driver.OpenFlowSwitchDriver;
@@ -298,5 +299,13 @@ public class OpenflowSwitchDriverAdapter implements OpenFlowSwitchDriver {
     @Override
     public String channelId() {
         return null;
+    }
+
+    @Override
+    public void addEventListener(OpenFlowEventListener listener) {
+    }
+
+    @Override
+    public void removeEventListener(OpenFlowEventListener listener) {
     }
 }

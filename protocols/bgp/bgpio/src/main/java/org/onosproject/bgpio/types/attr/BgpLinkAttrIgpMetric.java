@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ public class BgpLinkAttrIgpMetric implements BgpValueType {
     public static BgpLinkAttrIgpMetric read(ChannelBuffer cb)
             throws BgpParseException {
 
-        short linkigp;
+        int linkigp;
         int igpMetric = 0;
         int igpMetricLen = 0;
 
@@ -105,7 +105,7 @@ public class BgpLinkAttrIgpMetric implements BgpValueType {
         case ISIS_WIDE_METRIC:
             linkigp = cb.readShort();
             igpMetric = cb.readByte();
-            igpMetric = (igpMetric << 16) | linkigp;
+            igpMetric = (linkigp << 8) | igpMetric;
             igpMetricLen = ISIS_WIDE_METRIC;
             break;
         default: // validation is already in place

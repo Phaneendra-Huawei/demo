@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.onosproject.net.group.Group;
 import org.onosproject.net.group.GroupBuckets;
 import org.onosproject.net.group.GroupDescription;
 import org.onosproject.net.group.GroupOperation;
+import org.onosproject.net.group.GroupOperation.GroupMsgErrorCode;
 import org.onosproject.net.group.GroupOperations;
 import org.onosproject.net.group.GroupProvider;
 import org.onosproject.net.group.GroupProviderRegistry;
@@ -56,6 +57,7 @@ import org.projectfloodlight.openflow.protocol.OFErrorType;
 import org.projectfloodlight.openflow.protocol.OFGroupDescStatsEntry;
 import org.projectfloodlight.openflow.protocol.OFGroupDescStatsReply;
 import org.projectfloodlight.openflow.protocol.OFGroupMod;
+import org.projectfloodlight.openflow.protocol.OFGroupModFailedCode;
 import org.projectfloodlight.openflow.protocol.OFGroupStatsEntry;
 import org.projectfloodlight.openflow.protocol.OFGroupStatsReply;
 import org.projectfloodlight.openflow.protocol.OFGroupType;
@@ -64,6 +66,7 @@ import org.projectfloodlight.openflow.protocol.OFPortStatus;
 import org.projectfloodlight.openflow.protocol.OFStatsReply;
 import org.projectfloodlight.openflow.protocol.OFStatsType;
 import org.projectfloodlight.openflow.protocol.OFVersion;
+import org.projectfloodlight.openflow.protocol.errormsg.OFGroupModFailedErrorMsg;
 import org.slf4j.Logger;
 
 import com.google.common.collect.Maps;
@@ -135,7 +138,6 @@ public class OpenFlowGroupProvider extends AbstractProvider implements GroupProv
 
     @Override
     public void performGroupOperation(DeviceId deviceId, GroupOperations groupOps) {
-        Map<OFGroupMod, OpenFlowSwitch> mods = Maps.newIdentityHashMap();
         final Dpid dpid = Dpid.dpid(deviceId.uri());
         OpenFlowSwitch sw = controller.getSwitch(dpid);
         for (GroupOperation groupOperation: groupOps.operations()) {
@@ -209,7 +211,7 @@ public class OpenFlowGroupProvider extends AbstractProvider implements GroupProv
             }
         }
 
-        if (groupStatsReply != null && groupDescStatsReply != null) {
+        if (providerService != null && groupStatsReply != null) {
             Collection<Group> groups = buildGroupMetrics(deviceId,
                     groupStatsReply, groupDescStatsReply);
             providerService.pushGroupMetrics(deviceId, groups);
@@ -225,14 +227,14 @@ public class OpenFlowGroupProvider extends AbstractProvider implements GroupProv
                                    OFGroupDescStatsReply groupDescStatsReply) {
 
         Map<Integer, Group> groups = Maps.newHashMap();
-
+        Dpid dpid = Dpid.dpid(deviceId.uri());
 
         for (OFGroupDescStatsEntry entry: groupDescStatsReply.getEntries()) {
             int id = entry.getGroup().getGroupNumber();
             GroupId groupId = new DefaultGroupId(id);
             GroupDescription.Type type = getGroupType(entry.getGroupType());
-            GroupBuckets buckets = new GroupBucketEntryBuilder(entry.getBuckets(),
-                    entry.getGroupType()).build();
+            GroupBuckets buckets = new GroupBucketEntryBuilder(dpid, entry.getBuckets(),
+                    entry.getGroupType(), driverService).build();
             DefaultGroup group = new DefaultGroup(groupId, deviceId, type, buckets);
             groups.put(id, group);
         }
@@ -329,11 +331,17 @@ public class OpenFlowGroupProvider extends AbstractProvider implements GroupProv
                                     pendingGroupOperations.get(pendingGroupId);
                             DeviceId deviceId = DeviceId.deviceId(Dpid.uri(dpid));
                             if (operation != null) {
+                                OFGroupModFailedCode code =
+                                        ((OFGroupModFailedErrorMsg) errorMsg).getCode();
+                                GroupMsgErrorCode failureCode =
+                                        GroupMsgErrorCode.values()[(code.ordinal())];
+                                GroupOperation failedOperation = GroupOperation
+                                        .createFailedGroupOperation(operation, failureCode);
+                                log.warn("Received a group mod error {}", msg);
                                 providerService.groupOperationFailed(deviceId,
-                                        operation);
+                                        failedOperation);
                                 pendingGroupOperations.remove(pendingGroupId);
                                 pendingXidMaps.remove(pendingGroupId);
-                                log.warn("Received an group mod error {}", msg);
                             } else {
                                 log.error("Cannot find pending group operation with group ID: {}",
                                         pendingGroupId);
@@ -353,10 +361,12 @@ public class OpenFlowGroupProvider extends AbstractProvider implements GroupProv
                 return;
             }
             if (isGroupSupported(sw)) {
-                GroupStatsCollector gsc = new GroupStatsCollector(
-                        controller.getSwitch(dpid), POLL_INTERVAL);
+                GroupStatsCollector gsc = new GroupStatsCollector(sw, POLL_INTERVAL);
                 gsc.start();
-                collectors.put(dpid, gsc);
+                GroupStatsCollector prevGsc = collectors.put(dpid, gsc);
+                if (prevGsc != null) {
+                    prevGsc.stop();
+                }
             }
 
             //figure out race condition

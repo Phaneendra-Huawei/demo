@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,15 @@
 package org.onosproject.vtnrsc;
 
 import java.util.List;
+import java.util.Set;
+
+import org.onosproject.net.DeviceId;
 
 /**
- * Abstraction of an entity providing Port Chain information.
- * A Port Chain (Service Function Path) consists of
- * a set of Neutron ports, to define the sequence of service functions
- * a set of flow classifiers, to specify the classified traffic flows to enter the chain
+ * Abstraction of an entity providing Port Chain information. A Port Chain
+ * (Service Function Path) consists of a set of Neutron ports, to define the
+ * sequence of service functions a set of flow classifiers, to specify the
+ * classified traffic flows to enter the chain
  */
 public interface PortChain {
 
@@ -54,28 +57,137 @@ public interface PortChain {
     String description();
 
     /**
-     * Returns the list of port pair groups associated with
-     * this port chain.
+     * Returns the list of port pair groups associated with this port chain.
      *
      * @return list of port pair groups
      */
     List<PortPairGroupId> portPairGroups();
 
     /**
-     * Returns the list of flow classifiers associated with
-     * this port chain.
+     * Returns the list of flow classifiers associated with this port chain.
      *
      * @return list of flow classifiers
      */
     List<FlowClassifierId> flowClassifiers();
 
     /**
+     * Adds a new load balanced path.
+     *
+     * @param fiveTuple five tuple from the packet
+     * @param id load balance path identifier
+     * @param path load balanced path of list of port pairs
+     */
+    void addLoadBalancePath(FiveTuple fiveTuple, LoadBalanceId id,
+            List<PortPairId> path);
+
+    /**
+     * Adds sfc classifiers to the given load balance id for a port chain.
+     *
+     * @param id load balance path identifier
+     * @param classifierList list of classifier devices
+     */
+    void addSfcClassifiers(LoadBalanceId id, List<DeviceId> classifierList);
+
+    /**
+     * Adds sfc forwarders to the given load balance id for a port chain.
+     *
+     * @param id load balance path identifier
+     * @param forwarderList list of forwarder devices
+     */
+    void addSfcForwarders(LoadBalanceId id, List<DeviceId> forwarderList);
+
+    /**
+     * Removes sfc classifiers to the given load balance id for a port chain.
+     *
+     * @param id load balance path identifier
+     * @param classifierList list of classifier devices
+     */
+    void removeSfcClassifiers(LoadBalanceId id, List<DeviceId> classifierList);
+
+    /**
+     * Removes sfc forwarders to the given load balance id for a port chain.
+     *
+     * @param id load balance path identifier
+     * @param forwarderList list of forwarder devices
+     */
+    void removeSfcForwarders(LoadBalanceId id, List<DeviceId> forwarderList);
+
+    /**
+     * Returns sfc classifiers to the given load balance id for a port chain.
+     *
+     * @param id load balance path identifier
+     * @return list of classifier devices
+     */
+    List<DeviceId> getSfcClassifiers(LoadBalanceId id);
+
+    /**
+     * Returns sfc forwarders to the given load balance id for a port chain.
+     *
+     * @param id load balance path identifier
+     * @return list of forwarder devices
+     */
+    List<DeviceId> getSfcForwarders(LoadBalanceId id);
+
+    /**
+     * Returns the load balance id from five tuple.
+     *
+     * @param fiveTuple five tuple from the packet
+     * @return load balance identifier for the given packet
+     */
+    LoadBalanceId getLoadBalanceId(FiveTuple fiveTuple);
+
+    /**
+     * Returns the keys set from load balance id map.
+     *
+     * @return set of five tuple info
+     */
+    Set<FiveTuple> getLoadBalanceIdMapKeys();
+
+    /**
+     * Returns the keys set from load balance path map.
+     *
+     * @return set of load balance id's
+     */
+    Set<LoadBalanceId> getLoadBalancePathMapKeys();
+
+    /**
+     * Returns the load balanced path from load balance Id.
+     *
+     * @param id load balance id.
+     * @return path containing list of port pairs
+     */
+    List<PortPairId> getLoadBalancePath(LoadBalanceId id);
+
+    /**
+     * Returns the load balanced path from five tuple.
+     *
+     * @param fiveTuple five tuple from the packet
+     * @return path containing list of port pairs
+     */
+    List<PortPairId> getLoadBalancePath(FiveTuple fiveTuple);
+
+    /**
+     * Returns the no of load balance paths created.
+     *
+     * @return size of load balanced paths
+     */
+    int getLoadBalancePathSize();
+
+    /**
+     * Match the given path with existing load balanced paths.
+     *
+     * @param path load balanced path
+     * @return load balance id if the path matches, null otherwise.
+     */
+    LoadBalanceId matchPath(List<PortPairId> path);
+
+    /**
      * Returns whether this port chain is an exact match to the port chain given
      * in the argument.
      * <p>
-     * Exact match means the port pair groups and flow classifiers match
-     * with the given port chain. It does not consider the port chain id, name
-     * and description.
+     * Exact match means the port pair groups and flow classifiers match with
+     * the given port chain. It does not consider the port chain id, name and
+     * description.
      * </p>
      *
      * @param portChain other port chain to match against
@@ -121,8 +233,8 @@ public interface PortChain {
         Builder setDescription(String description);
 
         /**
-         * Assigns the port pair groups associated with the port chain
-         * to this object.
+         * Assigns the port pair groups associated with the port chain to this
+         * object.
          *
          * @param portPairGroups list of port pair groups
          * @return this the builder object
@@ -130,8 +242,8 @@ public interface PortChain {
         Builder setPortPairGroups(List<PortPairGroupId> portPairGroups);
 
         /**
-         * Assigns the flow classifiers associated with the port chain
-         * to this object.
+         * Assigns the flow classifiers associated with the port chain to this
+         * object.
          *
          * @param flowClassifiers list of flow classifiers
          * @return this the builder object

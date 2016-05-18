@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.BufferUnderflowException;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.onosproject.security.AppGuard.checkPermission;
@@ -177,6 +178,16 @@ public final class DefaultOpenFlowPacketContext implements OpenFlowPacketContext
         checkPermission(PACKET_READ);
 
         return isBuffered;
+    }
+
+    @Override
+    public Optional<Long> cookie() {
+        checkPermission(PACKET_READ);
+        if (pktin.getVersion() != OFVersion.OF_10) {
+            return Optional.of(pktin.getCookie().getValue());
+        } else {
+            return Optional.empty();
+        }
     }
 
 }

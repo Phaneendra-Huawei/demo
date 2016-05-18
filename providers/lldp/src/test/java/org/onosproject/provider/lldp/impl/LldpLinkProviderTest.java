@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,32 @@
  */
 package org.onosproject.provider.lldp.impl;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.onlab.packet.ChassisId;
 import org.onlab.packet.Ethernet;
+import org.onlab.packet.IpAddress;
 import org.onlab.packet.ONOSLLDP;
 import org.onosproject.cfg.ComponentConfigAdapter;
+import org.onosproject.cluster.ClusterMetadata;
+import org.onosproject.cluster.ClusterMetadataEventListener;
+import org.onosproject.cluster.ClusterMetadataService;
+import org.onosproject.cluster.ControllerNode;
+import org.onosproject.cluster.DefaultControllerNode;
+import org.onosproject.cluster.DefaultPartition;
 import org.onosproject.cluster.NodeId;
+import org.onosproject.cluster.Partition;
+import org.onosproject.cluster.PartitionId;
 import org.onosproject.cluster.RoleInfo;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
@@ -54,10 +66,8 @@ import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceServiceAdapter;
 import org.onosproject.net.flow.TrafficTreatment;
-import org.onosproject.net.link.LinkDescription;
-import org.onosproject.net.link.LinkProvider;
-import org.onosproject.net.link.LinkProviderRegistry;
-import org.onosproject.net.link.LinkProviderService;
+import org.onosproject.net.link.LinkProviderRegistryAdapter;
+import org.onosproject.net.link.LinkProviderServiceAdapter;
 import org.onosproject.net.link.LinkServiceAdapter;
 import org.onosproject.net.packet.DefaultInboundPacket;
 import org.onosproject.net.packet.InboundPacket;
@@ -65,28 +75,26 @@ import org.onosproject.net.packet.OutboundPacket;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketServiceAdapter;
-import org.onosproject.net.provider.AbstractProviderService;
 import org.onosproject.net.provider.ProviderId;
+import org.onosproject.provider.lldpcommon.LinkDiscovery;
 
-import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.replay;
-
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.onosproject.provider.lldp.impl.LldpLinkProvider.DEFAULT_RULES;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.onlab.junit.TestTools.assertAfter;
+import static org.onosproject.provider.lldp.impl.LldpLinkProvider.DEFAULT_RULES;
 
 
 public class LldpLinkProviderTest {
@@ -94,6 +102,7 @@ public class LldpLinkProviderTest {
     private static final DeviceId DID1 = DeviceId.deviceId("of:0000000000000001");
     private static final DeviceId DID2 = DeviceId.deviceId("of:0000000000000002");
     private static final DeviceId DID3 = DeviceId.deviceId("of:0000000000000003");
+    private static final int EVENT_MS = 500;
 
     private static Port pd1;
     private static Port pd2;
@@ -101,7 +110,7 @@ public class LldpLinkProviderTest {
     private static Port pd4;
 
     private final LldpLinkProvider provider = new LldpLinkProvider();
-    private final TestLinkRegistry linkRegistry = new TestLinkRegistry();
+    private final LinkProviderRegistryAdapter linkRegistry = new LinkProviderRegistryAdapter();
     private final TestLinkService linkService = new TestLinkService();
     private final TestPacketService packetService = new TestPacketService();
     private final TestDeviceService deviceService = new TestDeviceService();
@@ -109,7 +118,7 @@ public class LldpLinkProviderTest {
     private final TestNetworkConfigRegistry configRegistry = new TestNetworkConfigRegistry();
 
     private CoreService coreService;
-    private TestLinkProviderService providerService;
+    private LinkProviderServiceAdapter providerService;
 
     private PacketProcessor testProcessor;
     private DeviceListener deviceListener;
@@ -131,7 +140,7 @@ public class LldpLinkProviderTest {
         cfg = new TestSuppressionConfig();
         coreService = createMock(CoreService.class);
         expect(coreService.registerApplication(appId.name()))
-            .andReturn(appId).anyTimes();
+                .andReturn(appId).anyTimes();
         replay(coreService);
 
         provider.cfgService = new ComponentConfigAdapter();
@@ -143,8 +152,11 @@ public class LldpLinkProviderTest {
         provider.packetService = packetService;
         provider.providerRegistry = linkRegistry;
         provider.masterService = masterService;
+        provider.clusterMetadataService = new TestMetadataService();
 
         provider.activate(null);
+
+        providerService = linkRegistry.registeredProvider();
     }
 
     @Test
@@ -189,8 +201,8 @@ public class LldpLinkProviderTest {
 
         // update device in stub DeviceService with suppression config
         deviceService.putDevice(device(DID3, DefaultAnnotations.builder()
-                                              .set(LldpLinkProvider.NO_LLDP, "true")
-                                              .build()));
+                .set(LldpLinkProvider.NO_LLDP, "true")
+                .build()));
         deviceListener.event(deviceEvent(DeviceEvent.Type.DEVICE_UPDATED, DID3));
 
         // discovery on device is expected to be gone or stopped
@@ -212,12 +224,13 @@ public class LldpLinkProviderTest {
                                                     DID3,
                                                     LinkDiscoveryFromDevice.class));
 
-        // discovery helper for device is expected to be gone or stopped
-        LinkDiscovery linkDiscovery = provider.discoverers.get(DID3);
-        if (linkDiscovery != null) {
-            assertTrue("Discovery expected to be stopped", linkDiscovery.isStopped());
-        }
-
+        assertAfter(EVENT_MS, () -> {
+            // discovery helper for device is expected to be gone or stopped
+            LinkDiscovery linkDiscovery = provider.discoverers.get(DID3);
+            if (linkDiscovery != null) {
+                assertTrue("Discovery expected to be stopped", linkDiscovery.isStopped());
+            }
+        });
     }
 
     @Test
@@ -248,7 +261,7 @@ public class LldpLinkProviderTest {
 
         assertTrue("Port is not gone.", vanishedPort(3L));
         assertFalse("Port was not removed from discoverer",
-                   provider.discoverers.get(DID1).containsPort(3L));
+                    provider.discoverers.get(DID1).containsPort(3L));
     }
 
     /**
@@ -261,8 +274,8 @@ public class LldpLinkProviderTest {
 
         // add device in stub DeviceService with suppression configured
         deviceService.putDevice(device(DID3, DefaultAnnotations.builder()
-                                              .set(LldpLinkProvider.NO_LLDP, "true")
-                                              .build()));
+                .set(LldpLinkProvider.NO_LLDP, "true")
+                .build()));
         deviceListener.event(deviceEvent(DeviceEvent.Type.DEVICE_ADDED, DID3));
 
         // non-suppressed port added to suppressed device
@@ -385,9 +398,9 @@ public class LldpLinkProviderTest {
         // suppressed port added to non-suppressed device
         final long portno3 = 3L;
         final Port port3 = port(DID3, portno3, true,
-                                          DefaultAnnotations.builder()
-                                          .set(LldpLinkProvider.NO_LLDP, "true")
-                                          .build());
+                                DefaultAnnotations.builder()
+                                        .set(LldpLinkProvider.NO_LLDP, "true")
+                                        .build());
         deviceService.putPorts(DID3, port3);
         deviceListener.event(portEvent(DeviceEvent.Type.PORT_ADDED, DID3, port3));
 
@@ -476,27 +489,27 @@ public class LldpLinkProviderTest {
 
     private DefaultDevice device(DeviceId did) {
         return new DefaultDevice(ProviderId.NONE, did, Device.Type.SWITCH,
-                             "TESTMF", "TESTHW", "TESTSW", "TESTSN", new ChassisId());
+                                 "TESTMF", "TESTHW", "TESTSW", "TESTSN", new ChassisId());
     }
 
     private DefaultDevice device(DeviceId did, Device.Type type) {
         return new DefaultDevice(ProviderId.NONE, did, type,
-                "TESTMF", "TESTHW", "TESTSW", "TESTSN", new ChassisId());
+                                 "TESTMF", "TESTHW", "TESTSW", "TESTSN", new ChassisId());
     }
 
     private DefaultDevice device(DeviceId did, Annotations annotations) {
         return new DefaultDevice(ProviderId.NONE, did, Device.Type.SWITCH,
-                             "TESTMF", "TESTHW", "TESTSW", "TESTSN", new ChassisId(), annotations);
+                                 "TESTMF", "TESTHW", "TESTSW", "TESTSN", new ChassisId(), annotations);
     }
 
-    @SuppressWarnings(value = { "unused" })
+    @SuppressWarnings(value = {"unused"})
     private DeviceEvent portEvent(DeviceEvent.Type type, DeviceId did, PortNumber port) {
-        return new  DeviceEvent(type, deviceService.getDevice(did),
-                                deviceService.getPort(did, port));
+        return new DeviceEvent(type, deviceService.getDevice(did),
+                               deviceService.getPort(did, port));
     }
 
     private DeviceEvent portEvent(DeviceEvent.Type type, DeviceId did, Port port) {
-        return new  DeviceEvent(type, deviceService.getDevice(did), port);
+        return new DeviceEvent(type, deviceService.getDevice(did), port);
     }
 
     private Port port(DeviceId did, long port, boolean enabled) {
@@ -511,7 +524,7 @@ public class LldpLinkProviderTest {
 
     private boolean vanishedDpid(DeviceId... dids) {
         for (int i = 0; i < dids.length; i++) {
-            if (!providerService.vanishedDpid.contains(dids[i])) {
+            if (!providerService.vanishedDpid().contains(dids[i])) {
                 return false;
             }
         }
@@ -520,7 +533,7 @@ public class LldpLinkProviderTest {
 
     private boolean vanishedPort(Long... ports) {
         for (int i = 0; i < ports.length; i++) {
-            if (!providerService.vanishedPort.contains(ports[i])) {
+            if (!providerService.vanishedPort().contains(ports[i])) {
                 return false;
             }
         }
@@ -528,9 +541,9 @@ public class LldpLinkProviderTest {
     }
 
     private boolean detectedLink(DeviceId src, DeviceId dst) {
-        for (DeviceId key : providerService.discoveredLinks.keySet()) {
+        for (DeviceId key : providerService.discoveredLinks().keySet()) {
             if (key.equals(src)) {
-                return providerService.discoveredLinks.get(src).equals(dst);
+                return providerService.discoveredLinks().get(src).equals(dst);
             }
         }
         return false;
@@ -568,8 +581,10 @@ public class LldpLinkProviderTest {
 
         configEvent(NetworkConfigEvent.Type.CONFIG_UPDATED);
 
-        assertTrue(provider.rules().getSuppressedDeviceType().contains(deviceType1));
-        assertTrue(provider.rules().getSuppressedDeviceType().contains(deviceType2));
+        assertAfter(EVENT_MS, () -> {
+            assertTrue(provider.rules().getSuppressedDeviceType().contains(deviceType1));
+            assertTrue(provider.rules().getSuppressedDeviceType().contains(deviceType2));
+        });
     }
 
     @Test
@@ -584,9 +599,11 @@ public class LldpLinkProviderTest {
 
         configEvent(NetworkConfigEvent.Type.CONFIG_ADDED);
 
-        assertTrue(provider.rules().getSuppressedAnnotation().containsKey(key1));
-        assertEquals(value1, provider.rules().getSuppressedAnnotation().get(key1));
-        assertFalse(provider.rules().getSuppressedAnnotation().containsKey(key2));
+        assertAfter(EVENT_MS, () -> {
+            assertTrue(provider.rules().getSuppressedAnnotation().containsKey(key1));
+            assertEquals(value1, provider.rules().getSuppressedAnnotation().get(key1));
+            assertFalse(provider.rules().getSuppressedAnnotation().containsKey(key2));
+        });
     }
 
     @Test
@@ -600,85 +617,30 @@ public class LldpLinkProviderTest {
 
         configEvent(NetworkConfigEvent.Type.CONFIG_ADDED);
 
-        assertTrue(provider.rules().getSuppressedAnnotation().containsKey(key1));
-        assertEquals(value1, provider.rules().getSuppressedAnnotation().get(key1));
-        assertFalse(provider.rules().getSuppressedAnnotation().containsKey(key2));
+        assertAfter(EVENT_MS, () -> {
+            assertTrue(provider.rules().getSuppressedAnnotation().containsKey(key1));
+            assertEquals(value1, provider.rules().getSuppressedAnnotation().get(key1));
+            assertFalse(provider.rules().getSuppressedAnnotation().containsKey(key2));
+        });
 
         annotation.put(key2, value2);
         cfg.annotation(annotation);
 
         configEvent(NetworkConfigEvent.Type.CONFIG_UPDATED);
 
-        assertTrue(provider.rules().getSuppressedAnnotation().containsKey(key1));
-        assertEquals(value1, provider.rules().getSuppressedAnnotation().get(key1));
-        assertTrue(provider.rules().getSuppressedAnnotation().containsKey(key2));
-        assertEquals(value2, provider.rules().getSuppressedAnnotation().get(key2));
+        assertAfter(EVENT_MS, () -> {
+            assertTrue(provider.rules().getSuppressedAnnotation().containsKey(key1));
+            assertEquals(value1, provider.rules().getSuppressedAnnotation().get(key1));
+            assertTrue(provider.rules().getSuppressedAnnotation().containsKey(key2));
+            assertEquals(value2, provider.rules().getSuppressedAnnotation().get(key2));
+        });
     }
 
     private void configEvent(NetworkConfigEvent.Type evType) {
         configListener.event(new NetworkConfigEvent(evType,
-                appId,
-                SuppressionConfig.class));
+                                                    appId,
+                                                    SuppressionConfig.class));
     }
-
-
-    private class TestLinkRegistry implements LinkProviderRegistry {
-
-        @Override
-        public LinkProviderService register(LinkProvider provider) {
-            providerService = new TestLinkProviderService(provider);
-            return providerService;
-        }
-
-        @Override
-        public void unregister(LinkProvider provider) {
-        }
-
-        @Override
-        public Set<ProviderId> getProviders() {
-            return null;
-        }
-
-    }
-
-    private class TestLinkProviderService
-            extends AbstractProviderService<LinkProvider>
-            implements LinkProviderService {
-
-        List<DeviceId> vanishedDpid = Lists.newLinkedList();
-        List<Long> vanishedPort = Lists.newLinkedList();
-        Map<DeviceId, DeviceId> discoveredLinks = Maps.newHashMap();
-
-        protected TestLinkProviderService(LinkProvider provider) {
-            super(provider);
-        }
-
-        @Override
-        public void linkDetected(LinkDescription linkDescription) {
-            DeviceId sDid = linkDescription.src().deviceId();
-            DeviceId dDid = linkDescription.dst().deviceId();
-            discoveredLinks.put(sDid, dDid);
-        }
-
-        @Override
-        public void linkVanished(LinkDescription linkDescription) {
-        }
-
-        @Override
-        public void linksVanished(ConnectPoint connectPoint) {
-            vanishedPort.add(connectPoint.port().toLong());
-
-        }
-
-        @Override
-        public void linksVanished(DeviceId deviceId) {
-            vanishedDpid.add(deviceId);
-        }
-
-
-    }
-
-
 
     private class TestPacketContext implements PacketContext {
 
@@ -696,19 +658,15 @@ public class LldpLinkProviderTest {
 
         @Override
         public InboundPacket inPacket() {
-            ONOSLLDP lldp = new ONOSLLDP();
-            lldp.setChassisId(device.chassisId());
-            lldp.setPortId((int) pd1.number().toLong());
-            lldp.setDevice(deviceService.getDevice(DID1).id().toString());
-
+            ONOSLLDP lldp = ONOSLLDP.onosLLDP(deviceService.getDevice(DID1).id().toString(),
+                                              device.chassisId(),
+                                              (int) pd1.number().toLong());
 
             Ethernet ethPacket = new Ethernet();
             ethPacket.setEtherType(Ethernet.TYPE_LLDP);
             ethPacket.setDestinationMACAddress(ONOSLLDP.LLDP_NICIRA);
             ethPacket.setPayload(lldp);
             ethPacket.setPad(true);
-
-
 
             ethPacket.setSourceMACAddress("DE:AD:BE:EF:BA:11");
 
@@ -759,6 +717,7 @@ public class LldpLinkProviderTest {
         private final Map<DeviceId, Device> devices = new HashMap<>();
         private final ArrayListMultimap<DeviceId, Port> ports =
                 ArrayListMultimap.create();
+
         public TestDeviceService() {
             Device d1 = new DefaultDevice(ProviderId.NONE, DID1, Device.Type.SWITCH,
                                           "TESTMF", "TESTHW", "TESTSW", "TESTSN", new ChassisId());
@@ -780,7 +739,7 @@ public class LldpLinkProviderTest {
             devices.put(deviceId, device);
         }
 
-        private void putPorts(DeviceId did, Port...ports) {
+        private void putPorts(DeviceId did, Port... ports) {
             this.ports.putAll(did, Lists.newArrayList(ports));
         }
 
@@ -884,7 +843,7 @@ public class LldpLinkProviderTest {
     }
 
     private final class TestNetworkConfigRegistry
-        extends NetworkConfigRegistryAdapter {
+            extends NetworkConfigRegistryAdapter {
         @SuppressWarnings("unchecked")
         @Override
         public <S, C extends Config<S>> C getConfig(S subj, Class<C> configClass) {
@@ -939,6 +898,31 @@ public class LldpLinkProviderTest {
         public SuppressionConfig annotation(Map<String, String> annotation) {
             this.annotation = ImmutableMap.copyOf(annotation);
             return this;
+        }
+    }
+
+    private final class TestMetadataService implements ClusterMetadataService {
+        @Override
+        public ClusterMetadata getClusterMetadata() {
+            final NodeId nid = new NodeId("test-node");
+            final IpAddress addr = IpAddress.valueOf(0);
+            final Partition p = new DefaultPartition(PartitionId.from(1), Sets.newHashSet(nid));
+            return new ClusterMetadata("test-cluster",
+                                       Sets.newHashSet(new DefaultControllerNode(nid, addr)),
+                                       Sets.newHashSet(p));
+        }
+
+        @Override
+        public ControllerNode getLocalNode() {
+            return null;
+        }
+
+        @Override
+        public void addListener(ClusterMetadataEventListener listener) {
+        }
+
+        @Override
+        public void removeListener(ClusterMetadataEventListener listener) {
         }
     }
 }

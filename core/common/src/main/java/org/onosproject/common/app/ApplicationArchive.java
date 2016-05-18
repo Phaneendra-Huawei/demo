@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import com.google.common.io.Files;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.XMLConfiguration;
+import org.apache.commons.lang.StringUtils;
 import org.onlab.util.Tools;
 import org.onosproject.app.ApplicationDescription;
 import org.onosproject.app.ApplicationEvent;
@@ -68,6 +69,7 @@ public class ApplicationArchive
 
     // Magic strings to search for at the beginning of the archive stream
     private static final String XML_MAGIC = "<?xml ";
+    private static final String ZIP_MAGIC = "PK";
 
     // Magic strings to search for and how deep to search it into the archive stream
     private static final String APP_MAGIC = "<app ";
@@ -81,13 +83,21 @@ public class ApplicationArchive
     private static final String APPS = "[@apps]";
     private static final String DESCRIPTION = "description";
 
+    private static final String UTILITY = "utility";
+
+    private static final String CATEGORY = "[@category]";
+    private static final String URL = "[@url]";
+    private static final String TITLE = "[@title]";
+
     private static final String ROLE = "security.role";
     private static final String APP_PERMISSIONS = "security.permissions.app-perm";
     private static final String NET_PERMISSIONS = "security.permissions.net-perm";
     private static final String JAVA_PERMISSIONS = "security.permissions.java-perm";
 
     private static final String OAR = ".oar";
+    private static final String PNG = "png";
     private static final String APP_XML = "app.xml";
+    private static final String APP_PNG = "app.png";
     private static final String M2_PREFIX = "m2";
 
     private static final String ROOT = "../";
@@ -186,7 +196,7 @@ public class ApplicationArchive
             ApplicationDescription desc = plainXml ?
                     parsePlainAppDescription(bis) : parseZippedAppDescription(bis);
             checkState(!appFile(desc.name(), APP_XML).exists(),
-                       "Application %s already installed", desc.name());
+                    "Application %s already installed", desc.name());
 
             if (plainXml) {
                 expandPlainApplication(cache, desc);
@@ -207,8 +217,9 @@ public class ApplicationArchive
 
     // Indicates whether the stream encoded in the given bytes is plain XML.
     private boolean isPlainXml(byte[] bytes) {
-        return substring(bytes, XML_MAGIC.length()).equals(XML_MAGIC) ||
-                substring(bytes, APP_MAGIC_DEPTH).contains(APP_MAGIC);
+        return !substring(bytes, ZIP_MAGIC.length()).equals(ZIP_MAGIC) &&
+                (substring(bytes, XML_MAGIC.length()).equals(XML_MAGIC) ||
+                 substring(bytes, APP_MAGIC_DEPTH).contains(APP_MAGIC));
     }
 
     // Returns the substring of maximum possible length from the specified bytes.
@@ -283,8 +294,15 @@ public class ApplicationArchive
     private ApplicationDescription loadAppDescription(XMLConfiguration cfg) {
         String name = cfg.getString(NAME);
         Version version = Version.version(cfg.getString(VERSION));
-        String desc = cfg.getString(DESCRIPTION);
         String origin = cfg.getString(ORIGIN);
+
+        String title = cfg.getString(TITLE);
+        // FIXME: title should be set as attribute to APP, but fallback for now...
+        title = title == null ? name : title;
+
+        String category = cfg.getString(CATEGORY, UTILITY);
+        String url = cfg.getString(URL);
+        byte[] icon = getApplicationIcon(name);
         ApplicationRole role = getRole(cfg.getString(ROLE));
         Set<Permission> perms = getPermissions(cfg);
         String featRepo = cfg.getString(FEATURES_REPO);
@@ -295,9 +313,16 @@ public class ApplicationArchive
         List<String> requiredApps = apps.isEmpty() ?
                 ImmutableList.of() : ImmutableList.copyOf(apps.split(","));
 
-        return new DefaultApplicationDescription(name, version, desc, origin, role,
-                                                 perms, featuresRepo, features,
-                                                 requiredApps);
+        // put full description to readme field
+        String readme = cfg.getString(DESCRIPTION);
+
+        // put short description to description field
+        String desc = compactDescription(readme);
+
+        return new DefaultApplicationDescription(name, version, title, desc, origin,
+                                                 category, url, readme, icon,
+                                                 role, perms, featuresRepo,
+                                                 features, requiredApps);
     }
 
     // Expands the specified ZIP stream into app-specific directory.
@@ -351,8 +376,11 @@ public class ApplicationArchive
      */
     protected boolean setActive(String appName) {
         try {
-            return appFile(appName, "active").createNewFile() && updateTime(appName);
+            File active = appFile(appName, "active");
+            createParentDirs(active);
+            return active.createNewFile() && updateTime(appName);
         } catch (IOException e) {
+            log.warn("Unable to mark app {} as active", appName, e);
             throw new ApplicationException("Unable to mark app as active", e);
         }
     }
@@ -387,9 +415,13 @@ public class ApplicationArchive
         return appFile(appName, "active").exists();
     }
 
-
     // Returns the name of the file located under the specified app directory.
     private File appFile(String appName, String fileName) {
+        return new File(new File(appsDir, appName), fileName);
+    }
+
+    // Returns the icon file located under the specified app directory.
+    private File iconFile(String appName, String fileName) {
         return new File(new File(appsDir, appName), fileName);
     }
 
@@ -420,7 +452,24 @@ public class ApplicationArchive
         return ImmutableSet.copyOf(permissionList);
     }
 
-    //
+    // Returns the byte stream from icon.png file in oar application archive.
+    private byte[] getApplicationIcon(String appName) {
+        File iconFile = iconFile(appName, APP_PNG);
+        try {
+            final InputStream iconStream;
+            if (iconFile.exists()) {
+                iconStream = new FileInputStream(iconFile);
+            } else {
+                // assume that we can always fallback to default icon
+                iconStream = ApplicationArchive.class.getResourceAsStream("/" + APP_PNG);
+            }
+            return ByteStreams.toByteArray(iconStream);
+        } catch (IOException e) {
+            log.warn("Unable to read app icon for app {}", appName, e);
+        }
+        return new byte[0];
+    }
+
     // Returns application role type
     public ApplicationRole getRole(String value) {
         if (value == null) {
@@ -433,5 +482,17 @@ public class ApplicationArchive
                 return ApplicationRole.UNSPECIFIED;
             }
         }
+    }
+
+    // Returns the first sentence of the given sentence
+    private String compactDescription(String sentence) {
+        if (StringUtils.isNotEmpty(sentence)) {
+            if (StringUtils.contains(sentence, ".")) {
+                return StringUtils.substringBefore(sentence, ".") + ".";
+            } else {
+                return sentence;
+            }
+        }
+        return sentence;
     }
 }

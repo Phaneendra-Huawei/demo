@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public final class Row {
     private String tableName;
-    private UUID uuid;
+    private Uuid uuid;
     private Map<String, Column> columns;
 
     /**
@@ -43,23 +43,10 @@ public final class Row {
      * Row constructor.
      *
      * @param tableName table name
-     * @deprecated in Emu Release
-     */
-    @Deprecated
-    private Row(String tableName) {
-        checkNotNull(tableName, "tableName cannot be null");
-        this.tableName = tableName;
-        this.columns = Maps.newHashMap();
-    }
-
-    /**
-     * Row constructor.
-     *
-     * @param tableName table name
      * @param columns   Map of Column entity
      * @param uuid UUID of the row
      */
-    public Row(String tableName, UUID uuid, Map<String, Column> columns) {
+    public Row(String tableName, Uuid uuid, Map<String, Column> columns) {
         checkNotNull(tableName, "table name cannot be null");
         checkNotNull(uuid, "uuid cannot be null");
         checkNotNull(columns, "columns cannot be null");
@@ -91,7 +78,7 @@ public final class Row {
      *
      * @return uuid
      */
-    public UUID uuid() {
+    public Uuid uuid() {
         return uuid;
     }
 
@@ -100,7 +87,7 @@ public final class Row {
      *
      * @param uuid new uuid
      */
-    public void setUuid(UUID uuid) {
+    public void setUuid(Uuid uuid) {
         this.uuid = uuid;
     }
 

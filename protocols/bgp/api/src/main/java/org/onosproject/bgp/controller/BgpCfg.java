@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,29 @@ public interface BgpCfg {
         IP_AS_CONFIGURED
     }
 
+    enum FlowSpec {
+
+        /**
+         * Signifies that peer support IPV4 flow specification.
+         */
+        IPV4,
+
+        /**
+         *  Signifies that peer support VPNV4 flow specification.
+         */
+        VPNV4,
+
+        /**
+         *  Signifies that peer support IPV4 and VPNV4 flow specification.
+         */
+        IPV4_VPNV4,
+
+        /**
+         * Signifies that peer flow specification capability disabled.
+         */
+        NONE
+    }
+
     /**
      * Returns the status of the configuration based on this state certain operations like connection is handled.
      *
@@ -61,7 +84,7 @@ public interface BgpCfg {
     /**
      * Get the status of the link state support for this BGP speaker.
      *
-     * @return  true if the link state is supported else false
+     * @return true if the link state is supported else false
      */
     boolean getLsCapability();
 
@@ -82,7 +105,7 @@ public interface BgpCfg {
     /**
      * Set the 32 bit AS support capability to this BGP speaker.
      *
-     * @param largeAs  true value if the 32 bit AS is supported else false
+     * @param largeAs true value if the 32 bit AS is supported else false
      */
     void setLargeASCapability(boolean largeAs);
 
@@ -166,7 +189,7 @@ public interface BgpCfg {
     /**
      * Set the Router ID of this BGP speaker.
      *
-     * @param routerid  IP address in string format
+     * @param routerid IP address in string format
      */
     void setRouterId(String routerid);
 
@@ -174,7 +197,7 @@ public interface BgpCfg {
      * Add the BGP peer IP address and the AS number to which it belongs.
      *
      * @param routerid IP address in string format
-     * @param remoteAs  AS number to which it belongs
+     * @param remoteAs AS number to which it belongs
      *
      * @return true if added successfully else false
      */
@@ -197,7 +220,7 @@ public interface BgpCfg {
      * @param remoteAs AS number to which it belongs
      * @param holdTime keep alive time for the connection
      *
-     * @return  true if added successfully else false
+     * @return true if added successfully else false
      */
     boolean addPeer(String routerid, int remoteAs, short holdTime);
 
@@ -215,14 +238,14 @@ public interface BgpCfg {
      *
      * @param routerid router IP address
      *
-     * @return  true of the configuration is found and able to connect else false
+     * @return true of the configuration is found and able to connect else false
      */
     boolean connectPeer(String routerid);
 
     /**
      * Disconnect this BGP peer with this IP address.
      *
-     * @param routerid  router IP address in string format
+     * @param routerid router IP address in string format
      *
      * @return true if the configuration is found and able to disconnect else false
      */
@@ -247,9 +270,9 @@ public interface BgpCfg {
     /**
      * Check if this BGP peer is configured.
      *
-     * @param routerid  router IP address in string format
+     * @param routerid router IP address in string format
      *
-     * @return  true if configured exists else false
+     * @return true if configured exists else false
      */
     boolean isPeerConfigured(String routerid);
 
@@ -272,7 +295,7 @@ public interface BgpCfg {
     /**
      * Set the current connection state information.
      *
-     * @param routerid  router IP address in string format
+     * @param routerid router IP address in string format
      * @param state state information
      */
     void setPeerConnState(String routerid, BgpPeerCfg.State state);
@@ -280,9 +303,9 @@ public interface BgpCfg {
     /**
      * Check if the peer can be connected or not.
      *
-     * @param routerid  router IP address in string format
+     * @param routerid router IP address in string format
      *
-     * @return  true if the peer can be connected else false
+     * @return true if the peer can be connected else false
      */
     boolean isPeerConnectable(String routerid);
 
@@ -294,4 +317,32 @@ public interface BgpCfg {
      * @return state information
      */
     BgpPeerCfg.State getPeerConnState(String routerid);
+
+    /**
+     * Gets the flow specification capability.
+     *
+     * @return flow specification capability
+     */
+    FlowSpec flowSpecCapability();
+
+    /**
+     * Sets the flow specification capability.
+     *
+     * @param flowSpec flow specification capability
+     */
+    void setFlowSpecCapability(FlowSpec flowSpec);
+
+    /**
+     * Returns the flow specification route policy distribution capability.
+     *
+     * @return RDP flow specification capability
+     */
+    boolean flowSpecRpdCapability();
+
+    /**
+     * Sets the flow specification route policy distribution capability.
+     *
+     * @param rpdCapability flow specification RPD capability
+     */
+    void setFlowSpecRpdCapability(boolean rpdCapability);
 }

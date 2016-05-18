@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2014-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,11 @@ import org.onlab.packet.IPv6;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.TpPort;
+import org.onlab.packet.VlanId;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.incubator.net.intf.Interface;
+import org.onosproject.incubator.net.intf.InterfaceEvent;
+import org.onosproject.incubator.net.intf.InterfaceListener;
 import org.onosproject.incubator.net.intf.InterfaceService;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.config.NetworkConfigEvent;
@@ -44,9 +47,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -77,14 +82,17 @@ public class PeerConnectivityManager {
     private final InternalNetworkConfigListener configListener
             = new InternalNetworkConfigListener();
 
+    private final InternalInterfaceListener interfaceListener
+            = new InternalInterfaceListener();
+
     /**
      * Creates a new PeerConnectivityManager.
      *
      * @param appId              the application ID
      * @param intentSynchronizer the intent synchronizer
-     * @param configService      the SDN-IP config service
-     * @param interfaceService   the interface service
+     * @param configService      the network config service
      * @param routerAppId        application ID
+     * @param interfaceService   the interface service
      */
     public PeerConnectivityManager(ApplicationId appId,
                                    IntentSynchronizationService intentSynchronizer,
@@ -105,6 +113,7 @@ public class PeerConnectivityManager {
      */
     public void start() {
         configService.addListener(configListener);
+        interfaceService.addListener(interfaceListener);
         setUpConnectivity();
     }
 
@@ -113,6 +122,7 @@ public class PeerConnectivityManager {
      */
     public void stop() {
         configService.removeListener(configListener);
+        interfaceService.removeListener(interfaceListener);
     }
 
     /**
@@ -122,20 +132,24 @@ public class PeerConnectivityManager {
     private void setUpConnectivity() {
         BgpConfig config = configService.getConfig(routerAppId, RoutingService.CONFIG_CLASS);
 
+        Set<BgpConfig.BgpSpeakerConfig> bgpSpeakers;
+
         if (config == null) {
-            log.warn("No BgpConfig found");
-            return;
+            log.warn("No BGP config available");
+            bgpSpeakers = Collections.emptySet();
+        } else {
+            bgpSpeakers = config.bgpSpeakers();
         }
 
         Map<Key, PointToPointIntent> existingIntents = new HashMap<>(peerIntents);
 
-        for (BgpConfig.BgpSpeakerConfig bgpSpeaker : config.bgpSpeakers()) {
+        for (BgpConfig.BgpSpeakerConfig bgpSpeaker : bgpSpeakers) {
             log.debug("Start to set up BGP paths for BGP speaker: {}",
                     bgpSpeaker);
 
             buildSpeakerIntents(bgpSpeaker).forEach(i -> {
                 PointToPointIntent intent = existingIntents.remove(i.key());
-                if (intent == null || !IntentUtils.equals(i, intent)) {
+                if (intent == null || !IntentUtils.intentsAreEqual(i, intent)) {
                     peerIntents.put(i.key(), i);
                     intentSynchronizer.submit(i);
                 }
@@ -153,6 +167,9 @@ public class PeerConnectivityManager {
     private Collection<PointToPointIntent> buildSpeakerIntents(BgpConfig.BgpSpeakerConfig speaker) {
         List<PointToPointIntent> intents = new ArrayList<>();
 
+        // Get the BGP Speaker VLAN Id
+        VlanId bgpSpeakerVlanId = speaker.vlan();
+
         for (IpAddress peerAddress : speaker.peers()) {
             Interface peeringInterface = interfaceService.getMatchingInterface(peerAddress);
 
@@ -162,18 +179,23 @@ public class PeerConnectivityManager {
                 continue;
             }
 
-            IpAddress peeringAddress = null;
-            for (InterfaceIpAddress address : peeringInterface.ipAddresses()) {
+            IpAddress bgpSpeakerAddress = null;
+            for (InterfaceIpAddress address : peeringInterface.ipAddressesList()) {
                 if (address.subnetAddress().contains(peerAddress)) {
-                    peeringAddress = address.ipAddress();
+                    bgpSpeakerAddress = address.ipAddress();
                     break;
                 }
             }
 
-            checkNotNull(peeringAddress);
+            checkNotNull(bgpSpeakerAddress);
 
-            intents.addAll(buildIntents(speaker.connectPoint(), peeringAddress,
-                    peeringInterface.connectPoint(), peerAddress));
+            VlanId peerVlanId = peeringInterface.vlan();
+
+            intents.addAll(buildIntents(speaker.connectPoint(), bgpSpeakerVlanId,
+                                        bgpSpeakerAddress,
+                                        peeringInterface.connectPoint(),
+                                        peerVlanId,
+                                        peerAddress));
         }
 
         return intents;
@@ -184,19 +206,25 @@ public class PeerConnectivityManager {
      * IP addresses.
      *
      * @param portOne the first connect point
+     * @param vlanOne the ingress VLAN
      * @param ipOne the first IP address
      * @param portTwo the second connect point
+     * @param vlanTwo the egress VLAN
      * @param ipTwo the second IP address
      * @return the intents to install
      */
     private Collection<PointToPointIntent> buildIntents(ConnectPoint portOne,
+                                                        VlanId vlanOne,
                                                         IpAddress ipOne,
                                                         ConnectPoint portTwo,
+                                                        VlanId vlanTwo,
                                                         IpAddress ipTwo) {
 
         List<PointToPointIntent> intents = new ArrayList<>();
 
-        TrafficTreatment treatment = DefaultTrafficTreatment.emptyTreatment();
+        TrafficTreatment.Builder treatmentToPeer = DefaultTrafficTreatment.builder();
+        TrafficTreatment.Builder treatmentToSpeaker = DefaultTrafficTreatment.builder();
+
         TrafficSelector selector;
         Key key;
 
@@ -211,8 +239,15 @@ public class PeerConnectivityManager {
             icmpProtocol = IPv6.PROTOCOL_ICMP6;
         }
 
+        // Add treatment for VLAN for traffic going from BGP speaker to BGP peer
+        if (!vlanTwo.equals(VlanId.NONE)) {
+            treatmentToPeer.setVlanId(vlanTwo);
+        }
+
         // Path from BGP speaker to BGP peer matching destination TCP port 179
+
         selector = buildSelector(tcpProtocol,
+                vlanOne,
                 ipOne,
                 ipTwo,
                 null,
@@ -224,7 +259,7 @@ public class PeerConnectivityManager {
                 .appId(appId)
                 .key(key)
                 .selector(selector)
-                .treatment(treatment)
+                .treatment(treatmentToPeer.build())
                 .ingressPoint(portOne)
                 .egressPoint(portTwo)
                 .priority(PRIORITY_OFFSET)
@@ -232,6 +267,7 @@ public class PeerConnectivityManager {
 
         // Path from BGP speaker to BGP peer matching source TCP port 179
         selector = buildSelector(tcpProtocol,
+                vlanOne,
                 ipOne,
                 ipTwo,
                 BGP_PORT,
@@ -243,14 +279,40 @@ public class PeerConnectivityManager {
                 .appId(appId)
                 .key(key)
                 .selector(selector)
-                .treatment(treatment)
+                .treatment(treatmentToPeer.build())
                 .ingressPoint(portOne)
                 .egressPoint(portTwo)
                 .priority(PRIORITY_OFFSET)
                 .build());
 
+        // ICMP path from BGP speaker to BGP peer
+        selector = buildSelector(icmpProtocol,
+                                 vlanOne,
+                                 ipOne,
+                                 ipTwo,
+                                 null,
+                                 null);
+
+        key = buildKey(ipOne, ipTwo, SUFFIX_ICMP);
+
+        intents.add(PointToPointIntent.builder()
+                            .appId(appId)
+                            .key(key)
+                            .selector(selector)
+                            .treatment(treatmentToPeer.build())
+                            .ingressPoint(portOne)
+                            .egressPoint(portTwo)
+                            .priority(PRIORITY_OFFSET)
+                            .build());
+
+        // Add treatment for VLAN for traffic going from BGP peer to BGP speaker
+        if (!vlanOne.equals(VlanId.NONE)) {
+            treatmentToSpeaker.setVlanId(vlanOne);
+        }
+
         // Path from BGP peer to BGP speaker matching destination TCP port 179
         selector = buildSelector(tcpProtocol,
+                vlanTwo,
                 ipTwo,
                 ipOne,
                 null,
@@ -262,7 +324,7 @@ public class PeerConnectivityManager {
                 .appId(appId)
                 .key(key)
                 .selector(selector)
-                .treatment(treatment)
+                .treatment(treatmentToSpeaker.build())
                 .ingressPoint(portTwo)
                 .egressPoint(portOne)
                 .priority(PRIORITY_OFFSET)
@@ -270,6 +332,7 @@ public class PeerConnectivityManager {
 
         // Path from BGP peer to BGP speaker matching source TCP port 179
         selector = buildSelector(tcpProtocol,
+                vlanTwo,
                 ipTwo,
                 ipOne,
                 BGP_PORT,
@@ -281,33 +344,15 @@ public class PeerConnectivityManager {
                 .appId(appId)
                 .key(key)
                 .selector(selector)
-                .treatment(treatment)
+                .treatment(treatmentToSpeaker.build())
                 .ingressPoint(portTwo)
                 .egressPoint(portOne)
                 .priority(PRIORITY_OFFSET)
                 .build());
 
-        // ICMP path from BGP speaker to BGP peer
-        selector = buildSelector(icmpProtocol,
-                ipOne,
-                ipTwo,
-                null,
-                null);
-
-        key = buildKey(ipOne, ipTwo, SUFFIX_ICMP);
-
-        intents.add(PointToPointIntent.builder()
-                .appId(appId)
-                .key(key)
-                .selector(selector)
-                .treatment(treatment)
-                .ingressPoint(portOne)
-                .egressPoint(portTwo)
-                .priority(PRIORITY_OFFSET)
-                .build());
-
         // ICMP path from BGP peer to BGP speaker
         selector = buildSelector(icmpProtocol,
+                vlanTwo,
                 ipTwo,
                 ipOne,
                 null,
@@ -319,7 +364,7 @@ public class PeerConnectivityManager {
                 .appId(appId)
                 .key(key)
                 .selector(selector)
-                .treatment(treatment)
+                .treatment(treatmentToSpeaker.build())
                 .ingressPoint(portTwo)
                 .egressPoint(portOne)
                 .priority(PRIORITY_OFFSET)
@@ -338,10 +383,16 @@ public class PeerConnectivityManager {
      * @param dstTcpPort destination TCP port, or null if shouldn't be set
      * @return the new traffic selector
      */
-    private TrafficSelector buildSelector(byte ipProto, IpAddress srcIp,
+    private TrafficSelector buildSelector(byte ipProto, VlanId ingressVlanId,
+                                          IpAddress srcIp,
                                           IpAddress dstIp, Short srcTcpPort,
                                           Short dstTcpPort) {
         TrafficSelector.Builder builder = DefaultTrafficSelector.builder().matchIPProtocol(ipProto);
+
+        // Match on any VLAN Id if a VLAN Id configured on the ingress interface
+        if (!ingressVlanId.equals(VlanId.NONE)) {
+            builder.matchVlanId(VlanId.ANY);
+        }
 
         if (dstIp.isIp4()) {
             builder.matchEthType(Ethernet.TYPE_IPV4)
@@ -402,6 +453,21 @@ public class PeerConnectivityManager {
                 if (event.configClass() == RoutingService.CONFIG_CLASS) {
                     setUpConnectivity();
                 }
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    private class InternalInterfaceListener implements InterfaceListener {
+        @Override
+        public void event(InterfaceEvent event) {
+            switch (event.type()) {
+            case INTERFACE_ADDED:
+            case INTERFACE_UPDATED:
+            case INTERFACE_REMOVED:
+                setUpConnectivity();
                 break;
             default:
                 break;

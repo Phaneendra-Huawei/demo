@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,8 +48,6 @@ import org.projectfloodlight.openflow.protocol.OFExperimenter;
 import org.projectfloodlight.openflow.protocol.OFFactories;
 import org.projectfloodlight.openflow.protocol.OFFlowStatsEntry;
 import org.projectfloodlight.openflow.protocol.OFFlowStatsReply;
-import org.projectfloodlight.openflow.protocol.OFTableStatsEntry;
-import org.projectfloodlight.openflow.protocol.OFTableStatsReply;
 import org.projectfloodlight.openflow.protocol.OFGroupDescStatsEntry;
 import org.projectfloodlight.openflow.protocol.OFGroupDescStatsReply;
 import org.projectfloodlight.openflow.protocol.OFGroupStatsEntry;
@@ -62,6 +60,8 @@ import org.projectfloodlight.openflow.protocol.OFPortStatsReply;
 import org.projectfloodlight.openflow.protocol.OFPortStatus;
 import org.projectfloodlight.openflow.protocol.OFStatsReply;
 import org.projectfloodlight.openflow.protocol.OFStatsReplyFlags;
+import org.projectfloodlight.openflow.protocol.OFTableStatsEntry;
+import org.projectfloodlight.openflow.protocol.OFTableStatsReply;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
 import org.projectfloodlight.openflow.protocol.instruction.OFInstruction;
 import org.slf4j.Logger;
@@ -73,6 +73,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -113,16 +114,16 @@ public class OpenFlowControllerImpl implements OpenFlowController {
     private int workerThreads = DEFAULT_WORKER_THREADS;
 
     protected ExecutorService executorMsgs =
-        Executors.newFixedThreadPool(32, groupedThreads("onos/of", "event-stats-%d"));
+        Executors.newFixedThreadPool(32, groupedThreads("onos/of", "event-stats-%d", log));
 
     private final ExecutorService executorBarrier =
-        Executors.newFixedThreadPool(4, groupedThreads("onos/of", "event-barrier-%d"));
+        Executors.newFixedThreadPool(4, groupedThreads("onos/of", "event-barrier-%d", log));
 
-    protected ConcurrentHashMap<Dpid, OpenFlowSwitch> connectedSwitches =
+    protected ConcurrentMap<Dpid, OpenFlowSwitch> connectedSwitches =
             new ConcurrentHashMap<>();
-    protected ConcurrentHashMap<Dpid, OpenFlowSwitch> activeMasterSwitches =
+    protected ConcurrentMap<Dpid, OpenFlowSwitch> activeMasterSwitches =
             new ConcurrentHashMap<>();
-    protected ConcurrentHashMap<Dpid, OpenFlowSwitch> activeEqualSwitches =
+    protected ConcurrentMap<Dpid, OpenFlowSwitch> activeEqualSwitches =
             new ConcurrentHashMap<>();
 
     protected OpenFlowSwitchAgent agent = new OpenFlowSwitchAgent();
@@ -132,6 +133,8 @@ public class OpenFlowControllerImpl implements OpenFlowController {
             ArrayListMultimap.create();
 
     protected Set<OpenFlowEventListener> ofEventListener = new CopyOnWriteArraySet<>();
+
+    protected boolean monitorAllEvents = false;
 
     protected Multimap<Dpid, OFFlowStatsEntry> fullFlowStats =
             ArrayListMultimap.create();
@@ -152,24 +155,28 @@ public class OpenFlowControllerImpl implements OpenFlowController {
 
     @Activate
     public void activate(ComponentContext context) {
-        coreService.registerApplication(APP_ID, this::preDeactivate);
+        coreService.registerApplication(APP_ID, this::cleanup);
         cfgService.registerProperties(getClass());
         ctrl.setConfigParams(context.getProperties());
         ctrl.start(agent, driverService);
     }
 
-    private void preDeactivate() {
-        // Close listening channel and all OF channels before deactivating
+    private void cleanup() {
+        // Close listening channel and all OF channels. Clean information about switches
+        // before deactivating
         ctrl.stop();
         connectedSwitches.values().forEach(OpenFlowSwitch::disconnectSwitch);
+        connectedSwitches.clear();
+        activeMasterSwitches.clear();
+        activeEqualSwitches.clear();
     }
 
     @Deactivate
     public void deactivate() {
+        if (!connectedSwitches.isEmpty()) {
+            cleanup();
+        }
         cfgService.unregisterProperties(getClass(), false);
-        connectedSwitches.clear();
-        activeMasterSwitches.clear();
-        activeEqualSwitches.clear();
     }
 
     @Modified
@@ -207,6 +214,11 @@ public class OpenFlowControllerImpl implements OpenFlowController {
     @Override
     public OpenFlowSwitch getEqualSwitch(Dpid dpid) {
         return activeEqualSwitches.get(dpid);
+    }
+
+    @Override
+    public void monitorAllEvents(boolean monitor) {
+        this.monitorAllEvents = monitor;
     }
 
     @Override
@@ -277,7 +289,7 @@ public class OpenFlowControllerImpl implements OpenFlowController {
         //    ie. Back to back error could cause us to starve.
         case FLOW_REMOVED:
         case ERROR:
-            executorMsgs.submit(new OFMessageHandler(dpid, msg));
+            executorMsgs.execute(new OFMessageHandler(dpid, msg));
             break;
         case STATS_REPLY:
             OFStatsReply reply = (OFStatsReply) msg;
@@ -294,7 +306,7 @@ public class OpenFlowControllerImpl implements OpenFlowController {
                                 OFFactories.getFactory(msg.getVersion()).buildFlowStatsReply();
                         rep.setEntries(Lists.newLinkedList(flowStats));
                         rep.setXid(reply.getXid());
-                        executorMsgs.submit(new OFMessageHandler(dpid, rep.build()));
+                        executorMsgs.execute(new OFMessageHandler(dpid, rep.build()));
                     }
                     break;
                 case TABLE:
@@ -303,7 +315,7 @@ public class OpenFlowControllerImpl implements OpenFlowController {
                         OFTableStatsReply.Builder rep =
                                 OFFactories.getFactory(msg.getVersion()).buildTableStatsReply();
                         rep.setEntries(Lists.newLinkedList(tableStats));
-                        executorMsgs.submit(new OFMessageHandler(dpid, rep.build()));
+                        executorMsgs.execute(new OFMessageHandler(dpid, rep.build()));
                     }
                     break;
                 case GROUP:
@@ -313,7 +325,7 @@ public class OpenFlowControllerImpl implements OpenFlowController {
                                 OFFactories.getFactory(msg.getVersion()).buildGroupStatsReply();
                         rep.setEntries(Lists.newLinkedList(groupStats));
                         rep.setXid(reply.getXid());
-                        executorMsgs.submit(new OFMessageHandler(dpid, rep.build()));
+                        executorMsgs.execute(new OFMessageHandler(dpid, rep.build()));
                     }
                     break;
                 case GROUP_DESC:
@@ -324,14 +336,14 @@ public class OpenFlowControllerImpl implements OpenFlowController {
                                 OFFactories.getFactory(msg.getVersion()).buildGroupDescStatsReply();
                         rep.setEntries(Lists.newLinkedList(groupDescStats));
                         rep.setXid(reply.getXid());
-                        executorMsgs.submit(new OFMessageHandler(dpid, rep.build()));
+                        executorMsgs.execute(new OFMessageHandler(dpid, rep.build()));
                     }
                     break;
                 case PORT:
-                    executorMsgs.submit(new OFMessageHandler(dpid, reply));
+                    executorMsgs.execute(new OFMessageHandler(dpid, reply));
                     break;
                 case METER:
-                    executorMsgs.submit(new OFMessageHandler(dpid, reply));
+                    executorMsgs.execute(new OFMessageHandler(dpid, reply));
                     break;
                 case EXPERIMENTER:
                     if (reply instanceof OFCalientFlowStatsReply) {
@@ -373,10 +385,10 @@ public class OpenFlowControllerImpl implements OpenFlowController {
                             OFFlowStatsReply.Builder rep =
                                     OFFactories.getFactory(msg.getVersion()).buildFlowStatsReply();
                             rep.setEntries(Lists.newLinkedList(flowStats));
-                            executorMsgs.submit(new OFMessageHandler(dpid, rep.build()));
+                            executorMsgs.execute(new OFMessageHandler(dpid, rep.build()));
                         }
                     } else {
-                        executorMsgs.submit(new OFMessageHandler(dpid, reply));
+                        executorMsgs.execute(new OFMessageHandler(dpid, reply));
                     }
                     break;
                 default:
@@ -385,7 +397,7 @@ public class OpenFlowControllerImpl implements OpenFlowController {
             }
             break;
         case BARRIER_REPLY:
-            executorBarrier.submit(new OFMessageHandler(dpid, msg));
+            executorBarrier.execute(new OFMessageHandler(dpid, msg));
             break;
         case EXPERIMENTER:
             long experimenter = ((OFExperimenter) msg).getExperimenter();
@@ -625,6 +637,9 @@ public class OpenFlowControllerImpl implements OpenFlowController {
         }
     }
 
+    /**
+     * OpenFlow message handler.
+     */
     protected final class OFMessageHandler implements Runnable {
 
         protected final OFMessage msg;
@@ -641,7 +656,5 @@ public class OpenFlowControllerImpl implements OpenFlowController {
                 listener.handleMessage(dpid, msg);
             }
         }
-
     }
-
 }

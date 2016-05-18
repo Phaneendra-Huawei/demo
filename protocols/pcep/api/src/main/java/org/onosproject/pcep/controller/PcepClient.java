@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Open Networking Laboratory
+ * Copyright 2015-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,4 +107,18 @@ public interface PcepClient {
      * @return true/false if the synchronization is completed/not completed
      */
     boolean isSyncComplete();
+
+    /**
+     * Sets capability negotiated during open message exchange.
+     *
+     * @param capability supported by client
+     */
+    void setCapability(ClientCapability capability);
+
+    /**
+     * Obtains capability supported by client.
+     *
+     * @return capability supported by client
+     */
+    ClientCapability capability();
 }
