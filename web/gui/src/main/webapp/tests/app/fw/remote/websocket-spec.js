@@ -17,6 +17,7 @@
 /*
  ONOS GUI -- Remote -- Web Socket Service - Unit Tests
  */
+
 describe('factory: fw/remote/websocket.js', function () {
     var $log, fs, wss;
 
@@ -53,7 +54,10 @@ describe('factory: fw/remote/websocket.js', function () {
             return {
                 protocol: function () { return 'http'; },
                 host: function () { return 'foo'; },
-                port: function () { return '80'; }
+                port: function () { return '80'; },
+                search: function() {
+                    return {debug: 'true'};
+                }
             };
         })
     }));
@@ -74,7 +78,9 @@ describe('factory: fw/remote/websocket.js', function () {
         expect(fs.areFunctions(wss, [
             'resetSid', 'resetState',
             'createWebSocket', 'bindHandlers', 'unbindHandlers',
-            'addOpenListener', 'removeOpenListener', 'sendEvent'
+            'addOpenListener', 'removeOpenListener', 'sendEvent',
+            'isConnected', 'loggedInUser',
+            '_setVeilDelegate', '_setLoadingDelegate'
         ])).toBeTruthy();
     });
 

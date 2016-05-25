@@ -27,6 +27,8 @@ describe('factory: fw/layer/panel.js', function () {
         $timeout = _$timeout_;
         fs = FnService;
         ps = PanelService;
+
+        spyOn(fs, 'debugOn').and.returnValue(true);
         d3Elem = d3.select('body').append('div').attr('id', 'floatpanels');
         ps.init();
     }));

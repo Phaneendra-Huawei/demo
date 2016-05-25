@@ -46,6 +46,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Segment Routing configuration component that reads the
  * segment routing related configuration from Network Configuration Manager
@@ -101,8 +103,8 @@ public class DeviceConfiguration implements DeviceProperties {
             info.mac = config.routerMac();
             info.isEdge = config.isEdgeRouter();
             info.adjacencySids = config.adjacencySids();
-
             deviceConfigMap.put(info.deviceId, info);
+            log.info("Read device config for device: {}", info.deviceId);
             allSegmentIds.add(info.nodeSid);
         });
 
@@ -111,7 +113,10 @@ public class DeviceConfiguration implements DeviceProperties {
             cfgService.getSubjects(ConnectPoint.class, InterfaceConfig.class);
         portSubjects.forEach(subject -> {
             // Do not process excluded ports
-            if (suppressSubnet().contains(subject)) {
+            SegmentRoutingAppConfig appConfig =
+                    cfgService.getConfig(appId, SegmentRoutingAppConfig.class);
+            if (appConfig != null && appConfig.suppressSubnet().contains(subject)) {
+                log.info("Ignore suppressed port {}", subject);
                 return;
             }
 
@@ -167,7 +172,6 @@ public class DeviceConfiguration implements DeviceProperties {
                     }
                 }
             });
-
         });
     }
 
@@ -497,24 +501,36 @@ public class DeviceConfiguration implements DeviceProperties {
     }
 
     /**
-     * Gets connect points for which segment routing does not install subnet rules.
+     * Add subnet to specific connect point.
      *
-     * @return set of connect points
+     * @param cp connect point
+     * @param ip4Prefix subnet being added to the device
      */
-    public Set<ConnectPoint> suppressSubnet() {
-        SegmentRoutingAppConfig appConfig =
-                cfgService.getConfig(appId, SegmentRoutingAppConfig.class);
-        return (appConfig != null) ? appConfig.suppressSubnet() : ImmutableSet.of();
+    public void addSubnet(ConnectPoint cp, Ip4Prefix ip4Prefix) {
+        checkNotNull(cp);
+        checkNotNull(ip4Prefix);
+        SegmentRouterInfo srinfo = deviceConfigMap.get(cp.deviceId());
+        if (srinfo == null) {
+            log.warn("Device {} is not configured. Abort.", cp.deviceId());
+            return;
+        }
+        srinfo.subnets.put(cp.port(), ip4Prefix);
     }
 
     /**
-     * Gets connect points for which segment routing does not install host rules.
+     * Remove subnet from specific connect point.
      *
-     * @return set of connect points
+     * @param cp connect point
+     * @param ip4Prefix subnet being removed to the device
      */
-    public Set<ConnectPoint> suppressHost() {
-        SegmentRoutingAppConfig appConfig =
-                cfgService.getConfig(appId, SegmentRoutingAppConfig.class);
-        return (appConfig != null) ? appConfig.suppressHost() : ImmutableSet.of();
+    public void removeSubnet(ConnectPoint cp, Ip4Prefix ip4Prefix) {
+        checkNotNull(cp);
+        checkNotNull(ip4Prefix);
+        SegmentRouterInfo srinfo = deviceConfigMap.get(cp.deviceId());
+        if (srinfo == null) {
+            log.warn("Device {} is not configured. Abort.", cp.deviceId());
+            return;
+        }
+        srinfo.subnets.remove(cp.port(), ip4Prefix);
     }
 }

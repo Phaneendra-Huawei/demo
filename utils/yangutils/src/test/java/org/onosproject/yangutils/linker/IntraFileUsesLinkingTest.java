@@ -18,7 +18,6 @@ package org.onosproject.yangutils.linker;
 
 import java.io.IOException;
 import java.util.ListIterator;
-
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -80,8 +79,8 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under grouping.
-        assertThat(leafInfo.getLeafName(), is("hello"));
-        assertThat(leafInfo.getDataType().getDataTypeName(), is("String"));
+        assertThat(leafInfo.getName(), is("hello"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
         // Check whether uses is module's child.
@@ -96,8 +95,8 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under module.
-        assertThat(leafInfo.getLeafName(), is("hello"));
-        assertThat(leafInfo.getDataType().getDataTypeName(), is("String"));
+        assertThat(leafInfo.getName(), is("hello"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
     }
@@ -134,8 +133,8 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under grouping.
-        assertThat(leafInfo.getLeafName(), is("treat"));
-        assertThat(leafInfo.getDataType().getDataTypeName(), is("String"));
+        assertThat(leafInfo.getName(), is("treat"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
         // Check whether container is the child of grouping.
@@ -149,8 +148,8 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under container which is under grouping.
-        assertThat(leafInfo.getLeafName(), is("leaf2"));
-        assertThat(leafInfo.getDataType().getDataTypeName(), is("String"));
+        assertThat(leafInfo.getName(), is("leaf2"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
         // Check whether uses is module's child.
@@ -165,8 +164,8 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under module.
-        assertThat(leafInfo.getLeafName(), is("treat"));
-        assertThat(leafInfo.getDataType().getDataTypeName(), is("String"));
+        assertThat(leafInfo.getName(), is("treat"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
         // Check whether container is the child of module.
@@ -180,8 +179,8 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under container which is under module.
-        assertThat(leafInfo.getLeafName(), is("leaf2"));
-        assertThat(leafInfo.getDataType().getDataTypeName(), is("String"));
+        assertThat(leafInfo.getName(), is("leaf2"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
     }
 
@@ -227,7 +226,7 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under list which is under grouping.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.UINT16));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
@@ -253,7 +252,7 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under list which is deep copied.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.UINT16));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
@@ -282,7 +281,7 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under list which is deep copied.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.UINT16));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
@@ -353,7 +352,7 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under design-container.
-        assertThat(leafInfo.getLeafName(), is("ink"));
+        assertThat(leafInfo.getName(), is("ink"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("int32"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.INT32));
 
@@ -374,7 +373,7 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under correct-container.
-        assertThat(leafInfo.getLeafName(), is("newone"));
+        assertThat(leafInfo.getName(), is("newone"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
@@ -397,7 +396,7 @@ public class IntraFileUsesLinkingTest {
 
         // Check whether the information in the leaf is correct under container
         // which has been deep copied from grouping.
-        assertThat(leafInfo.getLeafName(), is("zip-code"));
+        assertThat(leafInfo.getName(), is("zip-code"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
@@ -426,7 +425,7 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under list which has been deep copied from grouping.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.UINT16));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
@@ -441,7 +440,7 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under grouping.
-        assertThat(leafInfo.getLeafName(), is("zip-code"));
+        assertThat(leafInfo.getName(), is("zip-code"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
@@ -517,7 +516,7 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under grouping.
-        assertThat(leafInfo.getLeafName(), is("carry"));
+        assertThat(leafInfo.getName(), is("carry"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
@@ -550,7 +549,7 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under list.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.UINT16));
     }
@@ -687,8 +686,8 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under grouping.
-        assertThat(leafInfo.getLeafName(), is("hello"));
-        assertThat(leafInfo.getDataType().getDataTypeName(), is("String"));
+        assertThat(leafInfo.getName(), is("hello"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
 
     }
@@ -761,8 +760,8 @@ public class IntraFileUsesLinkingTest {
         leafInfo = leafIterator.next();
 
         // Check whether the information in the leaf is correct under grouping.
-        assertThat(leafInfo.getLeafName(), is("hello"));
-        assertThat(leafInfo.getDataType().getDataTypeName(), is("String"));
+        assertThat(leafInfo.getName(), is("hello"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
     }
 

@@ -16,9 +16,9 @@
 
 package org.onosproject.vtnweb.resources;
 
-import java.util.Set;
-
 import org.onlab.rest.AbstractWebApplication;
+
+import java.util.Set;
 
 /**
  * VTN REST API web application.
@@ -40,3 +40,4 @@ public class VtnWebApplication extends AbstractWebApplication {
                           PortChainDeviceMapWebResource.class);
     }
 }
+

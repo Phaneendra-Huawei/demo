@@ -17,13 +17,14 @@
 package org.onosproject.yangutils.translator.tojava.utils;
 
 import java.io.IOException;
+
 import org.junit.Test;
 import org.onosproject.yangutils.datamodel.YangNode;
 import org.onosproject.yangutils.parser.exceptions.ParserException;
 import org.onosproject.yangutils.parser.impl.YangUtilsParserManager;
 
 import static org.onosproject.yangutils.translator.tojava.JavaCodeGeneratorUtil.generateJavaCode;
-import static org.onosproject.yangutils.utils.io.impl.YangIoUtils.clean;
+import static org.onosproject.yangutils.utils.io.impl.YangIoUtils.deleteDirectory;
 
 /**
  * Unit tests for rpc translator.
@@ -36,7 +37,8 @@ public final class RpcTranslatorTest {
      * Checks rpc translation should not result in any exception.
      */
     @Test
-    public void processRpcTranslator() throws IOException, ParserException {
+    public void processRpcTranslator()
+            throws IOException, ParserException {
 
         String userDir = System.getProperty("user.dir");
         YangNode node = manager.getDataModel("src/test/resources/RpcTranslator.yang");
@@ -44,9 +46,9 @@ public final class RpcTranslatorTest {
         YangPluginConfig yangPluginConfig = new YangPluginConfig();
         yangPluginConfig.setCodeGenDir(userDir + "/target/RpcTestGenFile/");
 
-        generateJavaCode(node, yangPluginConfig);
+        generateJavaCode(node, yangPluginConfig, "RpcTranslator");
 
-        clean(userDir + "/target/RpcTestGenFile/");
+        deleteDirectory(userDir + "/target/RpcTestGenFile/");
     }
     // TODO enhance the test cases, after having a framework of translator test.
 }

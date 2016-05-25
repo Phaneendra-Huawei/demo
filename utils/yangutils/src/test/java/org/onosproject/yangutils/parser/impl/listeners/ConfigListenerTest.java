@@ -68,7 +68,7 @@ public class ConfigListenerTest {
         YangLeaf leafInfo = leafIterator.next();
 
         // Check whether the Config value is set correctly.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.isConfig(), is(true));
     }
 
@@ -94,7 +94,7 @@ public class ConfigListenerTest {
         YangLeaf leafInfo = leafIterator.next();
 
         // Check whether the Config value is set correctly.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.isConfig(), is(false));
     }
 
@@ -134,9 +134,9 @@ public class ConfigListenerTest {
     @Test
     public void processModuleSubStatementConfig() throws IOException, ParserException {
         thrown.expect(ParserException.class);
-        thrown.expectMessage("mismatched input 'config' expecting {'augment', 'choice', 'contact', 'container',"
-                + " 'description', 'extension', 'deviation', 'feature', 'grouping', 'identity', 'import', 'include', "
-                + "'leaf', 'leaf-list', 'list', 'notification', 'organization', 'reference',"
+        thrown.expectMessage("mismatched input 'config' expecting {'anyxml', 'augment', 'choice', 'contact', "
+                + "'container', 'description', 'extension', 'deviation', 'feature', 'grouping', 'identity', 'import',"
+                + " 'include', 'leaf', 'leaf-list', 'list', 'notification', 'organization', 'reference',"
                 + " 'revision', 'rpc', 'typedef', 'uses', '}'}");
         YangNode node = manager.getDataModel("src/test/resources/ModuleSubStatementConfig.yang");
     }
@@ -168,7 +168,7 @@ public class ConfigListenerTest {
         ListIterator<YangLeaf> leafIterator = container.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.UINT16));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
@@ -204,7 +204,7 @@ public class ConfigListenerTest {
         ListIterator<YangLeaf> leafIterator = yangList.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.UINT16));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
@@ -236,7 +236,7 @@ public class ConfigListenerTest {
         YangLeafList leafListInfo = leafListIterator.next();
 
         // Check whether config value is set correctly.
-        assertThat(leafListInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafListInfo.getName(), is("invalid-interval"));
         assertThat(leafListInfo.isConfig(), is(true));
     }
 
@@ -262,7 +262,7 @@ public class ConfigListenerTest {
         ListIterator<YangLeaf> leafIterator = container.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.isConfig(), is(true));
     }
 
@@ -367,7 +367,7 @@ public class ConfigListenerTest {
         YangLeafList leafListInfo = leafListIterator.next();
 
         // Check whether config value is set correctly.
-        assertThat(leafListInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafListInfo.getName(), is("invalid-interval"));
         assertThat(leafListInfo.isConfig(), is(true));
 
     }
@@ -395,7 +395,7 @@ public class ConfigListenerTest {
         ListIterator<YangLeaf> leafIterator = container.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.isConfig(), is(true));
     }
 
@@ -475,7 +475,7 @@ public class ConfigListenerTest {
         YangLeafList leafListInfo = leafListIterator.next();
 
         // Check whether config value is set correctly.
-        assertThat(leafListInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafListInfo.getName(), is("invalid-interval"));
         assertThat(leafListInfo.isConfig(), is(true));
     }
 
@@ -502,7 +502,7 @@ public class ConfigListenerTest {
         ListIterator<YangLeaf> leafIterator = list1.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.isConfig(), is(true));
     }
 

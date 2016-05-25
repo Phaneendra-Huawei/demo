@@ -66,13 +66,13 @@ public final class DefaultTrafficSelector implements TrafficSelector {
     /**
      * Creates a new traffic selector with the specified criteria.
      *
-     * @param criterions    criterions
-     * @param extCriterions extension criterions
+     * @param criteria    criteria
+     * @param extCriteria extension criteria
      */
-    private DefaultTrafficSelector(Collection<Criterion> criterions, Collection<Criterion> extCriterions) {
+    private DefaultTrafficSelector(Collection<Criterion> criteria, Collection<Criterion> extCriteria) {
         TreeSet<Criterion> elements = new TreeSet<>(TYPE_COMPARATOR);
-        elements.addAll(criterions);
-        elements.addAll(extCriterions);
+        elements.addAll(criteria);
+        elements.addAll(extCriteria);
         this.criteria = ImmutableSet.copyOf(elements);
     }
 
@@ -384,7 +384,7 @@ public final class DefaultTrafficSelector implements TrafficSelector {
 
         @Override
         public TrafficSelector.Builder extension(ExtensionSelector extensionSelector,
-                        DeviceId deviceId) {
+                                                 DeviceId deviceId) {
             return add(Criteria.extension(extensionSelector, deviceId));
         }
 

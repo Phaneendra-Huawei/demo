@@ -121,9 +121,8 @@ public class Ofdpa2Pipeline extends AbstractHandlerBehaviour implements Pipeline
         .register(GroupKey.class)
         .register(DefaultGroupKey.class)
         .register(Ofdpa2GroupHandler.OfdpaNextGroup.class)
-        .register(byte[].class)
         .register(ArrayDeque.class)
-        .build();
+        .build("Ofdpa2Pipeline");
 
     protected Ofdpa2GroupHandler groupHandler;
 
@@ -292,9 +291,11 @@ public class Ofdpa2Pipeline extends AbstractHandlerBehaviour implements Pipeline
         } else {
             log.warn("No key defined in filtering objective from app: {}. Not"
                     + "processing filtering objective", applicationId);
-            fail(filt, ObjectiveError.UNKNOWN);
+            fail(filt, ObjectiveError.BADPARAMS);
             return;
         }
+        log.debug("Received filtering objective for dev/port: {}/{}", deviceId,
+                 portCriterion.port());
         // convert filtering conditions for switch-intfs into flowrules
         FlowRuleOperations.Builder ops = FlowRuleOperations.builder();
         for (Criterion criterion : filt.conditions()) {
@@ -333,6 +334,7 @@ public class Ofdpa2Pipeline extends AbstractHandlerBehaviour implements Pipeline
         }
 
         if (ethCriterion == null || ethCriterion.mac().equals(MacAddress.NONE)) {
+            // NOTE: it is possible that a filtering objective only has vidCriterion
             log.debug("filtering objective missing dstMac, cannot program TMAC table");
         } else {
             for (FlowRule tmacRule : processEthDstFilter(portCriterion, ethCriterion,
@@ -344,7 +346,8 @@ public class Ofdpa2Pipeline extends AbstractHandlerBehaviour implements Pipeline
             }
         }
 
-        if (ethCriterion == null || vidCriterion == null) {
+        if (vidCriterion == null) {
+            // NOTE: it is possible that a filtering objective only has ethCriterion
             log.debug("filtering objective missing dstMac or VLAN, "
                     + "cannot program VLAN Table");
         } else {
@@ -1079,17 +1082,26 @@ public class Ofdpa2Pipeline extends AbstractHandlerBehaviour implements Pipeline
     }
 
     protected static VlanId readVlanFromSelector(TrafficSelector selector) {
+        if (selector == null) {
+            return null;
+        }
         Criterion criterion = selector.getCriterion(Criterion.Type.VLAN_VID);
         return (criterion == null)
                 ? null : ((VlanIdCriterion) criterion).vlanId();
     }
 
     protected static IpPrefix readIpDstFromSelector(TrafficSelector selector) {
+        if (selector == null) {
+            return null;
+        }
         Criterion criterion = selector.getCriterion(Criterion.Type.IPV4_DST);
         return (criterion == null) ? null : ((IPCriterion) criterion).ip();
     }
 
     private static VlanId readVlanFromTreatment(TrafficTreatment treatment) {
+        if (treatment == null) {
+            return null;
+        }
         for (Instruction i : treatment.allInstructions()) {
             if (i instanceof ModVlanIdInstruction) {
                 return ((ModVlanIdInstruction) i).vlanId();

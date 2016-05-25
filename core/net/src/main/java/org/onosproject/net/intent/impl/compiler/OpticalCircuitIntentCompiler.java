@@ -32,8 +32,6 @@ import org.onosproject.core.CoreService;
 import org.onosproject.net.AnnotationKeys;
 import org.onosproject.net.CltSignalType;
 import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.OchPort;
-import org.onosproject.net.OduCltPort;
 import org.onosproject.net.OduSignalId;
 import org.onosproject.net.OduSignalType;
 import org.onosproject.net.OduSignalUtils;
@@ -60,7 +58,10 @@ import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.intent.OpticalCircuitIntent;
 import org.onosproject.net.intent.OpticalConnectivityIntent;
 import org.onosproject.net.intent.impl.IntentCompilationException;
+import org.onosproject.net.optical.OchPort;
+import org.onosproject.net.optical.OduCltPort;
 import org.onosproject.net.intent.IntentSetMultimap;
+import org.onosproject.net.intent.impl.ResourceHelper;
 import org.onosproject.net.resource.ResourceAllocation;
 import org.onosproject.net.resource.Resource;
 import org.onosproject.net.resource.ResourceService;
@@ -82,6 +83,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static org.onosproject.net.optical.device.OpticalDeviceServiceView.opticalView;
 
 /**
  * An intent compiler for {@link org.onosproject.net.intent.OpticalCircuitIntent}.
@@ -156,6 +158,7 @@ public class OpticalCircuitIntentCompiler implements IntentCompiler<OpticalCircu
 
     @Activate
     public void activate(ComponentContext context) {
+        deviceService = opticalView(deviceService);
         appId = coreService.registerApplication("org.onosproject.net.intent");
         intentManager.registerCompiler(OpticalCircuitIntent.class, this);
         cfgService.registerProperties(getClass());
@@ -444,9 +447,9 @@ public class OpticalCircuitIntentCompiler implements IntentCompiler<OpticalCircu
             Optional<IntentId> intentId =
                     resourceService.getResourceAllocations(Resources.discrete(ochCP.deviceId(), ochCP.port()).id())
                             .stream()
-                            .map(ResourceAllocation::consumer)
-                            .filter(x -> x instanceof IntentId)
-                            .map(x -> (IntentId) x)
+                            .map(ResourceAllocation::consumerId)
+                            .map(ResourceHelper::getIntentId)
+                            .flatMap(Tools::stream)
                             .findAny();
 
             if (isAvailable(intentId.orElse(null))) {
@@ -474,9 +477,9 @@ public class OpticalCircuitIntentCompiler implements IntentCompiler<OpticalCircu
             Optional<IntentId> intentId =
                     resourceService.getResourceAllocations(Resources.discrete(oduPort.deviceId(), port.number()).id())
                             .stream()
-                            .map(ResourceAllocation::consumer)
-                            .filter(x -> x instanceof IntentId)
-                            .map(x -> (IntentId) x)
+                            .map(ResourceAllocation::consumerId)
+                            .map(ResourceHelper::getIntentId)
+                            .flatMap(Tools::stream)
                             .findAny();
 
             if (isAvailable(intentId.orElse(null))) {

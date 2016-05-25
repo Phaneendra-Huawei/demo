@@ -18,41 +18,37 @@ package org.onosproject.yangutils.translator.tojava.javamodel;
 
 import java.io.IOException;
 
+import org.onosproject.yangutils.datamodel.YangNode;
 import org.onosproject.yangutils.datamodel.YangNotification;
 import org.onosproject.yangutils.translator.exception.TranslatorException;
-import org.onosproject.yangutils.translator.tojava.HasJavaFileInfo;
-import org.onosproject.yangutils.translator.tojava.HasJavaImportData;
-import org.onosproject.yangutils.translator.tojava.HasTempJavaCodeFragmentFiles;
 import org.onosproject.yangutils.translator.tojava.JavaCodeGenerator;
 import org.onosproject.yangutils.translator.tojava.JavaFileInfo;
-import org.onosproject.yangutils.translator.tojava.JavaImportData;
+import org.onosproject.yangutils.translator.tojava.JavaFileInfoContainer;
+import org.onosproject.yangutils.translator.tojava.JavaQualifiedTypeInfo;
 import org.onosproject.yangutils.translator.tojava.TempJavaCodeFragmentFiles;
+import org.onosproject.yangutils.translator.tojava.TempJavaCodeFragmentFilesContainer;
+import org.onosproject.yangutils.translator.tojava.utils.JavaExtendsListHolder;
 import org.onosproject.yangutils.translator.tojava.utils.YangPluginConfig;
 
+import static org.onosproject.yangutils.translator.tojava.GeneratedJavaFileType.GENERATE_EVENT_CLASS;
+import static org.onosproject.yangutils.translator.tojava.GeneratedJavaFileType.GENERATE_EVENT_LISTENER_INTERFACE;
 import static org.onosproject.yangutils.translator.tojava.GeneratedJavaFileType.GENERATE_INTERFACE_WITH_BUILDER;
-import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCamelCase;
-import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCaptialCase;
-import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCurNodePackage;
-import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getPackageDirPathFromJavaJPackage;
-import static org.onosproject.yangutils.utils.io.impl.YangIoUtils.getAbsolutePackagePath;
+import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCapitalCase;
+import static org.onosproject.yangutils.translator.tojava.utils.YangJavaModelUtils.generateCodeOfAugmentableNode;
+import static org.onosproject.yangutils.utils.UtilConstants.EVENT_LISTENER_STRING;
+import static org.onosproject.yangutils.utils.UtilConstants.EVENT_STRING;
 
 /**
  * Represents notification information extended to support java code generation.
  */
-public class YangJavaNotification extends YangNotification
-        implements JavaCodeGenerator, HasJavaFileInfo,
-        HasJavaImportData, HasTempJavaCodeFragmentFiles {
+public class YangJavaNotification
+        extends YangNotification
+        implements JavaCodeGenerator, JavaCodeGeneratorInfo {
 
     /**
      * Contains information of the java file being generated.
      */
     private JavaFileInfo javaFileInfo;
-
-    /**
-     * Contains information of the imports to be inserted in the java file
-     * generated.
-     */
-    private JavaImportData javaImportData;
 
     /**
      * File handle to maintain temporary java code fragments as per the code
@@ -66,8 +62,8 @@ public class YangJavaNotification extends YangNotification
     public YangJavaNotification() {
         super();
         setJavaFileInfo(new JavaFileInfo());
-        setJavaImportData(new JavaImportData());
-        getJavaFileInfo().setGeneratedFileTypes(GENERATE_INTERFACE_WITH_BUILDER);
+        getJavaFileInfo().setGeneratedFileTypes(GENERATE_INTERFACE_WITH_BUILDER
+                | GENERATE_EVENT_CLASS | GENERATE_EVENT_LISTENER_INTERFACE);
     }
 
     /**
@@ -95,27 +91,6 @@ public class YangJavaNotification extends YangNotification
     }
 
     /**
-     * Returns the data of java imports to be included in generated file.
-     *
-     * @return data of java imports to be included in generated file
-     */
-    @Override
-    public JavaImportData getJavaImportData() {
-        return javaImportData;
-    }
-
-    /**
-     * Sets the data of java imports to be included in generated file.
-     *
-     * @param javaImportData data of java imports to be included in generated
-     *            file
-     */
-    @Override
-    public void setJavaImportData(JavaImportData javaImportData) {
-        this.javaImportData = javaImportData;
-    }
-
-    /**
      * Returns the temporary file handle.
      *
      * @return temporary file handle
@@ -140,36 +115,72 @@ public class YangJavaNotification extends YangNotification
      * notification info.
      *
      * @param yangPlugin YANG plugin config
-     * @throws IOException IO operation fail
+     * @throws TranslatorException translator operation fail
      */
     @Override
-    public void generateCodeEntry(YangPluginConfig yangPlugin) throws IOException {
+    public void generateCodeEntry(YangPluginConfig yangPlugin) throws TranslatorException {
 
-        getJavaFileInfo().setJavaName(getCaptialCase(getCamelCase(getName(), yangPlugin.getConflictResolver())));
-        getJavaFileInfo().setPackage(getCurNodePackage(this));
-        getJavaFileInfo().setPackageFilePath(
-                getPackageDirPathFromJavaJPackage(getJavaFileInfo().getPackage()));
-        getJavaFileInfo().setBaseCodeGenPath(yangPlugin.getCodeGenDir());
+        /**
+         * As part of the notification support the following files needs to be generated.
+         * 1) Subject of the notification(event), this is simple interface with builder class.
+         * 2) Event class extending "AbstractEvent" and defining event type enum.
+         * 3) Event listener interface extending "EventListener".
+         *
+         * The manager class needs to extend the ListenerRegistry.
+         */
 
-        String absolutePath = getAbsolutePackagePath(
-                getJavaFileInfo().getBaseCodeGenPath(),
-                getJavaFileInfo().getPackageFilePath());
+        // Generate subject of the notification(event), this is simple interface
+        // with builder class.
+        try {
+            generateCodeOfAugmentableNode(this, yangPlugin);
+            addNotificationToExtendsList();
+        } catch (IOException e) {
+            throw new TranslatorException(
+                    "Failed to prepare generate code entry for notification node " + this.getName());
+        }
+    }
 
-        setTempJavaCodeFragmentFiles(new TempJavaCodeFragmentFiles(
-                getJavaFileInfo().getGeneratedFileTypes(), absolutePath,
-                getJavaFileInfo().getJavaName()));
+    /*Adds current notification info to the extends list so its parents service*/
+    private void addNotificationToExtendsList() {
+        YangNode parent = this.getParent();
+        JavaExtendsListHolder holder = ((TempJavaCodeFragmentFilesContainer) parent)
+                .getTempJavaCodeFragmentFiles()
+                .getServiceTempFiles().getJavaExtendsListHolder();
+        JavaQualifiedTypeInfo event = new JavaQualifiedTypeInfo();
 
-        getTempJavaCodeFragmentFiles().addCurNodeLeavesInfoToTempFiles(this);
+        String parentInfo = getCapitalCase(((JavaFileInfoContainer) parent)
+                .getJavaFileInfo().getJavaName());
+        event.setClassInfo(parentInfo + EVENT_STRING);
+        event.setPkgInfo(getJavaFileInfo().getPackage());
+        holder.addToExtendsList(event, parent);
 
-        getTempJavaCodeFragmentFiles().addCurNodeInfoInParentTempFile(this, false);
+        JavaQualifiedTypeInfo eventListener = new JavaQualifiedTypeInfo();
+
+        eventListener.setClassInfo(parentInfo + EVENT_LISTENER_STRING);
+        eventListener.setPkgInfo(getJavaFileInfo().getPackage());
+        holder.addToExtendsList(eventListener, parent);
+
     }
 
     /**
      * Creates a java file using the YANG notification info.
      */
     @Override
-    public void generateCodeExit() {
-        // TODO Auto-generated method stub
+    public void generateCodeExit() throws TranslatorException {
+        /**
+         * As part of the notification support the following files needs to be generated.
+         * 1) Subject of the notification(event), this is simple interface with builder class.
+         * 2) Event class extending "AbstractEvent" and defining event type enum.
+         * 3) Event listener interface extending "EventListener".
+         *
+         * The manager class needs to extend the "ListenerRegistry".
+         */
+        try {
+            getTempJavaCodeFragmentFiles().generateJavaFile(GENERATE_INTERFACE_WITH_BUILDER
+                    | GENERATE_EVENT_CLASS | GENERATE_EVENT_LISTENER_INTERFACE, this);
+        } catch (IOException e) {
+            throw new TranslatorException("Failed to generate code for notification node " + this.getName());
+        }
 
     }
 }

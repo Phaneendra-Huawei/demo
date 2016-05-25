@@ -21,7 +21,7 @@
 describe('factory: fw/layer/veil.js', function () {
     var $log, $route, vs, fs, ks, gs;
 
-    beforeEach(module('onosLayer', 'onosNav', 'onosSvg', 'ngRoute'));
+    beforeEach(module('onosLayer', 'onosNav', 'onosSvg', 'ngRoute', 'onosRemote'));
 
     beforeEach(inject(function (_$log_, _$route_, VeilService, FnService,
                                 KeyService, GlyphService) {

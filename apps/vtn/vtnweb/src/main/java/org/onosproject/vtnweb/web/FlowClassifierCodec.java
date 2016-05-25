@@ -60,7 +60,7 @@ public final class FlowClassifierCodec extends JsonCodec<FlowClassifier> {
         FlowClassifier.Builder resultBuilder = new DefaultFlowClassifier.Builder();
 
         String flowClassifierId = nullIsIllegal(json.get(FLOW_CLASSIFIER_ID),
-                                                FLOW_CLASSIFIER_ID + MISSING_MEMBER_MESSAGE).asText();
+                FLOW_CLASSIFIER_ID + MISSING_MEMBER_MESSAGE).asText();
         resultBuilder.setFlowClassifierId(FlowClassifierId.of(flowClassifierId));
 
         String tenantId = nullIsIllegal(json.get(TENANT_ID), TENANT_ID + MISSING_MEMBER_MESSAGE).asText();
@@ -124,16 +124,16 @@ public final class FlowClassifierCodec extends JsonCodec<FlowClassifier> {
         checkNotNull(flowClassifier, "flowClassifier cannot be null");
         ObjectNode result = context.mapper().createObjectNode();
         result.put(FLOW_CLASSIFIER_ID, flowClassifier.flowClassifierId().toString())
-        .put(TENANT_ID, flowClassifier.tenantId().toString())
-        .put(NAME, flowClassifier.name())
-        .put(DESCRIPTION, flowClassifier.description())
-        .put(ETHER_TYPE, flowClassifier.etherType())
-        .put(PROTOCOL, flowClassifier.protocol())
-        .put(PRIORITY, flowClassifier.priority())
-        .put(MIN_SRC_PORT_RANGE, flowClassifier.minSrcPortRange())
-        .put(MAX_SRC_PORT_RANGE, flowClassifier.maxSrcPortRange())
-        .put(MIN_DST_PORT_RANGE, flowClassifier.minDstPortRange())
-        .put(MAX_DST_PORT_RANGE, flowClassifier.maxDstPortRange());
+                .put(TENANT_ID, flowClassifier.tenantId().toString())
+                .put(NAME, flowClassifier.name())
+                .put(DESCRIPTION, flowClassifier.description())
+                .put(ETHER_TYPE, flowClassifier.etherType())
+                .put(PROTOCOL, flowClassifier.protocol())
+                .put(PRIORITY, flowClassifier.priority())
+                .put(MIN_SRC_PORT_RANGE, flowClassifier.minSrcPortRange())
+                .put(MAX_SRC_PORT_RANGE, flowClassifier.maxSrcPortRange())
+                .put(MIN_DST_PORT_RANGE, flowClassifier.minDstPortRange())
+                .put(MAX_DST_PORT_RANGE, flowClassifier.maxDstPortRange());
 
         if (flowClassifier.srcIpPrefix() != null) {
             result.put(SRC_IP_PREFIX, flowClassifier.srcIpPrefix().toString());

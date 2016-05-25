@@ -36,14 +36,15 @@ import java.util.concurrent.TimeUnit;
  */
 public class DefaultIsisLsdbAge implements IsisLsdbAge {
     private static final Logger log = LoggerFactory.getLogger(DefaultIsisLsdbAge.class);
-    protected static int ageCounter = 0;
+    protected int ageCounter = 0;
     private InternalAgeTimer dbAgeTimer;
     private ScheduledExecutorService exServiceage;
-    private Integer maxBins = 1200;
+    private Integer maxBins = IsisConstants.LSPMAXAGE;
     private Map<Integer, IsisLspBin> ageBins = new ConcurrentHashMap<>(maxBins);
     private int ageCounterRollOver = 0;
     private IsisLspQueueConsumer queueConsumer = null;
     private BlockingQueue<LspWrapper> lsaQueue = new ArrayBlockingQueue<>(1024);
+    private boolean timerStarted = false;
 
     /**
      * Creates an instance of LSDB age.
@@ -128,9 +129,12 @@ public class DefaultIsisLsdbAge implements IsisLsdbAge {
      * Starts the aging timer and queue consumer.
      */
     public void startDbAging() {
-        startDbAgeTimer();
-        queueConsumer = new IsisLspQueueConsumer(lsaQueue);
-        new Thread(queueConsumer).start();
+        if (!timerStarted) {
+            startDbAgeTimer();
+            queueConsumer = new IsisLspQueueConsumer(lsaQueue);
+            new Thread(queueConsumer).start();
+            timerStarted = true;
+        }
     }
 
     /**
@@ -202,7 +206,7 @@ public class DefaultIsisLsdbAge implements IsisLsdbAge {
         } else {
             binNumber = ageCounter - IsisConstants.LSPREFRESH;
         }
-        if (binNumber > IsisConstants.LSPMAXAGE) {
+        if (binNumber >= IsisConstants.LSPMAXAGE) {
             binNumber = binNumber - IsisConstants.LSPMAXAGE;
         }
         IsisLspBin lspBin = ageBins.get(binNumber);

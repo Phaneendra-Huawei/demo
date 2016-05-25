@@ -42,10 +42,9 @@ import org.onosproject.incubator.net.virtual.VirtualNetworkStore;
 import org.onosproject.incubator.net.virtual.VirtualNetworkStoreDelegate;
 import org.onosproject.incubator.net.virtual.VirtualPort;
 import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.DefaultDevice;
-import org.onosproject.net.DefaultPort;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
+import org.onosproject.net.Link;
 import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.store.AbstractStore;
@@ -123,7 +122,7 @@ public class DistributedVirtualNetworkStore
     private static final Serializer SERIALIZER = Serializer
             .using(new KryoNamespace.Builder().register(KryoNamespaces.API)
                            .register(TenantId.class)
-                           .register(NetworkId.class).register(DeviceId.class)
+                           .register(NetworkId.class)
                            .register(VirtualNetwork.class)
                            .register(DefaultVirtualNetwork.class)
                            .register(VirtualDevice.class)
@@ -132,12 +131,10 @@ public class DistributedVirtualNetworkStore
                            .register(DefaultVirtualLink.class)
                            .register(VirtualPort.class)
                            .register(DefaultVirtualPort.class)
-                           .register(DeviceId.class)
                            .register(Device.class)
-                           .register(DefaultDevice.class)
-                           .register(DefaultPort.class)
                            .register(TunnelId.class)
-                           .nextId(KryoNamespaces.BEGIN_USER_CUSTOM_ID).build());
+                           .nextId(KryoNamespaces.BEGIN_USER_CUSTOM_ID)
+                           .build("VirtualNetworkStore"));
 
     /**
      * Distributed network store service activate method.
@@ -284,9 +281,9 @@ public class DistributedVirtualNetworkStore
 
             tenantIdNetworkIdSetMap.compute(virtualNetwork.tenantId(), (id, existingNetworkIds) -> {
                 if (existingNetworkIds == null || existingNetworkIds.isEmpty()) {
-                    return new HashSet<NetworkId>();
+                    return new HashSet<>();
                 } else {
-                    return new HashSet<NetworkId>(Sets.difference(existingNetworkIds, networkIdSet));
+                    return new HashSet<>(Sets.difference(existingNetworkIds, networkIdSet));
                 }
             });
         }
@@ -299,6 +296,7 @@ public class DistributedVirtualNetworkStore
      * @return true if the network identifier exists, false otherwise.
      */
     private boolean networkExists(NetworkId networkId) {
+        checkNotNull(networkId, "The network identifier cannot be null.");
         return (networkIdVirtualNetworkMap.containsKey(networkId));
     }
 
@@ -332,9 +330,9 @@ public class DistributedVirtualNetworkStore
         if (deviceIdSet != null) {
             networkIdDeviceIdSetMap.compute(networkId, (id, existingDeviceIds) -> {
                 if (existingDeviceIds == null || existingDeviceIds.isEmpty()) {
-                    return new HashSet<DeviceId>();
+                    return new HashSet<>();
                 } else {
-                    return new HashSet<DeviceId>(Sets.difference(existingDeviceIds, deviceIdSet));
+                    return new HashSet<>(Sets.difference(existingDeviceIds, deviceIdSet));
                 }
             });
 
@@ -343,7 +341,8 @@ public class DistributedVirtualNetworkStore
     }
 
     @Override
-    public VirtualLink addLink(NetworkId networkId, ConnectPoint src, ConnectPoint dst, TunnelId realizedBy) {
+    public VirtualLink addLink(NetworkId networkId, ConnectPoint src, ConnectPoint dst,
+                               Link.State state, TunnelId realizedBy) {
         checkState(networkExists(networkId), "The network has not been added.");
         Set<VirtualLink> virtualLinkSet = networkIdVirtualLinkSetMap.get(networkId);
         if (virtualLinkSet == null) {
@@ -356,6 +355,7 @@ public class DistributedVirtualNetworkStore
                 .networkId(networkId)
                 .src(src)
                 .dst(dst)
+                .state(state)
                 .tunnelId(realizedBy)
                 .build();
 
@@ -365,7 +365,7 @@ public class DistributedVirtualNetworkStore
     }
 
     @Override
-    public void updateLink(VirtualLink virtualLink, TunnelId tunnelId) {
+    public void updateLink(VirtualLink virtualLink, TunnelId tunnelId, Link.State state) {
         checkState(networkExists(virtualLink.networkId()), "The network has not been added.");
         Set<VirtualLink> virtualLinkSet = networkIdVirtualLinkSetMap.get(virtualLink.networkId());
         if (virtualLinkSet == null) {
@@ -378,6 +378,7 @@ public class DistributedVirtualNetworkStore
                 .src(virtualLink.src())
                 .dst(virtualLink.dst())
                 .tunnelId(tunnelId)
+                .state(state)
                 .build();
 
         virtualLinkSet.add(newVirtualLink);
@@ -398,9 +399,9 @@ public class DistributedVirtualNetworkStore
         if (virtualLinkSet != null) {
             networkIdVirtualLinkSetMap.compute(networkId, (id, existingVirtualLinks) -> {
                 if (existingVirtualLinks == null || existingVirtualLinks.isEmpty()) {
-                    return new HashSet<VirtualLink>();
+                    return new HashSet<>();
                 } else {
-                    return new HashSet<VirtualLink>(Sets.difference(existingVirtualLinks, virtualLinkSet));
+                    return new HashSet<>(Sets.difference(existingVirtualLinks, virtualLinkSet));
                 }
             });
         }
@@ -436,9 +437,9 @@ public class DistributedVirtualNetworkStore
         if (virtualPortSet != null) {
             networkIdVirtualPortSetMap.compute(networkId, (id, existingVirtualPorts) -> {
                 if (existingVirtualPorts == null || existingVirtualPorts.isEmpty()) {
-                    return new HashSet<VirtualPort>();
+                    return new HashSet<>();
                 } else {
-                    return new HashSet<VirtualPort>(Sets.difference(existingVirtualPorts, virtualPortSet));
+                    return new HashSet<>(Sets.difference(existingVirtualPorts, virtualPortSet));
                 }
             });
         }
@@ -475,16 +476,8 @@ public class DistributedVirtualNetworkStore
         return ImmutableSet.copyOf(virtualLinkSet);
     }
 
-    /**
-     * Returns the virtual link matching the network identifier, source connect point,
-     * and destination connect point.
-     *
-     * @param networkId network identifier
-     * @param src       source connect point
-     * @param dst       destination connect point
-     * @return virtual link
-     */
-    private VirtualLink getLink(NetworkId networkId, ConnectPoint src, ConnectPoint dst) {
+    @Override
+    public VirtualLink getLink(NetworkId networkId, ConnectPoint src, ConnectPoint dst) {
         Set<VirtualLink> virtualLinkSet = networkIdVirtualLinkSetMap.get(networkId);
         if (virtualLinkSet == null) {
             return null;
@@ -506,6 +499,10 @@ public class DistributedVirtualNetworkStore
         Set<VirtualPort> virtualPortSet = networkIdVirtualPortSetMap.get(networkId);
         if (virtualPortSet == null) {
             virtualPortSet = new HashSet<>();
+        }
+
+        if (deviceId == null) {
+            return ImmutableSet.copyOf(virtualPortSet);
         }
 
         Set<VirtualPort> portSet = new HashSet<>();

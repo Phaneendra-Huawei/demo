@@ -57,7 +57,7 @@ import org.slf4j.Logger;
 @Component(immediate = true)
 @Service
 public class PortChainManager extends AbstractListenerManager<PortChainEvent, PortChainListener> implements
-PortChainService {
+        PortChainService {
 
     private static final String PORT_CHAIN_ID_NULL = "PortChain ID cannot be null";
     private static final String PORT_CHAIN_NULL = "PortChain cannot be null";
@@ -128,10 +128,14 @@ PortChainService {
     public boolean createPortChain(PortChain portChain) {
         checkNotNull(portChain, PORT_CHAIN_NULL);
 
+        if (portChainStore.containsKey(portChain.portChainId())) {
+            portChainStore.remove(portChain.portChainId());
+        }
+
         portChainStore.put(portChain.portChainId(), portChain);
         if (!portChainStore.containsKey(portChain.portChainId())) {
-            log.debug("The portChain is created failed which identifier was {}", portChain.portChainId()
-                    .toString());
+            log.error("The portChain is created failed which identifier was {}", portChain.portChainId()
+                      .toString());
             return false;
         }
         return true;
@@ -146,7 +150,6 @@ PortChainService {
                       portChain.portChainId().toString());
             return false;
         }
-
         portChainStore.put(portChain.portChainId(), portChain);
 
         if (!portChain.equals(portChainStore.get(portChain.portChainId()))) {
@@ -171,8 +174,8 @@ PortChainService {
     }
 
     private class InnerPortChainStoreListener
-    implements
-    EventuallyConsistentMapListener<PortChainId, PortChain> {
+            implements
+            EventuallyConsistentMapListener<PortChainId, PortChain> {
 
         @Override
         public void event(EventuallyConsistentMapEvent<PortChainId, PortChain> event) {

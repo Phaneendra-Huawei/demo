@@ -16,33 +16,30 @@
 package org.onosproject.yangutils.translator.tojava.javamodel;
 
 import java.io.IOException;
+
 import org.onosproject.yangutils.datamodel.YangModule;
 import org.onosproject.yangutils.translator.exception.TranslatorException;
 import org.onosproject.yangutils.translator.tojava.JavaCodeGenerator;
 import org.onosproject.yangutils.translator.tojava.JavaFileInfo;
-import org.onosproject.yangutils.translator.tojava.JavaImportData;
 import org.onosproject.yangutils.translator.tojava.TempJavaCodeFragmentFiles;
-import org.onosproject.yangutils.translator.tojava.utils.YangJavaModelUtils;
 import org.onosproject.yangutils.translator.tojava.utils.YangPluginConfig;
 
-import static org.onosproject.yangutils.translator.tojava.GeneratedJavaFileType.GENERATE_MANAGER_WITH_RPC;
+import static org.onosproject.yangutils.translator.tojava.GeneratedJavaFileType.GENERATE_SERVICE_AND_MANAGER;
 import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getRootPackage;
+import static org.onosproject.yangutils.translator.tojava.utils.YangJavaModelUtils.generateCodeOfRootNode;
+import static org.onosproject.yangutils.utils.io.impl.YangIoUtils.searchAndDeleteTempDir;
 
 /**
  * Represents module information extended to support java code generation.
  */
-public class YangJavaModule extends YangModule implements JavaCodeGeneratorInfo, JavaCodeGenerator {
+public class YangJavaModule
+        extends YangModule
+        implements JavaCodeGeneratorInfo, JavaCodeGenerator {
 
     /**
      * Contains the information of the java file being generated.
      */
     private JavaFileInfo javaFileInfo;
-
-    /**
-     * Contains information of the imports to be inserted in the java file
-     * generated.
-     */
-    private JavaImportData javaImportData;
 
     /**
      * File handle to maintain temporary java code fragments as per the code
@@ -56,8 +53,7 @@ public class YangJavaModule extends YangModule implements JavaCodeGeneratorInfo,
     public YangJavaModule() {
         super();
         setJavaFileInfo(new JavaFileInfo());
-        setJavaImportData(new JavaImportData());
-        getJavaFileInfo().setGeneratedFileTypes(GENERATE_MANAGER_WITH_RPC);
+        getJavaFileInfo().setGeneratedFileTypes(GENERATE_SERVICE_AND_MANAGER);
     }
 
     /**
@@ -84,27 +80,6 @@ public class YangJavaModule extends YangModule implements JavaCodeGeneratorInfo,
     }
 
     /**
-     * Returns the data of java imports to be included in generated file.
-     *
-     * @return data of java imports to be included in generated file
-     */
-    @Override
-    public JavaImportData getJavaImportData() {
-        return javaImportData;
-    }
-
-    /**
-     * Sets the data of java imports to be included in generated file.
-     *
-     * @param javaImportData data of java imports to be included in generated
-     *                       file
-     */
-    @Override
-    public void setJavaImportData(JavaImportData javaImportData) {
-        this.javaImportData = javaImportData;
-    }
-
-    /**
      * Returns the temporary file handle.
      *
      * @return temporary file handle
@@ -128,19 +103,30 @@ public class YangJavaModule extends YangModule implements JavaCodeGeneratorInfo,
      * Generates java code for module.
      *
      * @param yangPlugin YANG plugin config
-     * @throws IOException when fails to generate the source files
+     * @throws TranslatorException when fails to generate the source files
      */
     @Override
-    public void generateCodeEntry(YangPluginConfig yangPlugin) throws IOException {
+    public void generateCodeEntry(YangPluginConfig yangPlugin) throws TranslatorException {
         String modulePkg = getRootPackage(getVersion(), getNameSpace().getUri(), getRevision().getRevDate());
-        YangJavaModelUtils.generateCodeOfRootNode(this, yangPlugin, modulePkg);
+        try {
+            generateCodeOfRootNode(this, yangPlugin, modulePkg);
+        } catch (IOException e) {
+            throw new TranslatorException(
+                    "Failed to prepare generate code entry for module node " + this.getName());
+        }
     }
 
     /**
      * Creates a java file using the YANG module info.
      */
     @Override
-    public void generateCodeExit() throws IOException {
-        getTempJavaCodeFragmentFiles().generateJavaFile(GENERATE_MANAGER_WITH_RPC, this);
+    public void generateCodeExit() throws TranslatorException {
+        try {
+            getTempJavaCodeFragmentFiles().generateJavaFile(GENERATE_SERVICE_AND_MANAGER, this);
+            searchAndDeleteTempDir(getJavaFileInfo().getBaseCodeGenPath() +
+                    getJavaFileInfo().getPackageFilePath());
+        } catch (IOException e) {
+            throw new TranslatorException("Failed to generate code for module node " + this.getName());
+        }
     }
 }

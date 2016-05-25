@@ -16,10 +16,11 @@
 package org.onosproject.yangutils.translator.tojava.javamodel;
 
 import java.io.IOException;
+
 import org.onosproject.yangutils.datamodel.YangUnion;
+import org.onosproject.yangutils.translator.exception.TranslatorException;
 import org.onosproject.yangutils.translator.tojava.JavaCodeGenerator;
 import org.onosproject.yangutils.translator.tojava.JavaFileInfo;
-import org.onosproject.yangutils.translator.tojava.JavaImportData;
 import org.onosproject.yangutils.translator.tojava.TempJavaCodeFragmentFiles;
 import org.onosproject.yangutils.translator.tojava.utils.YangPluginConfig;
 
@@ -29,18 +30,14 @@ import static org.onosproject.yangutils.translator.tojava.utils.YangJavaModelUti
 /**
  * Represents union information extended to support java code generation.
  */
-public class YangJavaUnion extends YangUnion implements JavaCodeGeneratorInfo, JavaCodeGenerator {
+public class YangJavaUnion
+        extends YangUnion
+        implements JavaCodeGeneratorInfo, JavaCodeGenerator {
 
     /**
      * Contains the information of the java file being generated.
      */
     private JavaFileInfo javaFileInfo;
-
-    /**
-     * Contains information of the imports to be inserted in the java file
-     * generated.
-     */
-    private JavaImportData javaImportData;
 
     /**
      * File handle to maintain temporary java code fragments as per the code
@@ -54,7 +51,6 @@ public class YangJavaUnion extends YangUnion implements JavaCodeGeneratorInfo, J
     public YangJavaUnion() {
         super();
         setJavaFileInfo(new JavaFileInfo());
-        setJavaImportData(new JavaImportData());
         getJavaFileInfo().setGeneratedFileTypes(GENERATE_UNION_CLASS);
     }
 
@@ -82,37 +78,12 @@ public class YangJavaUnion extends YangUnion implements JavaCodeGeneratorInfo, J
     }
 
     /**
-     * Returns the data of java imports to be included in generated file.
-     *
-     * @return data of java imports to be included in generated file
-     */
-    @Override
-    public JavaImportData getJavaImportData() {
-        return javaImportData;
-    }
-
-    /**
-     * Sets the data of java imports to be included in generated file.
-     *
-     * @param javaImportData data of java imports to be included in generated
-     *                       file
-     */
-    @Override
-    public void setJavaImportData(JavaImportData javaImportData) {
-        this.javaImportData = javaImportData;
-    }
-
-    /**
      * Returns the temporary file handle.
      *
      * @return temporary file handle
      */
     @Override
     public TempJavaCodeFragmentFiles getTempJavaCodeFragmentFiles() {
-        if (tempFileHandle == null) {
-            throw new RuntimeException("Missing temp file hand for current node "
-                    + getJavaFileInfo().getJavaName());
-        }
         return tempFileHandle;
     }
 
@@ -131,20 +102,30 @@ public class YangJavaUnion extends YangUnion implements JavaCodeGeneratorInfo, J
      * union info.
      *
      * @param yangPlugin YANG plugin config
-     * @throws IOException IO operations fails
+     * @throws TranslatorException when fails to translate
      */
     @Override
-    public void generateCodeEntry(YangPluginConfig yangPlugin) throws IOException {
-        generateCodeOfNode(this, yangPlugin);
+    public void generateCodeEntry(YangPluginConfig yangPlugin) throws TranslatorException {
+        try {
+            generateCodeOfNode(this, yangPlugin);
+        } catch (IOException e) {
+            throw new TranslatorException(
+                    "Failed to prepare generate code entry for union node " + this.getName());
+        }
+
     }
 
     /**
      * Creates a java file using the YANG union info.
      *
-     * @throws IOException IO operations fails
+     * @throws TranslatorException when fails to translate
      */
     @Override
-    public void generateCodeExit() throws IOException {
-        getTempJavaCodeFragmentFiles().generateJavaFile(GENERATE_UNION_CLASS, this);
+    public void generateCodeExit() throws TranslatorException {
+        try {
+            getTempJavaCodeFragmentFiles().generateJavaFile(GENERATE_UNION_CLASS, this);
+        } catch (IOException e) {
+            throw new TranslatorException("Failed to generate code for union node " + this.getName());
+        }
     }
 }

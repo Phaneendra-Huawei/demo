@@ -20,7 +20,7 @@
 describe('factory: fw/util/prefs.js', function() {
     var $cookies, ps, fs;
 
-    beforeEach(module('onosUtil'));
+    beforeEach(module('onosUtil', 'onosRemote'));
 
     var mockCookies = {
         foo: 'bar'
@@ -44,7 +44,8 @@ describe('factory: fw/util/prefs.js', function() {
 
     it('should define api functions', function () {
         expect(fs.areFunctions(ps, [
-            'getPrefs', 'asNumbers', 'setPrefs'
+            'getPrefs', 'asNumbers', 'setPrefs',
+            'addListener', 'removeListener'
         ])).toBe(true);
     });
 

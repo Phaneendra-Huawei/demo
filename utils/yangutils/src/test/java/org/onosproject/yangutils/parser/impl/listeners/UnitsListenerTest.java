@@ -66,7 +66,7 @@ public class UnitsListenerTest {
         YangLeaf leafInfo = leafIterator.next();
 
         // Check whether units value is set correctly.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
     }
 
@@ -76,9 +76,9 @@ public class UnitsListenerTest {
     @Test
     public void processModuleSubStatementUnits() throws IOException, ParserException {
         thrown.expect(ParserException.class);
-        thrown.expectMessage("mismatched input 'type' expecting {'augment', 'choice', 'contact', 'container', "
-                + "'description', 'extension', 'deviation', 'feature', 'grouping', 'identity', 'import', "
-                + "'include', 'leaf', 'leaf-list', 'list', 'notification', 'organization', "
+        thrown.expectMessage("mismatched input 'type' expecting {'anyxml', 'augment', 'choice', 'contact', "
+                + "'container', 'description', 'extension', 'deviation', 'feature', 'grouping', 'identity',"
+                + " 'import', 'include', 'leaf', 'leaf-list', 'list', 'notification', 'organization', "
                 + "'reference', 'revision', 'rpc', 'typedef', 'uses', '}'}");
         YangNode node = manager.getDataModel("src/test/resources/ModuleSubStatementUnits.yang");
     }
@@ -115,7 +115,7 @@ public class UnitsListenerTest {
         YangLeaf leafInfo = leafIterator.next();
 
         // Check whether leaf properties is set correctly.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
         assertThat(leafInfo.getDescription(), is("\"Interval before a route is declared invalid\""));
@@ -146,7 +146,7 @@ public class UnitsListenerTest {
         ListIterator<YangLeaf> leafIterator = yangNode.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getUnits(), is(nullValue()));
     }
 
@@ -182,7 +182,7 @@ public class UnitsListenerTest {
         YangLeafList leafListInfo = leafListIterator.next();
 
         // Check whether units value is set correctly.
-        assertThat(leafListInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafListInfo.getName(), is("invalid-interval"));
         assertThat(leafListInfo.getUnits(), is("\"seconds\""));
     }
 }

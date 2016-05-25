@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.ws.rs.client.WebTarget;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -63,8 +65,8 @@ public class PortChainSfMapResourceTest extends VtnResourceTest {
     public void setUpTest() {
         SfcCodecContext context = new SfcCodecContext();
         ServiceDirectory testDirectory = new TestServiceDirectory()
-        .add(PortChainSfMapService.class, portChainSfMapService)
-        .add(CodecService.class, context.codecManager());
+                .add(PortChainSfMapService.class, portChainSfMapService)
+                .add(CodecService.class, context.codecManager());
         BaseResource.setServiceDirectory(testDirectory);
     }
 

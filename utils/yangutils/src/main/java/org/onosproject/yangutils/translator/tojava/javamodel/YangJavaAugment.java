@@ -21,28 +21,23 @@ import org.onosproject.yangutils.datamodel.YangAugment;
 import org.onosproject.yangutils.translator.exception.TranslatorException;
 import org.onosproject.yangutils.translator.tojava.JavaCodeGenerator;
 import org.onosproject.yangutils.translator.tojava.JavaFileInfo;
-import org.onosproject.yangutils.translator.tojava.JavaImportData;
 import org.onosproject.yangutils.translator.tojava.TempJavaCodeFragmentFiles;
 import org.onosproject.yangutils.translator.tojava.utils.YangPluginConfig;
 
 import static org.onosproject.yangutils.translator.tojava.GeneratedJavaFileType.GENERATE_INTERFACE_WITH_BUILDER;
-import static org.onosproject.yangutils.translator.tojava.utils.YangJavaModelUtils.generateCodeOfNode;
+import static org.onosproject.yangutils.translator.tojava.utils.YangJavaModelUtils.generateCodeOfAugmentableNode;
 
 /**
  * Represents augment information extended to support java code generation.
  */
-public class YangJavaAugment extends YangAugment implements JavaCodeGeneratorInfo, JavaCodeGenerator {
+public class YangJavaAugment
+        extends YangAugment
+        implements JavaCodeGeneratorInfo, JavaCodeGenerator {
 
     /**
      * Contains the information of the java file being generated.
      */
     private JavaFileInfo javaFileInfo;
-
-    /**
-     * Contains information of the imports to be inserted in the java file
-     * generated.
-     */
-    private JavaImportData javaImportData;
 
     /**
      * File handle to maintain temporary java code fragments as per the code
@@ -56,7 +51,6 @@ public class YangJavaAugment extends YangAugment implements JavaCodeGeneratorInf
     public YangJavaAugment() {
         super();
         setJavaFileInfo(new JavaFileInfo());
-        setJavaImportData(new JavaImportData());
         getJavaFileInfo().setGeneratedFileTypes(GENERATE_INTERFACE_WITH_BUILDER);
     }
 
@@ -85,27 +79,6 @@ public class YangJavaAugment extends YangAugment implements JavaCodeGeneratorInf
     }
 
     /**
-     * Returns the data of java imports to be included in generated file.
-     *
-     * @return data of java imports to be included in generated file
-     */
-    @Override
-    public JavaImportData getJavaImportData() {
-        return javaImportData;
-    }
-
-    /**
-     * Sets the data of java imports to be included in generated file.
-     *
-     * @param javaImportData data of java imports to be included in generated
-     *            file
-     */
-    @Override
-    public void setJavaImportData(JavaImportData javaImportData) {
-        this.javaImportData = javaImportData;
-    }
-
-    /**
      * Returns the temporary file handle.
      *
      * @return temporary file handle
@@ -130,20 +103,28 @@ public class YangJavaAugment extends YangAugment implements JavaCodeGeneratorInf
      * augment info.
      *
      * @param yangPlugin YANG plugin config
-     * @throws IOException IO operation fail
+     * @throws TranslatorException translator operation fail
      */
     @Override
-    public void generateCodeEntry(YangPluginConfig yangPlugin) throws IOException {
-        generateCodeOfNode(this, yangPlugin, false);
+    public void generateCodeEntry(YangPluginConfig yangPlugin) throws TranslatorException {
+        try {
+            generateCodeOfAugmentableNode(this, yangPlugin);
+        } catch (IOException e) {
+            throw new TranslatorException("Failed to generate code for augmentable node " + this.getName());
+        }
     }
 
     /**
      * Create a java file using the YANG augment info.
      *
-     * @throws IOException when failed to do IO operations
+     * @throws TranslatorException when failed to do translator operations
      */
     @Override
-    public void generateCodeExit() throws IOException {
-        getTempJavaCodeFragmentFiles().generateJavaFile(GENERATE_INTERFACE_WITH_BUILDER, this);
+    public void generateCodeExit() throws TranslatorException {
+        try {
+            getTempJavaCodeFragmentFiles().generateJavaFile(GENERATE_INTERFACE_WITH_BUILDER, this);
+        } catch (IOException e) {
+            throw new TranslatorException("Failed to generate code for augmentable node " + this.getName());
+        }
     }
 }

@@ -27,7 +27,10 @@ describe('factory: fw/remote/rest.js', function() {
             return {
                 protocol: function () { return 'http'; },
                 host: function () { return 'foo'; },
-                port: function () { return '80'; }
+                port: function () { return '80'; },
+                search: function() {
+                    return {debug: 'true'};
+                }
             };
         })
     }));
@@ -45,7 +48,8 @@ describe('factory: fw/remote/rest.js', function() {
 
     it('should define api functions', function () {
         expect(fs.areFunctions(rs, [
-            'get'
+            'get',
+            'post'
         ])).toBeTruthy();
     });
 

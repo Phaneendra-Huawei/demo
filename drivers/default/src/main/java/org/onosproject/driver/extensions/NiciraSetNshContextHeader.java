@@ -32,7 +32,7 @@ import com.google.common.collect.Maps;
  * Nicira set NSH Context header extension instruction.
  */
 public class NiciraSetNshContextHeader extends AbstractExtension implements
-ExtensionTreatment {
+        ExtensionTreatment {
 
     private NshContextHeader nshCh;
     private ExtensionTreatmentType type;

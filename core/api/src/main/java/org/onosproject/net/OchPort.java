@@ -24,7 +24,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Implementation of OCh port (Optical Channel).
  * Also referred to as a line side port (L-port) or narrow band port.
  * See ITU G.709 "Interfaces for the Optical Transport Network (OTN)"
+ *
+ * @deprecated in Goldeneye (1.6.0)
  */
+@Deprecated
 public class OchPort extends DefaultPort {
 
     private final OduSignalType signalType;

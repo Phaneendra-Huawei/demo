@@ -11,7 +11,7 @@ TEST_RESOURCES_ROOT = 'src/test/resources/'
 
 
 ONOS_GROUP_ID = 'org.onosproject'
-ONOS_VERSION = '1.6.0-SNAPSHOT'
+ONOS_VERSION = '1.7.0-SNAPSHOT'
 ONOS_ARTIFACT_BASE = 'onos-'
 
 def _get_name():
@@ -110,28 +110,29 @@ def osgi_jar(
 
   ### Checkstyle
   if srcs:
-    chk_cmd = '#!/bin/sh\n'
-    # FIXME hack to add dependency on suppressions-xml in the checkstyle rule
-    chk_cmd += 'FOO="$(location //tools/build/conf:suppressions-xml)"\n'
     base = get_base_path()
-    chk_cmd += ' '.join(( 'java -jar $(location //lib:checkstyle)',
-                         '-c $(location //tools/build/conf:checkstyle-xml)',
-                         ' '.join(['%s/%s' % (base, s) for s in srcs]) ))
-    chk_cmd += ' | grep -E "^[^: ]*:\d+:\d+: error:"'
-    chk_cmd += ' | sed "s#^.*%s/#%s:#g"\n' % (base, name)
-    chk_cmd += 'test ${PIPESTATUS[0]} -eq 0\n' # status of java command
+    files = '%s\n%s\n' % (name, base) + '\n'.join(['%s/%s' % (base, s) for s in srcs])
 
     genrule(
-      name = name + '-checkstyle-sh',
-      bash = "echo '%s' > $OUT && chmod +x $OUT" % chk_cmd,
+      name = name + '-checkstyle-files',
+      bash = "echo '%s' > $OUT" % files,
       srcs = srcs,
-      out = 'checkstyle.sh',
+      out = 'checkstyle-files.txt',
     )
 
     sh_test(
       name = name + '-checkstyle',
-      test = ':' + name + '-checkstyle-sh',
-      deps = [ ':'+ bare_jar_name ],
+      test = '//tools/build/conf:start-checkstyle',
+      deps = [
+               ':'+ bare_jar_name,
+             ],
+      args = [
+                '$(location //tools/build/conf:checkstyle-jar)',
+                '$(location :' + name + '-checkstyle-files)',
+                '$(location //tools/build/conf:checkstyle-xml)',
+                '$(location //tools/build/conf:suppressions-xml)',
+             ],
+      test_rule_timeout_ms = 20000,
       labels = [ 'checkstyle' ],
     )
   else:
@@ -208,4 +209,6 @@ def osgi_jar_with_tests(
     resources = test_resources,
     resources_root = test_resources_root,
     visibility = visibility
-    )
+  )
+
+  #FIXME need to run checkstyle on test sources

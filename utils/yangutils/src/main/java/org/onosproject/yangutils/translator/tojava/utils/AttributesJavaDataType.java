@@ -24,20 +24,21 @@ import org.onosproject.yangutils.datamodel.YangType;
 import org.onosproject.yangutils.datamodel.YangTypeDef;
 import org.onosproject.yangutils.datamodel.YangUnion;
 import org.onosproject.yangutils.translator.exception.TranslatorException;
-import org.onosproject.yangutils.translator.tojava.HasJavaFileInfo;
+import org.onosproject.yangutils.translator.tojava.JavaFileInfoContainer;
 import org.onosproject.yangutils.translator.tojava.JavaFileInfo;
 import org.onosproject.yangutils.translator.tojava.javamodel.YangJavaEnumeration;
 import org.onosproject.yangutils.translator.tojava.javamodel.YangJavaTypeDef;
 import org.onosproject.yangutils.translator.tojava.javamodel.YangJavaUnion;
 
 import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCamelCase;
-import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCaptialCase;
+import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCapitalCase;
 import static org.onosproject.yangutils.utils.UtilConstants.BIG_INTEGER;
 import static org.onosproject.yangutils.utils.UtilConstants.BOOLEAN_DATA_TYPE;
 import static org.onosproject.yangutils.utils.UtilConstants.BOOLEAN_WRAPPER;
 import static org.onosproject.yangutils.utils.UtilConstants.BYTE;
 import static org.onosproject.yangutils.utils.UtilConstants.BYTE_WRAPPER;
 import static org.onosproject.yangutils.utils.UtilConstants.EMPTY_STRING;
+import static org.onosproject.yangutils.utils.UtilConstants.FROM_STRING_METHOD_NAME;
 import static org.onosproject.yangutils.utils.UtilConstants.INT;
 import static org.onosproject.yangutils.utils.UtilConstants.INTEGER_WRAPPER;
 import static org.onosproject.yangutils.utils.UtilConstants.JAVA_LANG;
@@ -45,7 +46,6 @@ import static org.onosproject.yangutils.utils.UtilConstants.JAVA_MATH;
 import static org.onosproject.yangutils.utils.UtilConstants.LONG;
 import static org.onosproject.yangutils.utils.UtilConstants.LONG_WRAPPER;
 import static org.onosproject.yangutils.utils.UtilConstants.NEW;
-import static org.onosproject.yangutils.utils.UtilConstants.OF;
 import static org.onosproject.yangutils.utils.UtilConstants.PARSE_BYTE;
 import static org.onosproject.yangutils.utils.UtilConstants.PARSE_INT;
 import static org.onosproject.yangutils.utils.UtilConstants.PARSE_LONG;
@@ -109,7 +109,7 @@ public final class AttributesJavaDataType {
      * Returns from string method parsed string.
      *
      * @param targetDataType target data type
-     * @param yangType       YANG type
+     * @param yangType YANG type
      * @return parsed string
      */
     public static String getParseFromStringMethod(String targetDataType, YangType<?> yangType) {
@@ -146,7 +146,7 @@ public final class AttributesJavaDataType {
             case BINARY:
                 //TODO:BINARY
             case DERIVED:
-                return targetDataType + PERIOD + OF;
+                return targetDataType + PERIOD + FROM_STRING_METHOD_NAME;
             default:
                 throw new TranslatorException("given data type is not supported.");
         }
@@ -155,7 +155,7 @@ public final class AttributesJavaDataType {
     /**
      * Returns java import class.
      *
-     * @param yangType   YANG type
+     * @param yangType YANG type
      * @param isListAttr if the attribute need to be a list
      * @return java import class
      */
@@ -183,30 +183,35 @@ public final class AttributesJavaDataType {
                     return BIG_INTEGER;
                 case DECIMAL64:
                     //TODO: DECIMAL64.
+                    break;
                 case STRING:
                     return STRING_DATA_TYPE;
                 case BOOLEAN:
                     return BOOLEAN_WRAPPER;
                 case ENUMERATION:
-                    return getCaptialCase(
+                    return getCapitalCase(
                             getCamelCase(((YangJavaEnumeration) yangType.getDataTypeExtendedInfo()).getName(), null));
                 case BITS:
                     //TODO:BITS
+                    break;
                 case BINARY:
                     //TODO:BINARY
+                    break;
                 case LEAFREF:
                     //TODO:LEAFREF
+                    break;
                 case IDENTITYREF:
                     //TODO:IDENTITYREF
+                    break;
                 case EMPTY:
                     return BOOLEAN_WRAPPER;
                 case UNION:
-                    return getCaptialCase(getCamelCase(((YangJavaUnion) yangType.getDataTypeExtendedInfo()).getName(),
+                    return getCapitalCase(getCamelCase(((YangJavaUnion) yangType.getDataTypeExtendedInfo()).getName(),
                             null));
                 case INSTANCE_IDENTIFIER:
                     //TODO:INSTANCE_IDENTIFIER
                 case DERIVED:
-                    return getCaptialCase(getCamelCase(yangType.getDataTypeName(), null));
+                    return getCapitalCase(getCamelCase(yangType.getDataTypeName(), null));
                 default:
                     throw new TranslatorException("given data type is not supported.");
             }
@@ -216,40 +221,48 @@ public final class AttributesJavaDataType {
                     return BIG_INTEGER;
                 case DECIMAL64:
                     //TODO: DECIMAL64.
+                    break;
                 case STRING:
                     return STRING_DATA_TYPE;
                 case ENUMERATION:
-                    return getCaptialCase(
+                    return getCapitalCase(
                             getCamelCase(((YangJavaEnumeration) yangType.getDataTypeExtendedInfo()).getName(), null));
                 case BITS:
                     //TODO:BITS
+                    break;
                 case BINARY:
                     //TODO:BINARY
+                    break;
                 case LEAFREF:
                     //TODO:LEAFREF
+                    break;
                 case IDENTITYREF:
                     //TODO:IDENTITYREF
+                    break;
                 case EMPTY:
                     //TODO:EMPTY
+                    break;
                 case UNION:
-                    return getCaptialCase(getCamelCase(((YangJavaUnion) yangType.getDataTypeExtendedInfo()).getName(),
+                    return getCapitalCase(getCamelCase(((YangJavaUnion) yangType.getDataTypeExtendedInfo()).getName(),
                             null));
                 case INSTANCE_IDENTIFIER:
                     //TODO:INSTANCE_IDENTIFIER
+                    break;
                 case DERIVED:
-                    return getCaptialCase(getCamelCase(yangType.getDataTypeName(), null));
+                    return getCapitalCase(getCamelCase(yangType.getDataTypeName(), null));
                 default:
                     return null;
             }
         }
+        return null;
     }
 
     /**
      * Returns java import package.
      *
-     * @param yangType   YANG type
+     * @param yangType YANG type
      * @param isListAttr if the attribute is of list type
-     * @param classInfo  java import class info
+     * @param classInfo java import class info
      * @return java import package
      */
     public static String getJavaImportPackage(YangType<?> yangType, boolean isListAttr, String classInfo) {
@@ -272,22 +285,29 @@ public final class AttributesJavaDataType {
                     return JAVA_MATH;
                 case DECIMAL64:
                     //TODO: DECIMAL64.
+                    break;
                 case ENUMERATION:
                     return getEnumsPackage(yangType);
                 case BITS:
                     //TODO:BITS
+                    break;
                 case BINARY:
                     //TODO:BINARY
+                    break;
                 case LEAFREF:
                     //TODO:LEAFREF
+                    break;
                 case IDENTITYREF:
                     //TODO:IDENTITYREF
+                    break;
                 case EMPTY:
                     //TODO:EMPTY
+                    break;
                 case UNION:
                     return getUnionPackage(yangType);
                 case INSTANCE_IDENTIFIER:
                     //TODO:INSTANCE_IDENTIFIER
+                    break;
                 case DERIVED:
                     return getTypDefsPackage(yangType);
                 default:
@@ -296,33 +316,41 @@ public final class AttributesJavaDataType {
         } else {
             switch (type) {
                 case UINT64:
-                    //TODO: BIGINTEGER.
+                    return JAVA_MATH;
                 case DECIMAL64:
                     //TODO: DECIMAL64
+                    break;
                 case STRING:
                     return JAVA_LANG;
                 case ENUMERATION:
                     return getEnumsPackage(yangType);
                 case BITS:
                     //TODO:BITS
+                    break;
                 case BINARY:
                     //TODO:BINARY
+                    break;
                 case LEAFREF:
                     //TODO:LEAFREF
+                    break;
                 case IDENTITYREF:
                     //TODO:IDENTITYREF
+                    break;
                 case EMPTY:
                     //TODO:EMPTY
+                    break;
                 case UNION:
                     return getUnionPackage(yangType);
                 case INSTANCE_IDENTIFIER:
                     //TODO:INSTANCE_IDENTIFIER
+                    break;
                 case DERIVED:
                     return getTypDefsPackage(yangType);
                 default:
                     return null;
             }
         }
+        return null;
     }
 
     /**
@@ -392,10 +420,10 @@ public final class AttributesJavaDataType {
      * @return java package from parent node
      */
     private static String getPackageFromParent(YangNode parent) {
-        if (!(parent instanceof HasJavaFileInfo)) {
+        if (!(parent instanceof JavaFileInfoContainer)) {
             throw new TranslatorException("invalid child node is being processed.");
         }
-        JavaFileInfo parentInfo = ((HasJavaFileInfo) parent).getJavaFileInfo();
+        JavaFileInfo parentInfo = ((JavaFileInfoContainer) parent).getJavaFileInfo();
         return parentInfo.getPackage() + PERIOD + parentInfo.getJavaName().toLowerCase();
     }
 }

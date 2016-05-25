@@ -40,7 +40,6 @@ public class CoreWebApplication extends AbstractWebApplication {
                 GroupsWebResource.class,
                 MetersWebResource.class,
                 TopologyWebResource.class,
-                ConfigWebResource.class,
                 PathsWebResource.class,
                 StatisticsWebResource.class,
                 MetricsWebResource.class,
@@ -49,7 +48,8 @@ public class CoreWebApplication extends AbstractWebApplication {
                 DeviceKeyWebResource.class,
                 RegionsWebResource.class,
                 TenantWebResource.class,
-                VirtualNetworkWebResource.class
+                VirtualNetworkWebResource.class,
+                MastershipWebResource.class
         );
     }
 }

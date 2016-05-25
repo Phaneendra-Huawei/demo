@@ -42,6 +42,16 @@ public final class UtilConstants {
             + " functionality of ";
 
     /**
+     * JavaDocs for event.
+     */
+    public static final String EVENT_JAVA_DOC = " * Represents event implementation of ";
+
+    /**
+     * JavaDocs for event listener.
+     */
+    public static final String EVENT_LISTENER_JAVA_DOC = " * Abstraction for event listener of ";
+
+    /**
      * JavaDocs for builder interface class.
      */
     public static final String BUILDER_INTERFACE_JAVA_DOC = " * Builder for ";
@@ -97,6 +107,11 @@ public final class UtilConstants {
     public static final String JAVA_DOC_SETTERS = " * Returns the builder object of ";
 
     /**
+     * JavaDocs's description for setter method.
+     */
+    public static final String JAVA_DOC_MANAGER_SETTERS = " * Sets the value to attribute ";
+
+    /**
      * JavaDocs's description for OF method.
      */
     public static final String JAVA_DOC_OF = " * Returns the object of ";
@@ -150,6 +165,11 @@ public final class UtilConstants {
      * Static attribute for new line.
      */
     public static final String NEW_LINE = "\n";
+
+    /**
+     * Static attribute for default.
+     */
+    public static final String DEFAULT = "default";
 
     /**
      * Static attribute for multiple new line.
@@ -220,6 +240,31 @@ public final class UtilConstants {
      * Static attribute for space.
      */
     public static final String SPACE = " ";
+
+    /**
+     * Static attribute for ListenerRegistry.
+     */
+    public static final String LISTENER_REG = "ListenerRegistry";
+
+    /**
+     * Static attribute for ListenerService.
+     */
+    public static final String LISTENER_SERVICE = "ListenerService";
+
+    /**
+     * Static attribute for listener package.
+     */
+    public static final String LISTENER_PKG = "org.onosproject.event";
+
+    /**
+     * Static attribute for colon.
+     */
+    public static final String COLON = ":";
+
+    /**
+     * Static attribute for caret.
+     */
+    public static final String CARET = "^";
 
     /**
      * Static attribute for input string.
@@ -415,6 +460,16 @@ public final class UtilConstants {
      * Static attribute for clear syntax.
      */
     public static final String CLEAR = "clear";
+
+    /**
+     * Static attribute for switch syntax.
+     */
+    public static final String SWITCH = "switch";
+
+    /**
+     * Static attribute for case syntax.
+     */
+    public static final String CASE = "case";
 
     /**
      * Static attribute for temp val syntax.
@@ -657,6 +712,11 @@ public final class UtilConstants {
     public static final String REGEX_FOR_FIRST_DIGIT = "\\d.*";
 
     /**
+     * Static attribute for regex with digits.
+     */
+    public static final String REGEX_WITH_DIGITS = "(?=\\d+)";
+
+    /**
      * Static attribute for regex for single letter.
      */
     public static final String REGEX_FOR_SINGLE_LETTER = "[a-zA-Z]";
@@ -667,6 +727,21 @@ public final class UtilConstants {
     public static final String REGEX_FOR_DIGITS_WITH_SINGLE_LETTER = "[0-9]+[a-zA-Z]";
 
     /**
+     * Static attribute for regex with uppercase.
+     */
+    public static final String REGEX_WITH_UPPERCASE = "(?=\\p{Upper})";
+
+    /**
+     * Static attribute for regex for single capital case letter.
+     */
+    public static final String REGEX_WITH_SINGLE_CAPITAL_CASE = "[A-Z]";
+
+    /**
+     * Static attribute for regex for capital case letter with any number of digits and small case letters.
+     */
+    public static final String REGEX_WITH_SINGLE_CAPITAL_CASE_AND_DIGITS_SMALL_CASES = "[A-Z][0-9a-z]+";
+
+    /**
      * Static attribute for class syntax.
      */
     public static final String CLASS = "class";
@@ -675,6 +750,16 @@ public final class UtilConstants {
      * Static attribute for builder syntax.
      */
     public static final String BUILDER = "Builder";
+
+    /**
+     * Static attribute for manager syntax.
+     */
+    public static final String MANAGER = "Manager";
+
+    /**
+     * Static attribute for service syntax.
+     */
+    public static final String SERVICE = "Service";
 
     /**
      * Static attribute for interface syntax.
@@ -742,6 +827,16 @@ public final class UtilConstants {
     public static final String SERVICE_METHOD_STRING = "Service";
 
     /**
+     * For event file generation.
+     */
+    public static final String EVENT_STRING = "Event";
+
+    /**
+     * For event listener file generation.
+     */
+    public static final String EVENT_LISTENER_STRING = "Listener";
+
+    /**
      * Static attribute for impl syntax.
      */
     public static final String IMPL = "Impl";
@@ -792,14 +887,15 @@ public final class UtilConstants {
     public static final String JAVA_UTIL_OBJECTS_IMPORT_CLASS = "Objects;\n";
 
     /**
-     * Static attribute for HasAugmentation class import package.
+     * Static attribute for AugmentationHolder class import package.
      */
-    public static final String HAS_AUGMENTATION_CLASS_IMPORT_PKG = "org.onosproject.yangutils.translator.tojava";
+    public static final String PROVIDED_AUGMENTATION_CLASS_IMPORT_PKG =
+            "org.onosproject.yangutils.translator.tojava";
 
     /**
-     * Static attribute for HasAugmentation class import class.
+     * Static attribute for AugmentationHolder class import class.
      */
-    public static final String HAS_AUGMENTATION_CLASS_IMPORT_CLASS = "HasAugmentation;\n";
+    public static final String AUGMENTATION_HOLDER_CLASS_IMPORT_CLASS = "AugmentationHolder;\n";
 
     /**
      * Static attribute for AugmentedInfo class import package.
@@ -817,15 +913,19 @@ public final class UtilConstants {
     public static final String AUGMENTATION = "Augmentation";
 
     /**
-     * Static attribute for HasAugmentation class.
+     * Static attribute for AugmentationHolder class.
      */
-    public static final String HAS_AUGMENTATION = "HasAugmentation";
+    public static final String AUGMENTATION_HOLDER = "AugmentationHolder";
 
     /**
      * Static attribute for AugmentedInfo class.
      */
     public static final String AUGMENTED_INFO = "AugmentedInfo";
 
+    /**
+     * Static attribute for augmentable.
+     */
+    public static final String AUGMENTABLE = "Augmentable";
     /**
      * Static attribute for list.
      */
@@ -835,6 +935,27 @@ public final class UtilConstants {
      * Static attribute for array list.
      */
     public static final String ARRAY_LIST = "ArrayList";
+
+    /**
+     * Comment to be added for autogenerated impl methods.
+     */
+    public static final String YANG_UTILS_TODO = "//TODO: YANG utils generated code";
+
+    /**
+     * Static attribute for YANG file error.
+     */
+    public static final String YANG_FILE_ERROR = "YANG file error : ";
+
+    /**
+     * Static attribute for unsupported error information.
+     */
+    public static final String UNSUPPORTED_YANG_CONSTRUCT = " is not supported.";
+
+    /**
+     * Static attribute for currently unsupported error information.
+     */
+    public static final String CURRENTLY_UNSUPPORTED = " is not supported in current version, please check wiki" +
+            " for YANG utils road map.";
 
     /**
      * Creates an instance of util constants.

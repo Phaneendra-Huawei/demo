@@ -27,9 +27,11 @@ import org.onosproject.ui.UiConnection;
 import org.onosproject.ui.UiExtensionService;
 import org.onosproject.ui.UiMessageHandler;
 import org.onosproject.ui.UiMessageHandlerFactory;
+import org.onosproject.ui.UiTopoLayoutService;
 import org.onosproject.ui.UiTopoOverlayFactory;
 import org.onosproject.ui.impl.topo.UiTopoSession;
 import org.onosproject.ui.impl.topo.model.UiSharedTopologyModel;
+import org.onosproject.ui.model.topo.UiTopoLayout;
 import org.onosproject.ui.topo.TopoConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +59,8 @@ public class UiWebSocket
     private static final String USER = "user";
     private static final String BOOTSTRAP = "bootstrap";
 
+    public static final String TOPO = "topo";
+
     private static final long MAX_AGE_MS = 30_000;
 
     private static final byte PING = 0x9;
@@ -70,6 +74,7 @@ public class UiWebSocket
     private Connection connection;
     private FrameConnection control;
     private String userName;
+    private String currentView;
 
     private long lastActive = System.currentTimeMillis();
 
@@ -86,12 +91,34 @@ public class UiWebSocket
         this.directory = directory;
         this.userName = userName;
         this.topoSession =
-                new UiTopoSession(this, directory.get(UiSharedTopologyModel.class));
+                new UiTopoSession(this, directory.get(UiSharedTopologyModel.class),
+                                  directory.get(UiTopoLayoutService.class));
     }
 
     @Override
     public String userName() {
         return userName;
+    }
+
+    @Override
+    public UiTopoLayout currentLayout() {
+        return topoSession.currentLayout();
+    }
+
+    @Override
+    public void setCurrentLayout(UiTopoLayout topoLayout) {
+        topoSession.setCurrentLayout(topoLayout);
+    }
+
+    @Override
+    public String currentView() {
+        return currentView;
+    }
+
+    @Override
+    public void setCurrentView(String viewId) {
+        currentView = viewId;
+        topoSession.enableEvent(viewId.equals(TOPO));
     }
 
     /**
@@ -148,7 +175,7 @@ public class UiWebSocket
         topoSession.destroy();
         destroyHandlersAndOverlays();
         log.info("GUI client disconnected [close-code={}, message={}]",
-                closeCode, message);
+                 closeCode, message);
     }
 
     @Override
@@ -230,7 +257,7 @@ public class UiWebSocket
             }
         });
         log.debug("#handlers = {}, #overlays = {}", handlers.size(),
-                overlayCache.size());
+                  overlayCache.size());
     }
 
     // Destroys message handlers.
@@ -257,7 +284,7 @@ public class UiWebSocket
                     .put(ID, node.id().toString())
                     .put(IP, node.ip().toString())
                     .put(TopoConstants.Glyphs.UI_ATTACHED,
-                            node.equals(service.getLocalNode()));
+                         node.equals(service.getLocalNode()));
             instances.add(instance);
         }
 

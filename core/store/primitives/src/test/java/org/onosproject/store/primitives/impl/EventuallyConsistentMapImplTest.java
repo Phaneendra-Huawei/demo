@@ -37,7 +37,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -58,19 +57,15 @@ import org.onosproject.cluster.DefaultControllerNode;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.event.AbstractEvent;
 import org.onosproject.persistence.PersistenceService;
-import org.onosproject.store.LogicalTimestamp;
 import org.onosproject.store.Timestamp;
 import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
 import org.onosproject.store.cluster.messaging.ClusterCommunicationServiceAdapter;
 import org.onosproject.store.cluster.messaging.MessageSubject;
 import org.onosproject.store.persistence.TestPersistenceService;
 import org.onosproject.store.serializers.KryoNamespaces;
-import org.onosproject.store.serializers.KryoSerializer;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.EventuallyConsistentMapEvent;
 import org.onosproject.store.service.EventuallyConsistentMapListener;
-import org.onosproject.store.service.WallClockTimestamp;
-
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -93,6 +88,8 @@ public class EventuallyConsistentMapImplTest {
             = new MessageSubject("ecm-" + MAP_NAME + "-update");
     private static final MessageSubject ANTI_ENTROPY_MESSAGE_SUBJECT
             = new MessageSubject("ecm-" + MAP_NAME + "-anti-entropy");
+    private static final MessageSubject UPDATE_REQUEST_SUBJECT
+            = new MessageSubject("ecm-" + MAP_NAME + "-update-request");
 
     private static final String KEY1 = "one";
     private static final String KEY2 = "two";
@@ -103,32 +100,8 @@ public class EventuallyConsistentMapImplTest {
             new DefaultControllerNode(new NodeId("local"), IpAddress.valueOf(1));
 
     private Consumer<Collection<UpdateEntry<String, String>>> updateHandler;
+    private Consumer<Collection<UpdateRequest<String>>> requestHandler;
     private Function<AntiEntropyAdvertisement<String>, AntiEntropyResponse> antiEntropyHandler;
-
-    /*
-     * Serialization is a bit tricky here. We need to serialize in the tests
-     * to set the expectations, which will use this serializer here, but the
-     * EventuallyConsistentMap will use its own internal serializer. This means
-     * this serializer must be set up exactly the same as map's internal
-     * serializer.
-     */
-    private static final KryoSerializer SERIALIZER = new KryoSerializer() {
-        @Override
-        protected void setupKryoPool() {
-            serializerPool = KryoNamespace.newBuilder()
-                    // Classes we give to the map
-                    .register(KryoNamespaces.API)
-                    .register(TestTimestamp.class)
-                    // Below is the classes that the map internally registers
-                    .register(LogicalTimestamp.class)
-                    .register(WallClockTimestamp.class)
-                    .register(ArrayList.class)
-                    .register(AntiEntropyAdvertisement.class)
-                    .register(HashMap.class)
-                    .register(Optional.class)
-                    .build();
-        }
-    };
 
     @Before
     public void setUp() throws Exception {
@@ -152,6 +125,9 @@ public class EventuallyConsistentMapImplTest {
                                                           anyObject(Function.class),
                                                           anyObject(Function.class),
                                                           anyObject(Executor.class));
+        expectLastCall().andDelegateTo(new TestClusterCommunicationService()).times(1);
+        clusterCommunicator.<Object>addSubscriber(anyObject(MessageSubject.class),
+                anyObject(Function.class), anyObject(Consumer.class), anyObject(Executor.class));
         expectLastCall().andDelegateTo(new TestClusterCommunicationService()).times(1);
 
         replay(clusterCommunicator);
@@ -657,6 +633,7 @@ public class EventuallyConsistentMapImplTest {
     @Test
     public void testDestroy() throws Exception {
         clusterCommunicator.removeSubscriber(UPDATE_MESSAGE_SUBJECT);
+        clusterCommunicator.removeSubscriber(UPDATE_REQUEST_SUBJECT);
         clusterCommunicator.removeSubscriber(ANTI_ENTROPY_MESSAGE_SUBJECT);
 
         replay(clusterCommunicator);
@@ -804,6 +781,8 @@ public class EventuallyConsistentMapImplTest {
                 Executor executor) {
             if (subject.equals(UPDATE_MESSAGE_SUBJECT)) {
                 updateHandler = (Consumer<Collection<UpdateEntry<String, String>>>) handler;
+            } else if (subject.equals(UPDATE_REQUEST_SUBJECT)) {
+                requestHandler = (Consumer<Collection<UpdateRequest<String>>>) handler;
             } else {
                 throw new RuntimeException("Unexpected message subject " + subject.toString());
             }

@@ -129,6 +129,7 @@ public class SfcManager implements SfcService {
     protected SfcFlowRuleInstallerImpl flowRuleInstaller;
     protected IdGenerator nshSpiIdGenerator;
     protected EventuallyConsistentMap<PortChainId, Integer> nshSpiPortChainMap;
+    protected EventuallyConsistentMap<PortChainId, List<FiveTuple>> portChainFiveTupleMap;
     protected DistributedSet<Integer> nshSpiIdFreeList;
 
     private final VtnRscListener vtnRscListener = new InnerVtnRscListener();
@@ -143,12 +144,15 @@ public class SfcManager implements SfcService {
 
         KryoNamespace.Builder serializer = KryoNamespace
                 .newBuilder()
-                .register(TenantId.class)
-                .register(PortPairId.class, PortPairGroupId.class, FlowClassifierId.class, PortChainId.class,
-                          UUID.class);
+                .register(PortChainId.class, UUID.class, FiveTuple.class, IpAddress.class, PortNumber.class,
+                          DefaultFiveTuple.class, IpAddress.Version.class, TenantId.class);
 
         nshSpiPortChainMap = storageService.<PortChainId, Integer>eventuallyConsistentMapBuilder()
                 .withName("nshSpiPortChainMap").withSerializer(serializer)
+                .withTimestampProvider((k, v) ->new WallClockTimestamp()).build();
+
+        portChainFiveTupleMap = storageService.<PortChainId, List<FiveTuple>>eventuallyConsistentMapBuilder()
+                .withName("portChainFiveTupleMap").withSerializer(serializer)
                 .withTimestampProvider((k, v) ->new WallClockTimestamp()).build();
 
         nshSpiIdFreeList = storageService.<Integer>setBuilder().withName("nshSpiIdDeletedList")
@@ -255,22 +259,32 @@ public class SfcManager implements SfcService {
     @Override
     public void onPortChainCreated(PortChain portChain) {
         NshServicePathId nshSpi;
-        log.info("onPortChainCreated");
-        if (nshSpiPortChainMap.containsKey(portChain.portChainId())) {
-            nshSpi = NshServicePathId.of(nshSpiPortChainMap.get(portChain.portChainId()));
-        } else {
-            int id = getNextNshSpi();
-            if (id > MAX_NSH_SPI_ID) {
-                log.error("Reached max limit of service path index." + "Failed to install SFC for port chain {}",
-                          portChain.portChainId().toString());
-                return;
-            }
-            nshSpi = NshServicePathId.of(id);
-            nshSpiPortChainMap.put(portChain.portChainId(), new Integer(id));
-        }
+        log.info("On port chain created");
 
+        int spi = getNextNshSpi();
+        if (spi > MAX_NSH_SPI_ID) {
+            log.error("Reached max limit of service path index." + "Failed to install SFC for port chain {}",
+                      portChain.portChainId().toString());
+            return;
+        }
+        nshSpi = NshServicePathId.of(spi);
+        nshSpiPortChainMap.put(portChain.portChainId(), new Integer(spi));
+        if (!portChainFiveTupleMap.containsKey(portChain.portChainId())) {
+            portChainFiveTupleMap.put(portChain.portChainId(), Lists.newArrayList());
+        }
         // Install classifier rule to send the packet to controller
         flowRuleInstaller.installFlowClassifier(portChain, nshSpi);
+
+        // Install rules for already identified five tuples.
+        List<FiveTuple> list = portChainFiveTupleMap.get(portChain.portChainId());
+        for (FiveTuple fiveTuple : list) {
+            LoadBalanceId id = loadBalanceSfc(portChain.portChainId(), fiveTuple);
+            // Get nsh service path index
+            nshSpi = NshServicePathId.of(getNshServicePathId(id, spi));
+            // download the required flow rules for classifier and
+            // forwarding
+            flowRuleInstaller.installLoadBalancedFlowClassifier(portChain, fiveTuple, nshSpi);
+        }
     }
 
     @Override
@@ -450,66 +464,6 @@ public class SfcManager implements SfcService {
         }
 
         /**
-         * Find the load balanced path set it to port chain for the given five
-         * tuple.
-         *
-         * @param portChainId port chain id
-         * @param fiveTuple five tuple info
-         * @return load balance id
-         */
-        private LoadBalanceId loadBalanceSfc(PortChainId portChainId, FiveTuple fiveTuple) {
-
-            // Get the port chain
-            PortChain portChain = portChainService.getPortChain(portChainId);
-            List<PortPairId> loadBalancePath = Lists.newArrayList();
-            LoadBalanceId id;
-            int paths = portChain.getLoadBalancePathSize();
-            if (paths >= MAX_LOAD_BALANCE_ID) {
-                log.info("Max limit reached for load balance paths. "
-                        + "Reusing the created path for port chain {} with five tuple {}", portChainId, fiveTuple);
-                id = LoadBalanceId.of((byte) ((paths + 1) % MAX_LOAD_BALANCE_ID));
-                portChain.addLoadBalancePath(fiveTuple, id, portChain.getLoadBalancePath(id));
-            }
-
-            // Get the list of port pair groups from port chain
-            Iterable<PortPairGroupId> portPairGroups = portChain.portPairGroups();
-            for (final PortPairGroupId portPairGroupId : portPairGroups) {
-                PortPairGroup portPairGroup = portPairGroupService.getPortPairGroup(portPairGroupId);
-
-                // Get the list of port pair ids from port pair group.
-                Iterable<PortPairId> portPairs = portPairGroup.portPairs();
-                int minLoad = 0xFFF;
-                PortPairId minLoadPortPairId = null;
-                for (final PortPairId portPairId : portPairs) {
-                    int load = portPairGroup.getLoad(portPairId);
-                    if (load == 0) {
-                        minLoadPortPairId = portPairId;
-                        break;
-                    } else {
-                        // Check the port pair which has min load.
-                        if (load < minLoad) {
-                            minLoad = load;
-                            minLoadPortPairId = portPairId;
-                        }
-                    }
-                }
-                if (minLoadPortPairId != null) {
-                    loadBalancePath.add(minLoadPortPairId);
-                    portPairGroup.addLoad(minLoadPortPairId);
-                }
-            }
-
-            // Check if the path already exists, if not create a new id
-            id = portChain.matchPath(loadBalancePath);
-            if (id == null) {
-                id = LoadBalanceId.of((byte) (paths + 1));
-            }
-
-            portChain.addLoadBalancePath(fiveTuple, id, loadBalancePath);
-            return id;
-        }
-
-        /**
          * Get the tenant id for the given mac address.
          *
          * @param mac mac address
@@ -577,6 +531,7 @@ public class SfcManager implements SfcService {
 
             // Once the 5 tuple and port chain are identified, give this input
             // for load balancing
+            addToPortChainIdFiveTupleMap(portChainId, fiveTuple);
             LoadBalanceId id = loadBalanceSfc(portChainId, fiveTuple);
             // Get nsh service path index
             NshServicePathId nshSpi;
@@ -609,9 +564,11 @@ public class SfcManager implements SfcService {
          */
         private void sendPacket(PacketContext context, ConnectPoint connectPoint) {
 
-            TrafficTreatment treatment = DefaultTrafficTreatment.builder().setOutput(connectPoint.port()).build();
-            OutboundPacket packet = new DefaultOutboundPacket(connectPoint.deviceId(), treatment, context.inPacket()
-                                                              .unparsed());
+            ConnectPoint sourcePoint = context.inPacket().receivedFrom();
+
+            TrafficTreatment treatment = DefaultTrafficTreatment.builder().setOutput(sourcePoint.port()).build();
+            OutboundPacket packet = new DefaultOutboundPacket(sourcePoint.deviceId(), treatment, context.inPacket()
+                    .unparsed());
             packetService.emit(packet);
             log.trace("Sending packet: {}", packet);
         }
@@ -629,4 +586,71 @@ public class SfcManager implements SfcService {
         nshSpiNew = nshSpiNew | id.loadBalanceId();
         return nshSpiNew;
     }
+
+    private void addToPortChainIdFiveTupleMap(PortChainId portChainId, FiveTuple fiveTuple) {
+        List<FiveTuple> list = portChainFiveTupleMap.get(portChainId);
+        list.add(fiveTuple);
+        portChainFiveTupleMap.put(portChainId, list);
+    }
+
+    /**
+     * Find the load balanced path set it to port chain for the given five
+     * tuple.
+     *
+     * @param portChainId port chain id
+     * @param fiveTuple five tuple info
+     * @return load balance id
+     */
+    private LoadBalanceId loadBalanceSfc(PortChainId portChainId, FiveTuple fiveTuple) {
+
+        // Get the port chain
+        PortChain portChain = portChainService.getPortChain(portChainId);
+        List<PortPairId> loadBalancePath = Lists.newArrayList();
+        LoadBalanceId id;
+        int paths = portChain.getLoadBalancePathSize();
+        if (paths >= MAX_LOAD_BALANCE_ID) {
+            log.info("Max limit reached for load balance paths. "
+                    + "Reusing the created path for port chain {} with five tuple {}", portChainId, fiveTuple);
+            id = LoadBalanceId.of((byte) ((paths + 1) % MAX_LOAD_BALANCE_ID));
+            portChain.addLoadBalancePath(fiveTuple, id, portChain.getLoadBalancePath(id));
+        }
+
+        // Get the list of port pair groups from port chain
+        Iterable<PortPairGroupId> portPairGroups = portChain.portPairGroups();
+        for (final PortPairGroupId portPairGroupId : portPairGroups) {
+            PortPairGroup portPairGroup = portPairGroupService.getPortPairGroup(portPairGroupId);
+
+            // Get the list of port pair ids from port pair group.
+            Iterable<PortPairId> portPairs = portPairGroup.portPairs();
+            int minLoad = 0xFFF;
+            PortPairId minLoadPortPairId = null;
+            for (final PortPairId portPairId : portPairs) {
+                int load = portPairGroup.getLoad(portPairId);
+                if (load == 0) {
+                    minLoadPortPairId = portPairId;
+                    break;
+                } else {
+                    // Check the port pair which has min load.
+                    if (load < minLoad) {
+                        minLoad = load;
+                        minLoadPortPairId = portPairId;
+                    }
+                }
+            }
+            if (minLoadPortPairId != null) {
+                loadBalancePath.add(minLoadPortPairId);
+                portPairGroup.addLoad(minLoadPortPairId);
+            }
+        }
+
+        // Check if the path already exists, if not create a new id
+        id = portChain.matchPath(loadBalancePath);
+        if (id == null) {
+            id = LoadBalanceId.of((byte) (paths + 1));
+        }
+
+        portChain.addLoadBalancePath(fiveTuple, id, loadBalancePath);
+        return id;
+    }
+
 }

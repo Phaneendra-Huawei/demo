@@ -67,14 +67,14 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
     private final VirtualNetworkService vnetService = get(VirtualNetworkService.class);
 
     @Context
-    UriInfo uriInfo;
+    private UriInfo uriInfo;
 
     // VirtualNetwork
 
     /**
      * Returns all virtual networks.
      *
-     * @return 200 OK
+     * @return 200 OK with set of virtual networks
      * @onos.rsModel VirtualNetworks
      */
     @GET
@@ -92,7 +92,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
      * Returns the virtual networks with the specified tenant identifier.
      *
      * @param tenantId tenant identifier
-     * @return 200 OK, 404 not found
+     * @return 200 OK with a virtual network, 404 not found
      * @onos.rsModel VirtualNetworks
      */
     @GET
@@ -135,14 +135,14 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
      * Removes the virtual network with the specified network identifier.
      *
      * @param networkId network identifier
-     * @return 200 OK, 404 not found
+     * @return 204 NO CONTENT
      */
     @DELETE
     @Path("{networkId}")
     public Response removeVirtualNetwork(@PathParam("networkId") long networkId) {
         NetworkId nid = NetworkId.networkId(networkId);
         vnetAdminService.removeVirtualNetwork(nid);
-        return Response.ok().build();
+        return Response.noContent().build();
     }
 
     // VirtualDevice
@@ -151,7 +151,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
      * Returns all virtual network devices in a virtual network.
      *
      * @param networkId network identifier
-     * @return 200 OK
+     * @return 200 OK with set of virtual devices, 404 not found
      * @onos.rsModel VirtualDevices
      */
     @GET
@@ -203,7 +203,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
      *
      * @param networkId network identifier
      * @param deviceId  device identifier
-     * @return 200 OK, 404 not found
+     * @return 204 NO CONTENT
      */
     @DELETE
     @Path("{networkId}/devices/{deviceId}")
@@ -212,7 +212,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
         NetworkId nid = NetworkId.networkId(networkId);
         DeviceId did = DeviceId.deviceId(deviceId);
         vnetAdminService.removeVirtualDevice(nid, did);
-        return Response.ok().build();
+        return Response.noContent().build();
     }
 
     // VirtualPort
@@ -222,7 +222,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
      *
      * @param networkId network identifier
      * @param deviceId  virtual device identifier
-     * @return 200 OK
+     * @return 200 OK with set of virtual ports, 404 not found
      * @onos.rsModel VirtualPorts
      */
     @GET
@@ -293,7 +293,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
      * @param networkId network identifier
      * @param deviceId  virtual device identifier
      * @param portNum   virtual port number
-     * @return 200 OK, 404 not found
+     * @return 204 NO CONTENT
      */
     @DELETE
     @Path("{networkId}/devices/{deviceId}/ports/{portNum}")
@@ -303,7 +303,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
         NetworkId nid = NetworkId.networkId(networkId);
         vnetAdminService.removeVirtualPort(nid, DeviceId.deviceId(deviceId),
                                            PortNumber.portNumber(portNum));
-        return Response.ok().build();
+        return Response.noContent().build();
     }
 
     // VirtualLink
@@ -312,7 +312,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
      * Returns all virtual network links in a virtual network.
      *
      * @param networkId network identifier
-     * @return 200 OK
+     * @return 200 OK with set of virtual network links
      * @onos.rsModel VirtualLinks
      */
     @GET
@@ -364,7 +364,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
      *
      * @param networkId network identifier
      * @param stream    virtual link JSON stream
-     * @return 200 OK, 404 not found
+     * @return 204 NO CONTENT
      * @onos.rsModel VirtualLink
      */
     @DELETE
@@ -386,7 +386,7 @@ public class VirtualNetworkWebResource extends AbstractWebResource {
             throw new IllegalArgumentException(e);
         }
 
-        return Response.ok().build();
+        return Response.noContent().build();
     }
 
     /**

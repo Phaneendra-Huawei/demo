@@ -20,7 +20,7 @@
 describe('factory: view/topo/topoInst.js', function() {
     var $log, fs, tis;
 
-    beforeEach(module('ovTopo', 'onosUtil', 'onosLayer'));
+    beforeEach(module('ovTopo', 'onosUtil', 'onosLayer', 'onosNav', 'onosWidget', 'onosMast'));
 
     beforeEach(inject(function (_$log_, FnService, TopoInstService) {
         $log = _$log_;

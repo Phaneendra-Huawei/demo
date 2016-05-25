@@ -53,10 +53,12 @@ import org.onosproject.yangutils.utils.YangConstructType;
  *       | when         | 7.19.5  | 0..1        | - TODO           |
  *       +--------------+---------+-------------+------------------+
  */
+
 /**
  * Represents leaf data represented in YANG.
  */
-public class YangLeaf implements YangCommonInfo, Parsable {
+public class YangLeaf
+        implements YangCommonInfo, Parsable {
 
     /**
      * Name of leaf.
@@ -99,6 +101,12 @@ public class YangLeaf implements YangCommonInfo, Parsable {
     private YangType<?> dataType;
 
     /**
+     * Default value in string, needs to be converted to the target object,
+     * based on the type.
+     */
+    private String defaultValueInString;
+
+    /**
      * Creates a YANG leaf.
      */
     public YangLeaf() {
@@ -109,7 +117,7 @@ public class YangLeaf implements YangCommonInfo, Parsable {
      *
      * @return the leaf name
      */
-    public String getLeafName() {
+    public String getName() {
         return name;
     }
 
@@ -237,6 +245,24 @@ public class YangLeaf implements YangCommonInfo, Parsable {
     }
 
     /**
+     * Returns the default value.
+     *
+     * @return the default value
+     */
+    public String getDefaultValueInString() {
+        return defaultValueInString;
+    }
+
+    /**
+     * Sets the default value.
+     *
+     * @param defaultValueInString the default value
+     */
+    public void setDefaultValueInString(String defaultValueInString) {
+        this.defaultValueInString = defaultValueInString;
+    }
+
+    /**
      * Returns the data type.
      *
      * @return the data type
@@ -270,7 +296,8 @@ public class YangLeaf implements YangCommonInfo, Parsable {
      * @throws DataModelException a violation of data model rules
      */
     @Override
-    public void validateDataOnEntry() throws DataModelException {
+    public void validateDataOnEntry()
+            throws DataModelException {
         // TODO auto-generated method stub, to be implemented by parser
 
     }
@@ -281,7 +308,8 @@ public class YangLeaf implements YangCommonInfo, Parsable {
      * @throws DataModelException a violation of data model rules
      */
     @Override
-    public void validateDataOnExit() throws DataModelException {
+    public void validateDataOnExit()
+            throws DataModelException {
         // TODO auto-generated method stub, to be implemented by parser
 
     }

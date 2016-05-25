@@ -41,7 +41,9 @@ describe('factory: fw/svg/map.js', function() {
 
     it('should define api functions', function () {
         expect(fs.areFunctions(ms, [
-            'loadMapInto'
+            'loadMapRegionInto',
+            'loadMapInto',
+            'reshade'
         ])).toBeTruthy();
     });
 

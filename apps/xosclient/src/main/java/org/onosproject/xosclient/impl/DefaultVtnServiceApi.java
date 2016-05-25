@@ -19,18 +19,30 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
+import org.onlab.packet.IpAddress;
+import org.onlab.packet.IpPrefix;
+import org.onosproject.xosclient.api.OpenStackAccess;
+import org.onosproject.xosclient.api.VtnService.NetworkType;
+import org.onosproject.xosclient.api.VtnService.ServiceType;
 import org.onosproject.xosclient.api.VtnServiceApi;
 import org.onosproject.xosclient.api.XosAccess;
+import org.onosproject.xosclient.api.VtnService;
+import org.onosproject.xosclient.api.VtnServiceId;
+
+import org.openstack4j.api.OSClient;
+import org.openstack4j.model.network.Network;
+import org.openstack4j.model.network.Subnet;
+import org.openstack4j.openstack.OSFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static org.onosproject.xosclient.api.VtnService.NetworkType.*;
+import static org.onosproject.xosclient.api.VtnService.ServiceType.*;
 
 /**
  * Provides CORD VTN service and service dependency APIs.
@@ -39,63 +51,52 @@ public final class DefaultVtnServiceApi extends XosApi implements VtnServiceApi 
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
-    private static DefaultVtnServiceApi instance = null;
-
     /**
      * Default constructor.
+     *
+     * @param baseUrl base url
+     * @param access xos access
      */
-    private DefaultVtnServiceApi(String baseUrl, XosAccess access) {
+    public DefaultVtnServiceApi(String baseUrl, XosAccess access) {
         super(baseUrl, access);
     }
 
-    /**
-     * Returns VTN service API instance. Creates a new instance only if base url or
-     * access has been changed.
-     *
-     * @param baseUrl base url
-     * @param access access
-     * @return vtn service api
-     */
-    public static synchronized DefaultVtnServiceApi getInstance(String baseUrl, XosAccess access) {
-        checkNotNull(access, "XOS access information is null");
-        checkArgument(!Strings.isNullOrEmpty(baseUrl), "VTN service API base url is null or empty");
-
-        if (instance == null ||
-                !instance.baseUrl.equals(baseUrl) ||
-                !instance.access.equals(access)) {
-            instance = new DefaultVtnServiceApi(baseUrl, access);
-        }
-        return instance;
-    }
-
     @Override
-    public Set<String> services() {
+    public Set<VtnServiceId> services() {
         String response = restGet(EMPTY_STRING);
         log.trace("Get services {}", response);
 
         ObjectMapper mapper = new ObjectMapper();
+        Set<VtnServiceId> services = Sets.newHashSet();
+
         try {
             JsonNode nodes = mapper.readTree(response);
-            return Sets.newHashSet(nodes.fieldNames());
+            nodes.fieldNames().forEachRemaining(id -> services.add(VtnServiceId.of(id)));
         } catch (IOException e) {
             log.warn("Failed to get service list");
-            return Sets.newHashSet();
         }
+        return services;
     }
 
     @Override
-    public Set<String> getProviderServices(String tServiceId) {
+    public VtnService service(VtnServiceId serviceId) {
+        // TODO implement this when XOS provides this API
+        return null;
+    }
+
+    @Override
+    public Set<VtnServiceId> providerServices(VtnServiceId tServiceId) {
         checkNotNull(tServiceId);
 
-        String response = restGet(tServiceId);
+        String response = restGet(tServiceId.id());
         log.trace("Get provider services {}", response);
 
         ObjectMapper mapper = new ObjectMapper();
-        Set<String> pServices = Sets.newHashSet();
+        Set<VtnServiceId> pServices = Sets.newHashSet();
 
         try {
             JsonNode nodes = mapper.readTree(response);
-            nodes.forEach(node -> pServices.add(node.asText()));
+            nodes.forEach(node -> pServices.add(VtnServiceId.of(node.asText())));
         } catch (IOException e) {
             log.warn("Failed to get service dependency");
         }
@@ -103,29 +104,98 @@ public final class DefaultVtnServiceApi extends XosApi implements VtnServiceApi 
     }
 
     @Override
-    public Set<String> getTenantServices(String tServiceId) {
+    public Set<VtnServiceId> tenantServices(VtnServiceId tServiceId) {
         checkNotNull(tServiceId);
 
         String response = restGet(EMPTY_STRING);
         log.trace("Get tenant services {}", response);
 
         ObjectMapper mapper = new ObjectMapper();
-        Set<String> tServices = Sets.newHashSet();
+        Set<VtnServiceId> tServices = Sets.newHashSet();
+
         try {
             JsonNode nodes = mapper.readTree(response);
-            Iterator<Map.Entry<String, JsonNode>> iterator = nodes.fields();
-
-            while (iterator.hasNext()) {
-                Map.Entry<String, JsonNode> entry = iterator.next();
-                entry.getValue().forEach(pService -> {
-                    if (pService.asText().equals(tServiceId)) {
-                        tServices.add(entry.getKey());
-                    }
-                });
-            }
+            nodes.fields().forEachRemaining(entry -> entry.getValue().forEach(
+                    pService -> {
+                        if (pService.asText().equals(tServiceId.id())) {
+                            tServices.add(VtnServiceId.of(entry.getKey()));
+                        }
+                    }));
         } catch (IOException e) {
             log.warn("Failed to get service list");
         }
         return tServices;
+    }
+
+    @Override
+    // TODO remove this when XOS provides this information
+    public VtnService service(VtnServiceId serviceId, OpenStackAccess osAccess) {
+        checkNotNull(osAccess);
+
+        OSClient osClient = getOpenStackClient(osAccess);
+        Network osNet = osClient.networking().network().get(serviceId.id());
+        if (osNet == null) {
+            log.warn("Failed to get OpenStack network {}", serviceId);
+            return null;
+        }
+
+        // assumes all cord service networks has single subnet
+        Subnet osSubnet = osNet.getNeutronSubnets().stream()
+                .findFirst().orElse(null);
+        if (osSubnet == null) {
+            log.warn("Failed to get OpenStack subnet of network {}", serviceId);
+            return null;
+        }
+
+        return new VtnService(serviceId,
+                              osNet.getName(),
+                              serviceType(osNet.getName()),
+                              networkType(osNet.getName()),
+                              Long.parseLong(osNet.getProviderSegID()),
+                              IpPrefix.valueOf(osSubnet.getCidr()),
+                              IpAddress.valueOf(osSubnet.getGateway()),
+                              providerServices(serviceId),
+                              tenantServices(serviceId));
+    }
+
+    // TODO remove this when XOS provides this information
+    private OSClient getOpenStackClient(OpenStackAccess osAccess) {
+        checkNotNull(osAccess);
+
+        // creating a client every time must be inefficient, but this method
+        // will be removed once XOS provides equivalent APIs
+        return OSFactory.builder()
+                .endpoint(osAccess.endpoint())
+                .credentials(osAccess.user(), osAccess.password())
+                .tenantName(osAccess.tenant())
+                .authenticate();
+    }
+
+    // TODO remove this when XOS provides this information
+    private NetworkType networkType(String netName) {
+        checkArgument(!Strings.isNullOrEmpty(netName));
+
+        String name = netName.toUpperCase();
+        if (name.contains(PUBLIC.toString())) {
+            return PUBLIC;
+        } else if (name.contains(MANAGEMENT.toString())) {
+            return MANAGEMENT;
+        } else {
+            return PRIVATE;
+        }
+    }
+
+    // TODO remove this when XOS provides this information
+    private ServiceType serviceType(String netName) {
+        checkArgument(!Strings.isNullOrEmpty(netName));
+
+        String name = netName.toUpperCase();
+        if (name.contains(VSG.toString())) {
+            return VSG;
+        } else if (name.contains(OLT_AGENT.toString())) {
+            return OLT_AGENT;
+        } else {
+            return DUMMY;
+        }
     }
 }

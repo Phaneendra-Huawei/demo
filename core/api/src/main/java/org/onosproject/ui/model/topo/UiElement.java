@@ -19,7 +19,7 @@ package org.onosproject.ui.model.topo;
 /**
  * Abstract base class of all elements in the UI topology model.
  */
-public class UiElement {
+public abstract class UiElement {
 
     /**
      * Removes all external references, and prepares the instance for
@@ -27,5 +27,23 @@ public class UiElement {
      */
     protected void destroy() {
         // does nothing
+    }
+
+    /**
+     * Returns a string representation of the element identifier.
+     *
+     * @return the element unique identifier
+     */
+    public abstract String idAsString();
+
+    /**
+     * Returns a friendly name to be used for display purposes.
+     * This default implementation returns the result of calling
+     * {@link #idAsString()}.
+     *
+     * @return the friendly name
+     */
+    public String name() {
+        return idAsString();
     }
 }

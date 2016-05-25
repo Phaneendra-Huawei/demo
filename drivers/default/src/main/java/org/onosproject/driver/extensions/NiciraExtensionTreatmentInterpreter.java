@@ -73,7 +73,7 @@ public class NiciraExtensionTreatmentInterpreter extends AbstractHandlerBehaviou
     private static final int SRC_ETH = 0x00000406;
     private static final int SRC_IP = 0x00000e04;
 
-    // TODO recheck these values
+
     private static final int NSH_C1 = 0x0001e604;
     private static final int NSH_C2 = 0x0001e804;
     private static final int NSH_C3 = 0x0001ea04;
@@ -101,11 +101,12 @@ public class NiciraExtensionTreatmentInterpreter extends AbstractHandlerBehaviou
 
     @Override
     public boolean supported(ExtensionTreatmentType extensionTreatmentType) {
-        if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_SET_TUNNEL_DST
-                .type())) {
+        if (extensionTreatmentType.equals(
+                ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_SET_TUNNEL_DST.type())) {
             return true;
         }
-        if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_RESUBMIT.type())) {
+        if (extensionTreatmentType.equals(
+                ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_RESUBMIT.type())) {
             return true;
         }
         if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_SET_NSH_SPI.type())) {
@@ -126,24 +127,24 @@ public class NiciraExtensionTreatmentInterpreter extends AbstractHandlerBehaviou
         if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_SET_NSH_CH4.type())) {
             return true;
         }
-        if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_RESUBMIT_TABLE
-                                          .type())) {
+        if (extensionTreatmentType.equals(
+                ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_RESUBMIT_TABLE.type())) {
             return true;
         }
-        if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_ARP_SHA_TO_THA
-                                          .type())) {
+        if (extensionTreatmentType.equals(
+                ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_ARP_SHA_TO_THA.type())) {
             return true;
         }
-        if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_ARP_SPA_TO_TPA
-                                          .type())) {
+        if (extensionTreatmentType.equals(
+                ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_ARP_SPA_TO_TPA.type())) {
             return true;
         }
-        if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_ETH_SRC_TO_DST
-                                          .type())) {
+        if (extensionTreatmentType.equals(
+                ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_ETH_SRC_TO_DST.type())) {
             return true;
         }
-        if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_IP_SRC_TO_DST
-                                          .type())) {
+        if (extensionTreatmentType.equals(
+                ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_IP_SRC_TO_DST.type())) {
             return true;
         }
         if (extensionTreatmentType.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_NSH_MDTYPE.type())) {
@@ -207,16 +208,18 @@ public class NiciraExtensionTreatmentInterpreter extends AbstractHandlerBehaviou
         ExtensionTreatmentType type = extensionTreatment.type();
         if (type.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_SET_TUNNEL_DST.type())) {
             NiciraSetTunnelDst tunnelDst = (NiciraSetTunnelDst) extensionTreatment;
-            return factory.actions().setField(factory.oxms().tunnelIpv4Dst(IPv4Address
-                    .of(tunnelDst.tunnelDst().toInt())));
+            return factory.actions().setField(factory.oxms().tunnelIpv4Dst(
+                    IPv4Address.of(tunnelDst.tunnelDst().toInt())));
         }
         if (type.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_RESUBMIT.type())) {
             NiciraResubmit resubmit = (NiciraResubmit) extensionTreatment;
-            return factory.actions().niciraResubmit((int) resubmit.inPort().toLong(), resubmit.table());
+            return factory.actions().niciraResubmit((int) resubmit.inPort().toLong(),
+                                                  resubmit.table());
         }
         if (type.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_RESUBMIT_TABLE.type())) {
             NiciraResubmitTable resubmitTable = (NiciraResubmitTable) extensionTreatment;
-            return factory.actions().niciraResubmitTable((int) resubmitTable.inPort().toLong(), resubmitTable.table());
+            return factory.actions().niciraResubmitTable((int) resubmitTable.inPort().toLong(),
+                                                         resubmitTable.table());
         }
         if (type.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_SET_NSH_SPI.type())) {
             NiciraSetNshSpi niciraNshSpi = (NiciraSetNshSpi) extensionTreatment;
@@ -287,7 +290,8 @@ public class NiciraExtensionTreatmentInterpreter extends AbstractHandlerBehaviou
                 || type.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_TUN_ID_TO_TUN_ID.type())
                 || type.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_NSH_C2_TO_TUN_ID.type())) {
             MoveExtensionTreatment mov = (MoveExtensionTreatment) extensionTreatment;
-            OFActionNiciraMove.Builder action = factory.actions().buildNiciraMove();
+            OFActionNiciraMove.Builder action = factory.actions()
+                    .buildNiciraMove();
             action.setDstOfs(mov.dstOffset());
             action.setSrcOfs(mov.srcOffset());
             action.setNBits(mov.nBits());
@@ -352,27 +356,31 @@ public class NiciraExtensionTreatmentInterpreter extends AbstractHandlerBehaviou
                 OFOxmTunGpeNp tunGpeNp = (OFOxmTunGpeNp) oxm;
                 return new NiciraTunGpeNp((tunGpeNp.getValue().getRaw()));
             default:
-                throw new UnsupportedOperationException("Driver does not support extension type "
-                        + oxm.getMatchField().id);
+                throw new UnsupportedOperationException(
+                        "Driver does not support extension type " + oxm.getMatchField().id);
             }
         }
         if (action.getType().equals(OFActionType.EXPERIMENTER)) {
             OFActionExperimenter experimenter = (OFActionExperimenter) action;
-            if (Long.valueOf(experimenter.getExperimenter()).intValue() == TYPE_NICIRA) {
+            if (Long.valueOf(experimenter.getExperimenter())
+                    .intValue() == TYPE_NICIRA) {
                 OFActionNicira nicira = (OFActionNicira) experimenter;
                 switch (nicira.getSubtype()) {
-                case SUB_TYPE_MOVE:
-                    OFActionNiciraMove moveAction = (OFActionNiciraMove) nicira;
-
-                    switch (Long.valueOf(moveAction.getSrc()).intValue()) {
-                    case SRC_ARP_SHA:
-                        return NiciraMoveTreatmentFactory.createNiciraMovArpShaToTha();
-                    case SRC_ETH:
-                        return NiciraMoveTreatmentFactory.createNiciraMovEthSrcToDst();
-                    case SRC_IP:
-                        return NiciraMoveTreatmentFactory.createNiciraMovIpSrcToDst();
-                    case SRC_ARP_SPA:
-                        return NiciraMoveTreatmentFactory.createNiciraMovArpSpaToTpa();
+                    case SUB_TYPE_MOVE:
+                        OFActionNiciraMove moveAction = (OFActionNiciraMove) nicira;
+                        switch (Long.valueOf(moveAction.getSrc()).intValue()) {
+                            case SRC_ARP_SHA:
+                                return NiciraMoveTreatmentFactory
+                                        .createNiciraMovArpShaToTha();
+                            case SRC_ETH:
+                                return NiciraMoveTreatmentFactory
+                                        .createNiciraMovEthSrcToDst();
+                            case SRC_IP:
+                                return NiciraMoveTreatmentFactory
+                                        .createNiciraMovIpSrcToDst();
+                            case SRC_ARP_SPA:
+                                return NiciraMoveTreatmentFactory
+                                        .createNiciraMovArpSpaToTpa();
                     case NSH_C1:
                         return NiciraMoveTreatmentFactory.createNiciraMovNshC1ToC1();
                     case NSH_C2:
@@ -388,14 +396,14 @@ public class NiciraExtensionTreatmentInterpreter extends AbstractHandlerBehaviou
                         return NiciraMoveTreatmentFactory.createNiciraMovTunDstToTunDst();
                     case TUN_ID:
                         return NiciraMoveTreatmentFactory.createNiciraMovTunIdToTunId();
-                    default:
-                        throw new UnsupportedOperationException("Driver does not support move from "
+                            default:
+                                throw new UnsupportedOperationException("Driver does not support move from "
                                 + moveAction.getSrc() + " to " + moveAction.getDst() + "of length "
                                 + moveAction.getNBits());
-                    }
-                case SUB_TYPE_RESUBMIT:
-                    OFActionNiciraResubmit resubmitAction = (OFActionNiciraResubmit) nicira;
-                    return new NiciraResubmit(PortNumber.portNumber(resubmitAction.getInPort()));
+                        }
+                    case SUB_TYPE_RESUBMIT:
+                        OFActionNiciraResubmit resubmitAction = (OFActionNiciraResubmit) nicira;
+                        return new NiciraResubmit(PortNumber.portNumber(resubmitAction.getInPort()));
                 case SUB_TYPE_PUSH_NSH:
                     return new NiciraPushNsh();
                 case SUB_TYPE_POP_NSH:
@@ -404,9 +412,9 @@ public class NiciraExtensionTreatmentInterpreter extends AbstractHandlerBehaviou
                     OFActionNiciraResubmitTable resubmitTable = (OFActionNiciraResubmitTable) nicira;
                     return new NiciraResubmitTable(PortNumber.portNumber(resubmitTable.getInPort()),
                                                    resubmitTable.getTable());
-                default:
-                    throw new UnsupportedOperationException("Driver does not support extension subtype "
-                            + nicira.getSubtype());
+                    default:
+                        throw new UnsupportedOperationException("Driver does not support extension subtype "
+                                + nicira.getSubtype());
                 }
             }
         }
@@ -595,6 +603,7 @@ public class NiciraExtensionTreatmentInterpreter extends AbstractHandlerBehaviou
                 || type.equals(ExtensionTreatmentType.ExtensionTreatmentTypes.NICIRA_MOV_IP_SRC_TO_DST.type())) {
             return context.codec(MoveExtensionTreatment.class).decode(json, context);
         }
-        throw new UnsupportedOperationException("Driver does not support extension type " + type.toString());
+        throw new UnsupportedOperationException(
+                "Driver does not support extension type " + type.toString());
     }
 }

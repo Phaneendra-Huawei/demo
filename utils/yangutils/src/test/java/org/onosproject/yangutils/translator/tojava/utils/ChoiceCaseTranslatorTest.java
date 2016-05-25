@@ -23,7 +23,7 @@ import org.onosproject.yangutils.parser.exceptions.ParserException;
 import org.onosproject.yangutils.parser.impl.YangUtilsParserManager;
 
 import static org.onosproject.yangutils.translator.tojava.JavaCodeGeneratorUtil.generateJavaCode;
-import static org.onosproject.yangutils.utils.io.impl.YangIoUtils.clean;
+import static org.onosproject.yangutils.utils.io.impl.YangIoUtils.deleteDirectory;
 
 /**
  * Unit tests for choice-case translator.
@@ -44,9 +44,9 @@ public final class ChoiceCaseTranslatorTest {
         YangPluginConfig yangPluginConfig = new YangPluginConfig();
         yangPluginConfig.setCodeGenDir(userDir + "/target/ChoiceCaseTestGenFile/");
 
-        generateJavaCode(node, yangPluginConfig);
+        generateJavaCode(node, yangPluginConfig, "ChoiceCaseTranslator");
 
-        clean(userDir + "/target/ChoiceCaseTestGenFile/");
+        deleteDirectory(userDir + "/target/ChoiceCaseTestGenFile/");
     }
     // TODO enhance the test cases, after having a framework of translator test.
 }

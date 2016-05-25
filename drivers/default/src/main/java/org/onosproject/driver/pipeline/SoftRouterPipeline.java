@@ -86,10 +86,9 @@ public class SoftRouterPipeline extends AbstractHandlerBehaviour implements Pipe
     private ApplicationId driverId;
 
     private KryoNamespace appKryo = new KryoNamespace.Builder()
-        .register(DummyGroup.class)
-        .register(KryoNamespaces.API)
-        .register(byte[].class)
-        .build();
+            .register(KryoNamespaces.API)
+            .register(DummyGroup.class)
+            .build();
 
     private final Logger log = getLogger(getClass());
 
@@ -250,7 +249,8 @@ public class SoftRouterPipeline extends AbstractHandlerBehaviour implements Pipe
         // convert filtering conditions for switch-intfs into flowrules
         FlowRuleOperations.Builder ops = FlowRuleOperations.builder();
         for (Criterion c : filt.conditions()) {
-            if (c.type() == Criterion.Type.ETH_DST) {
+            if (c.type() == Criterion.Type.ETH_DST ||
+                    c.type() == Criterion.Type.ETH_DST_MASKED) {
                 e = (EthCriterion) c;
             } else if (c.type() == Criterion.Type.VLAN_VID) {
                 v = (VlanIdCriterion) c;
@@ -267,7 +267,12 @@ public class SoftRouterPipeline extends AbstractHandlerBehaviour implements Pipe
         TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
         selector.matchInPort(p.port());
 
-        selector.matchEthDst(e.mac());
+        //Multicast MAC
+        if (e.mask() != null) {
+            selector.matchEthDstMasked(e.mac(), e.mask());
+        } else {
+            selector.matchEthDst(e.mac());
+        }
         selector.matchVlanId(v.vlanId());
         selector.matchEthType(Ethernet.TYPE_IPV4);
         if (!v.vlanId().equals(VlanId.NONE)) {

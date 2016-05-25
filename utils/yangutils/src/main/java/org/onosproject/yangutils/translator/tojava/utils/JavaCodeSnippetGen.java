@@ -18,8 +18,6 @@ package org.onosproject.yangutils.translator.tojava.utils;
 
 import org.onosproject.yangutils.translator.tojava.JavaQualifiedTypeInfo;
 
-import static org.onosproject.yangutils.translator.tojava.utils.ClassDefinitionGenerator.generateClassDefinition;
-import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCamelCase;
 import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getEnumJavaAttribute;
 import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getSmallCase;
 import static org.onosproject.yangutils.utils.UtilConstants.ARRAY_LIST;
@@ -79,23 +77,6 @@ public final class JavaCodeSnippetGen {
     }
 
     /**
-     * Returns based on the file type and the YANG name of the file, generate the class
-     * / interface definition start.
-     *
-     * @param genFileTypes type of file being generated
-     * @param yangName YANG name
-     * @return corresponding textual java code information
-     */
-    public static String getJavaClassDefStart(int genFileTypes, String yangName) {
-
-        /*
-         * get the camel case name for java class / interface.
-         */
-        yangName = getCamelCase(yangName, null);
-        return generateClassDefinition(genFileTypes, yangName);
-    }
-
-    /**
      * Returns the textual java code for attribute definition in class.
      *
      * @param javaAttributeTypePkg Package of the attribute type
@@ -134,7 +115,7 @@ public final class JavaCodeSnippetGen {
      * @param type attribute type
      * @return list attribute string
      */
-    public static String getListAttribute(String type) {
+    private static String getListAttribute(String type) {
         return LIST + DIAMOND_OPEN_BRACKET + type + DIAMOND_CLOSE_BRACKET;
     }
 
@@ -144,10 +125,9 @@ public final class JavaCodeSnippetGen {
      * @return attribute of augmented info for generated impl file
      */
     public static String getAugmentedInfoAttribute() {
-        return FOUR_SPACE_INDENTATION + PRIVATE + SPACE + getListAttribute(AUGMENTED_INFO) + SPACE
+        return NEW_LINE + FOUR_SPACE_INDENTATION + PRIVATE + SPACE + getListAttribute(AUGMENTED_INFO) + SPACE
                 + getSmallCase(AUGMENTED_INFO) + LIST + SPACE + EQUAL + SPACE + NEW + SPACE + ARRAY_LIST
-                + DIAMOND_OPEN_BRACKET + DIAMOND_CLOSE_BRACKET + OPEN_PARENTHESIS + CLOSE_PARENTHESIS + SEMI_COLAN
-                + NEW_LINE;
+                + DIAMOND_OPEN_BRACKET + DIAMOND_CLOSE_BRACKET + OPEN_PARENTHESIS + CLOSE_PARENTHESIS + SEMI_COLAN;
     }
 
     /**
@@ -168,8 +148,9 @@ public final class JavaCodeSnippetGen {
      * @return string for enum's attribute
      */
     public static String generateEnumAttributeString(String name, int value) {
-        return getJavaDoc(ENUM_ATTRIBUTE, name, false) + FOUR_SPACE_INDENTATION + getEnumJavaAttribute(name)
-                + OPEN_PARENTHESIS + value + CLOSE_PARENTHESIS + COMMA + NEW_LINE;
+        return getJavaDoc(ENUM_ATTRIBUTE, name, false) + FOUR_SPACE_INDENTATION
+                + getEnumJavaAttribute(name).toUpperCase() + OPEN_PARENTHESIS
+                + value + CLOSE_PARENTHESIS + COMMA + NEW_LINE;
     }
 
 }

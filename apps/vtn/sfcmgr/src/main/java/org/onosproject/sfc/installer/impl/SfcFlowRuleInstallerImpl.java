@@ -39,6 +39,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Set;
 
 import org.onlab.osgi.DefaultServiceDirectory;
 import org.onlab.osgi.ServiceDirectory;
@@ -58,6 +59,7 @@ import org.onosproject.net.NshContextHeader;
 import org.onosproject.net.NshServiceIndex;
 import org.onosproject.net.NshServicePathId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.behaviour.BridgeConfig;
 import org.onosproject.net.behaviour.ExtensionSelectorResolver;
 import org.onosproject.net.behaviour.ExtensionTreatmentResolver;
 import org.onosproject.net.device.DeviceService;
@@ -131,6 +133,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
     private static final int ENCAP_OUTPUT_TABLE = 4;
     private static final int TUNNEL_SEND_TABLE = 7;
     private static final short ENCAP_ETH_TYPE = (short) 0x894f;
+    private static final String DEFAULT_IP = "0.0.0.0";
 
     /* Port chain params */
     private short nshSi;
@@ -277,8 +280,6 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
         selector.extension(nshSpiSelector, deviceId);
         selector.extension(nshSiSelector, deviceId);
-        // TODO match for tunnel in ports
-        selector.matchInPort(PortNumber.portNumber(1));
 
         TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
         treatment.transition(ENCAP_OUTPUT_TABLE);
@@ -294,7 +295,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         ExtensionSelector nshSpiSelector = selectorResolver.getExtensionSelector(NICIRA_MATCH_NSH_SPI.type());
         ExtensionSelector nshSiSelector = selectorResolver.getExtensionSelector(NICIRA_MATCH_NSH_SI.type());
         ExtensionSelector encapEthTypeSelector = selectorResolver.getExtensionSelector(NICIRA_MATCH_ENCAP_ETH_TYPE
-                                                                                       .type());
+                .type());
         try {
             nshSpiSelector.setPropertyValue("nshSpi", nshSpiId);
         } catch (Exception e) {
@@ -314,7 +315,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
         selector.extension(nshSpiSelector, deviceId);
         selector.extension(nshSiSelector, deviceId);
-        selector.extension(encapEthTypeSelector, deviceId);
+        // selector.extension(encapEthTypeSelector, deviceId);
 
         ExtensionTreatmentResolver treatmentResolver = handler.behaviour(ExtensionTreatmentResolver.class);
         ExtensionTreatment tunGpeNpTreatment = treatmentResolver.getExtensionInstruction(NICIRA_TUN_GPE_NP.type());
@@ -326,27 +327,27 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
 
         ExtensionTreatment moveC1ToC1 = treatmentResolver
                 .getExtensionInstruction(ExtensionTreatmentType.ExtensionTreatmentTypes
-                                         .NICIRA_MOV_NSH_C1_TO_C1.type());
+                .NICIRA_MOV_NSH_C1_TO_C1.type());
 
         ExtensionTreatment moveC2ToC2 = treatmentResolver
                 .getExtensionInstruction(ExtensionTreatmentType.ExtensionTreatmentTypes
-                                         .NICIRA_MOV_NSH_C2_TO_C2.type());
+                .NICIRA_MOV_NSH_C2_TO_C2.type());
 
         ExtensionTreatment moveC3ToC3 = treatmentResolver
                 .getExtensionInstruction(ExtensionTreatmentType.ExtensionTreatmentTypes
-                                         .NICIRA_MOV_NSH_C3_TO_C3.type());
+                .NICIRA_MOV_NSH_C3_TO_C3.type());
 
         ExtensionTreatment moveC4ToC4 = treatmentResolver
                 .getExtensionInstruction(ExtensionTreatmentType.ExtensionTreatmentTypes
-                                         .NICIRA_MOV_NSH_C4_TO_C4.type());
+                .NICIRA_MOV_NSH_C4_TO_C4.type());
 
         ExtensionTreatment moveTunIpv4DstToTunIpv4Dst = treatmentResolver
                 .getExtensionInstruction(ExtensionTreatmentType.ExtensionTreatmentTypes
-                                         .NICIRA_MOV_TUN_IPV4_DST_TO_TUN_IPV4_DST.type());
+                .NICIRA_MOV_TUN_IPV4_DST_TO_TUN_IPV4_DST.type());
 
         ExtensionTreatment moveTunIdToTunId = treatmentResolver
                 .getExtensionInstruction(ExtensionTreatmentType.ExtensionTreatmentTypes
-                                         .NICIRA_MOV_TUN_ID_TO_TUN_ID.type());
+                .NICIRA_MOV_TUN_ID_TO_TUN_ID.type());
 
         TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
         treatment.extension(tunGpeNpTreatment, deviceId);
@@ -356,10 +357,20 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         treatment.extension(moveC4ToC4, deviceId);
         treatment.extension(moveTunIpv4DstToTunIpv4Dst, deviceId);
         treatment.extension(moveTunIdToTunId, deviceId);
-        // TODO : send on tunnel ports
-        treatment.setOutput(PortNumber.portNumber(1));
 
-        sendSfcRule(selector, treatment, deviceId, type, TUNNEL_SEND_PRIORITY);
+        Iterable<Device> devices = deviceService.getAvailableDevices();
+        DeviceId localControllerId = getControllerId(deviceService.getDevice(deviceId), devices);
+        DriverHandler controllerHandler = driverService.createHandler(localControllerId);
+
+        BridgeConfig bridgeConfig = controllerHandler.behaviour(BridgeConfig.class);
+        Set<PortNumber> ports = bridgeConfig.getPortNumbers();
+        String tunnelName = "vxlan-" + DEFAULT_IP;
+        ports.stream()
+                .filter(p ->p.name().equalsIgnoreCase(tunnelName))
+                .forEach(p -> {
+                    treatment.setOutput(p);
+                    sendSfcRule(selector, treatment, deviceId, type, TUNNEL_SEND_PRIORITY);
+                });
     }
 
     public void installSfcEndRule(PortPair portPair, NshServicePathId nshSpiId, Objective.Operation type) {
@@ -374,7 +385,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         ExtensionSelector nshSpiSelector = selectorResolver.getExtensionSelector(NICIRA_MATCH_NSH_SPI.type());
         ExtensionSelector nshSiSelector = selectorResolver.getExtensionSelector(NICIRA_MATCH_NSH_SI.type());
         ExtensionSelector encapEthTypeSelector = selectorResolver.getExtensionSelector(NICIRA_MATCH_ENCAP_ETH_TYPE
-                .type());
+                                                                                       .type());
         try {
             nshSpiSelector.setPropertyValue("nshSpi", nshSpiId);
         } catch (Exception e) {
@@ -411,7 +422,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         treatment.add(Instructions.modTunnelId(Long.parseLong(segmentationId.toString())));
 
         ExtensionTreatment resubmitTableTreatment = treatmentResolver.getExtensionInstruction(NICIRA_RESUBMIT_TABLE
-                .type());
+                                                                                              .type());
         try {
             resubmitTableTreatment.setPropertyValue("inPort", PortNumber.portNumber(1));
         } catch (Exception e) {
@@ -470,7 +481,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
             ExtensionTreatmentResolver treatmentResolver = handler.behaviour(ExtensionTreatmentResolver.class);
             ExtensionTreatment moveC2ToTunId = treatmentResolver
                     .getExtensionInstruction(ExtensionTreatmentType.ExtensionTreatmentTypes
-                                             .NICIRA_MOV_NSH_C2_TO_TUN_ID.type());
+                    .NICIRA_MOV_NSH_C2_TO_TUN_ID.type());
 
             Device remoteDevice = deviceService.getDevice(nextDeviceId);
             String url = remoteDevice.annotations().value(SWITCH_CHANNEL_ID);
@@ -481,7 +492,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
             }
 
             ExtensionTreatment tunnelDsttreatment = treatmentResolver.getExtensionInstruction(NICIRA_SET_TUNNEL_DST
-                                                                                              .type());
+                    .type());
             try {
                 tunnelDsttreatment.setPropertyValue("tunnelDst", Ip4Address.valueOf(remoteControllerIp));
             } catch (Exception e) {
@@ -596,10 +607,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
                 sendSfcRule(selector, treatment, deviceId, type, 52000);
                 continue;
             }
-            // classifier and port pair are in the same OVS. So directly
-            // send packet to first port pair
-            TrafficTreatment.Builder treatment = packClassifierTreatment(deviceIdfromPortPair, virtualPort, port,
-                                                                         nshSpiId, flowClassifier);
+
             if (deviceId != null && !deviceId.equals(deviceIdfromPortPair)) {
                 // First SF is in another device. Set tunnel ipv4 destination to
                 // treatment
@@ -619,6 +627,9 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
                 } catch (Exception e) {
                     log.error("Failed to get extension instruction to set tunnel dst {}", deviceId);
                 }
+
+                TrafficTreatment.Builder treatment = packClassifierTreatment(deviceId, virtualPort, port,
+                                                                             nshSpiId, flowClassifier);
                 treatment.extension(tunnelDsttreatment, deviceId);
                 treatment.transition(TUNNEL_SEND_TABLE);
                 sendSfcRule(selector, treatment, deviceId, type, flowClassifier.priority());
@@ -628,6 +639,10 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
                 installSfcTunnelReceiveRule(deviceIdfromPortPair, nshSpiId, type);
 
             } else {
+                // classifier and port pair are in the same OVS. So directly
+                // send packet to first port pair
+                TrafficTreatment.Builder treatment = packClassifierTreatment(deviceIdfromPortPair, virtualPort, port,
+                                                                             nshSpiId, flowClassifier);
                 treatment.transition(ENCAP_OUTPUT_TABLE);
                 sendSfcRule(selector, treatment, deviceIdfromPortPair, type, 52000);
                 classifierList.add(deviceIdfromPortPair);
@@ -801,6 +816,35 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         treatmentBuilder.extension(nshCh4Treatment, deviceId);
 
         return treatmentBuilder;
+    }
+
+    /**
+     * Get the ControllerId from the device .
+     *
+     * @param device Device
+     * @param devices Devices
+     * @return Controller Id
+     */
+    public DeviceId getControllerId(Device device, Iterable<Device> devices) {
+        for (Device d : devices) {
+            if (d.type() == Device.Type.CONTROLLER && d.id().toString()
+                    .contains(getControllerIpOfSwitch(device))) {
+                return d.id();
+            }
+        }
+        log.info("Can not find controller for device : {}", device.id());
+        return null;
+    }
+
+    /**
+     * Get the ControllerIp from the device .
+     *
+     * @param device Device
+     * @return Controller Ip
+     */
+    public String getControllerIpOfSwitch(Device device) {
+        String url = device.annotations().value(SWITCH_CHANNEL_ID);
+        return url.substring(0, url.lastIndexOf(":"));
     }
 
     /**

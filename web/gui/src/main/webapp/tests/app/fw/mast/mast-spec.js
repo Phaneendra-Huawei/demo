@@ -17,16 +17,18 @@
 /*
  ONOS GUI -- Masthead Controller - Unit Tests
  */
+
 describe('Controller: MastCtrl', function () {
     // instantiate the masthead module
-    beforeEach(module('onosMast', 'onosUtil'));
+    beforeEach(module('onosMast', 'onosUtil', 'onosLayer', 'onosWidget', 'onosSvg', 'onosRemote'));
 
     var $log, ctrl, ms, fs;
 
     // we need an instance of the controller
     beforeEach(inject(function(_$log_, $controller, MastService, FnService) {
         $log = _$log_;
-        ctrl = $controller('MastCtrl');
+        var $scope = {}
+        ctrl = $controller('MastCtrl', {$scope: $scope});
         ms = MastService;
         fs = FnService;
     }));

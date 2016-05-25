@@ -23,14 +23,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Stack;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.maven.model.Resource;
 import org.apache.maven.project.MavenProject;
 import org.slf4j.Logger;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
-import static org.apache.commons.io.FileUtils.deleteDirectory;
+import org.onosproject.yangutils.plugin.manager.YangFileInfo;
 import static org.onosproject.yangutils.utils.UtilConstants.COMMA;
 import static org.onosproject.yangutils.utils.UtilConstants.EMPTY_STRING;
 import static org.onosproject.yangutils.utils.UtilConstants.NEW_LINE;
@@ -80,9 +84,11 @@ public final class YangIoUtils {
      * @param path directory path
      * @param classInfo class info for the package
      * @param pack package of the directory
+     * @param isChildNode is it a child node
      * @throws IOException when fails to create package info file
      */
-    public static void addPackageInfo(File path, String classInfo, String pack) throws IOException {
+    public static void addPackageInfo(File path, String classInfo, String pack, boolean isChildNode)
+            throws IOException {
 
         if (pack.contains(ORG)) {
             String[] strArray = pack.split(ORG);
@@ -97,7 +103,7 @@ public final class YangIoUtils {
             BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
 
             bufferedWriter.write(CopyrightHeader.getCopyrightHeader());
-            bufferedWriter.write(getJavaDoc(PACKAGE_INFO, classInfo, false));
+            bufferedWriter.write(getJavaDoc(PACKAGE_INFO, classInfo, isChildNode));
             bufferedWriter.write(PACKAGE + SPACE + pack + SEMI_COLAN);
 
             bufferedWriter.close();
@@ -113,14 +119,48 @@ public final class YangIoUtils {
      * @param dir generated directory in previous build
      * @throws IOException when failed to delete directory
      */
-    public static void clean(String dir) throws IOException {
+    public static void deleteDirectory(String dir) throws IOException {
         File generatedDirectory = new File(dir);
         if (generatedDirectory.exists()) {
             try {
-                deleteDirectory(generatedDirectory);
+                FileUtils.deleteDirectory(generatedDirectory);
             } catch (IOException e) {
-                throw new IOException("Failed to delete the generated files in " + generatedDirectory + " directory");
+                throw new IOException(
+                        "Failed to delete the generated files in " + generatedDirectory + " directory");
             }
+        }
+    }
+
+    /**
+     * Searches and deletes generated temporary directories.
+     *
+     * @param root root directory
+     * @throws IOException when fails to do IO operations.
+     */
+    public static void searchAndDeleteTempDir(String root) throws IOException {
+        List<File> store = new LinkedList<>();
+        Stack<String> stack = new Stack<>();
+        stack.push(root);
+
+        while (!stack.empty()) {
+            root = stack.pop();
+            File file = new File(root);
+            File[] filelist = file.listFiles();
+            if (filelist == null || filelist.length == 0) {
+                continue;
+            }
+            for (File current : filelist) {
+                if (current.isDirectory()) {
+                    stack.push(current.toString());
+                    if (current.getName().endsWith("-Temp")) {
+                        store.add(current);
+                    }
+                }
+            }
+        }
+
+        for (File dir : store) {
+            FileUtils.deleteDirectory(dir);
         }
     }
 
@@ -207,15 +247,15 @@ public final class YangIoUtils {
     /**
      * Copies YANG files to the current project's output directory.
      *
-     * @param yangFiles list of YANG files
+     * @param yangFileInfo list of YANG files
      * @param outputDir project's output directory
      * @param project maven project
      * @throws IOException when fails to copy files to destination resource directory
      */
-    public static void copyYangFilesToTarget(List<String> yangFiles, String outputDir, MavenProject project)
+    public static void copyYangFilesToTarget(List<YangFileInfo> yangFileInfo, String outputDir, MavenProject project)
             throws IOException {
 
-        List<File> files = getListOfFile(yangFiles);
+        List<File> files = getListOfFile(yangFileInfo);
 
         String path = outputDir + TARGET_RESOURCE_PATH;
         File targetDir = new File(path);
@@ -234,13 +274,15 @@ public final class YangIoUtils {
     /**
      * Provides a list of files from list of strings.
      *
-     * @param strings list of strings
+     * @param yangFileInfo list of yang file information
      * @return list of files
      */
-    private static List<File> getListOfFile(List<String> strings) {
+    private static List<File> getListOfFile(List<YangFileInfo> yangFileInfo) {
         List<File> files = new ArrayList<>();
-        for (String file : strings) {
-            files.add(new File(file));
+        Iterator<YangFileInfo> yangFileIterator = yangFileInfo.iterator();
+        while (yangFileIterator.hasNext()) {
+            YangFileInfo yangFile = yangFileIterator.next();
+            files.add(new File(yangFile.getYangFileName()));
         }
         return files;
     }

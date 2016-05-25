@@ -16,10 +16,10 @@
 
 package org.onosproject.net.flow.instructions;
 
-import java.util.Objects;
-
 import com.google.common.annotations.Beta;
 import com.google.common.base.MoreObjects;
+
+import java.util.Objects;
 
 /**
  * Type of treatment extensions.
@@ -28,8 +28,8 @@ import com.google.common.base.MoreObjects;
 public final class ExtensionTreatmentType {
 
     /**
-     * A list of well-known named extension instruction type codes. These
-     * numbers have no impact on the actual OF type id.
+     * A list of well-known named extension instruction type codes.
+     * These numbers have no impact on the actual OF type id.
      */
     public enum ExtensionTreatmentTypes {
         NICIRA_SET_TUNNEL_DST(0),
@@ -123,6 +123,8 @@ public final class ExtensionTreatmentType {
 
     @Override
     public String toString() {
-        return MoreObjects.toStringHelper(ExtensionTreatmentType.class).add("type", type).toString();
+        return MoreObjects.toStringHelper(ExtensionTreatmentType.class)
+                .add("type", type)
+                .toString();
     }
 }

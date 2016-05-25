@@ -25,10 +25,14 @@ describe('factory: fw/widget/tableBuilder.js', function () {
         mockWss = {
             bindHandlers: function () {},
             sendEvent: function () {},
-            unbindHandlers: function () {}
+            unbindHandlers: function () {},
+            _setLoadingDelegate: function(){},
+            isConnected: function() {
+                return true;
+            }
         };
 
-    beforeEach(module('onosWidget', 'onosUtil', 'onosRemote', 'onosSvg'));
+    beforeEach(module('onosWidget', 'onosUtil', 'onosRemote', 'onosSvg', 'onosLayer'));
 
     beforeEach(function () {
         module(function ($provide) {

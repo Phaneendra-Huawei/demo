@@ -19,13 +19,14 @@ package org.onosproject.yangutils.utils.io.impl;
 import org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax;
 
 import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCamelCase;
-import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCaptialCase;
 import static org.onosproject.yangutils.utils.UtilConstants.BUILDER;
 import static org.onosproject.yangutils.utils.UtilConstants.BUILDER_CLASS_JAVA_DOC;
 import static org.onosproject.yangutils.utils.UtilConstants.BUILDER_INTERFACE_JAVA_DOC;
 import static org.onosproject.yangutils.utils.UtilConstants.BUILDER_OBJECT;
 import static org.onosproject.yangutils.utils.UtilConstants.ENUM_ATTRIBUTE_JAVADOC;
 import static org.onosproject.yangutils.utils.UtilConstants.ENUM_CLASS_JAVADOC;
+import static org.onosproject.yangutils.utils.UtilConstants.EVENT_JAVA_DOC;
+import static org.onosproject.yangutils.utils.UtilConstants.EVENT_LISTENER_JAVA_DOC;
 import static org.onosproject.yangutils.utils.UtilConstants.FOUR_SPACE_INDENTATION;
 import static org.onosproject.yangutils.utils.UtilConstants.FROM_STRING_METHOD_NAME;
 import static org.onosproject.yangutils.utils.UtilConstants.FROM_STRING_PARAM_NAME;
@@ -39,6 +40,7 @@ import static org.onosproject.yangutils.utils.UtilConstants.JAVA_DOC_CONSTRUCTOR
 import static org.onosproject.yangutils.utils.UtilConstants.JAVA_DOC_END_LINE;
 import static org.onosproject.yangutils.utils.UtilConstants.JAVA_DOC_FIRST_LINE;
 import static org.onosproject.yangutils.utils.UtilConstants.JAVA_DOC_GETTERS;
+import static org.onosproject.yangutils.utils.UtilConstants.JAVA_DOC_MANAGER_SETTERS;
 import static org.onosproject.yangutils.utils.UtilConstants.JAVA_DOC_OF;
 import static org.onosproject.yangutils.utils.UtilConstants.JAVA_DOC_PARAM;
 import static org.onosproject.yangutils.utils.UtilConstants.JAVA_DOC_RETURN;
@@ -51,12 +53,14 @@ import static org.onosproject.yangutils.utils.UtilConstants.NEW_LINE_ASTERISK;
 import static org.onosproject.yangutils.utils.UtilConstants.OBJECT;
 import static org.onosproject.yangutils.utils.UtilConstants.OF;
 import static org.onosproject.yangutils.utils.UtilConstants.PACKAGE_INFO_JAVADOC;
+import static org.onosproject.yangutils.utils.UtilConstants.PACKAGE_INFO_JAVADOC_OF_CHILD;
 import static org.onosproject.yangutils.utils.UtilConstants.PERIOD;
 import static org.onosproject.yangutils.utils.UtilConstants.RPC_INPUT_STRING;
 import static org.onosproject.yangutils.utils.UtilConstants.RPC_OUTPUT_STRING;
 import static org.onosproject.yangutils.utils.UtilConstants.SPACE;
 import static org.onosproject.yangutils.utils.UtilConstants.STRING_DATA_TYPE;
 import static org.onosproject.yangutils.utils.UtilConstants.VALUE;
+import static org.onosproject.yangutils.utils.UtilConstants.VOID;
 
 /**
  * Represents javadoc for the generated classes.
@@ -105,9 +109,24 @@ public final class JavaDocGen {
         GETTER_METHOD,
 
         /**
-         * For rpc.
+         * For rpc service.
          */
         RPC_INTERFACE,
+
+        /**
+         * For rpc manager.
+         */
+        RPC_MANAGER,
+
+        /**
+         * For event.
+         */
+        EVENT,
+
+        /**
+         * For event listener.
+         */
+        EVENT_LISTENER,
 
         /**
          * For setters.
@@ -157,14 +176,19 @@ public final class JavaDocGen {
         /**
          * For enum's attributes.
          */
-        ENUM_ATTRIBUTE
+        ENUM_ATTRIBUTE,
+
+        /**
+         * For manager setters.
+         */
+        MANAGER_SETTER_METHOD
     }
 
     /**
      * Returns java docs.
      *
-     * @param type   java doc type
-     * @param name   name of the YangNode
+     * @param type java doc type
+     * @param name name of the YangNode
      * @param isList is list attribute
      * @return javadocs.
      */
@@ -185,7 +209,7 @@ public final class JavaDocGen {
                 return generateForBuilderInterface(name);
             }
             case PACKAGE_INFO: {
-                return generateForPackage(name);
+                return generateForPackage(name, isList);
             }
             case GETTER_METHOD: {
                 return generateForGetters(name, isList);
@@ -195,6 +219,9 @@ public final class JavaDocGen {
             }
             case SETTER_METHOD: {
                 return generateForSetters(name, isList);
+            }
+            case MANAGER_SETTER_METHOD: {
+                return generateForManagerSetters(name, isList);
             }
             case OF_METHOD: {
                 return generateForOf(name);
@@ -218,7 +245,16 @@ public final class JavaDocGen {
                 return generateForEnumAttr(name);
             }
             case RPC_INTERFACE: {
-                return generateForRpcInterface(name);
+               return generateForRpcService(name);
+            }
+            case RPC_MANAGER: {
+               return generateForImplClass(name);
+            }
+            case EVENT: {
+                return generateForEvent(name);
+            }
+            case EVENT_LISTENER: {
+                return generateForEventListener(name);
             }
             default: {
                 return generateForConstructors(name);
@@ -240,27 +276,28 @@ public final class JavaDocGen {
     /**
      * Generates javaDocs for rpc method.
      *
-     * @param rpcName    name of the rpc
-     * @param inputName  name of input
+     * @param rpcName name of the rpc
+     * @param inputName name of input
      * @param outputName name of output
      * @return javaDocs of rpc method
      */
     public static String generateJavaDocForRpc(String rpcName, String inputName, String outputName) {
         rpcName = getCamelCase(rpcName, null);
-        inputName = getCaptialCase(inputName);
-        outputName = getCaptialCase(outputName);
 
-        return NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_FIRST_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_RPC
+        String javadoc = NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_FIRST_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_RPC
                 + rpcName + PERIOD + NEW_LINE + FOUR_SPACE_INDENTATION + NEW_LINE_ASTERISK
-                + getInputString(inputName, rpcName) + getOutputString(outputName, rpcName) + FOUR_SPACE_INDENTATION
-                + JAVA_DOC_END_LINE;
+                + getInputString(inputName, rpcName);
+        if (!outputName.equals(VOID)) {
+            javadoc = javadoc + getOutputString(outputName, rpcName);
+        }
+        return javadoc + FOUR_SPACE_INDENTATION + JAVA_DOC_END_LINE;
     }
 
     /**
      * Returns output string of rpc.
      *
      * @param outputName name of output
-     * @param rpcName    name of rpc
+     * @param rpcName name of rpc
      * @return javaDocs for output string of rpc
      */
     private static String getOutputString(String outputName, String rpcName) {
@@ -271,7 +308,7 @@ public final class JavaDocGen {
      * Returns input string of rpc.
      *
      * @param inputName name of input
-     * @param rpcName   name of rpc
+     * @param rpcName name of rpc
      * @return javaDocs for input string of rpc
      */
     private static String getInputString(String inputName, String rpcName) {
@@ -288,16 +325,38 @@ public final class JavaDocGen {
      * @param interfaceName interface name
      * @return javaDocs
      */
-    private static String generateForRpcInterface(String interfaceName) {
+    private static String generateForRpcService(String interfaceName) {
         return NEW_LINE + JAVA_DOC_FIRST_LINE + INTERFACE_JAVA_DOC + interfaceName + PERIOD + NEW_LINE
                 + JAVA_DOC_END_LINE;
+    }
+
+    /**
+     * Generates javaDoc for the event.
+     *
+     * @param eventClassName event class name
+     * @return javaDocs
+     */
+    private static String generateForEvent(String eventClassName) {
+        return NEW_LINE + JAVA_DOC_FIRST_LINE + EVENT_JAVA_DOC + eventClassName + PERIOD + NEW_LINE
+                + JAVA_DOC_END_LINE;
+    }
+
+    /**
+     * Generates javaDoc for the event listener.
+     *
+     * @param eventListenerInterfaceName event class name
+     * @return javaDocs
+     */
+    private static String generateForEventListener(String eventListenerInterfaceName) {
+        return NEW_LINE + JAVA_DOC_FIRST_LINE + EVENT_LISTENER_JAVA_DOC + eventListenerInterfaceName
+                + PERIOD + NEW_LINE + JAVA_DOC_END_LINE;
     }
 
     /**
      * Generates javaDocs for getter method.
      *
      * @param attribute attribute
-     * @param isList    is list attribute
+     * @param isList is list attribute
      * @return javaDocs
      */
     private static String generateForGetters(String attribute, boolean isList) {
@@ -320,7 +379,7 @@ public final class JavaDocGen {
      * Generates javaDocs for setter method.
      *
      * @param attribute attribute
-     * @param isList    is list attribute
+     * @param isList is list attribute
      * @return javaDocs
      */
     private static String generateForSetters(String attribute, boolean isList) {
@@ -335,6 +394,29 @@ public final class JavaDocGen {
             setter = setter + VALUE + SPACE + OF + SPACE;
         }
         setter = setter + attribute + NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_RETURN + BUILDER_OBJECT + attribute
+                + NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_END_LINE;
+        return setter;
+    }
+
+    /**
+     * Generates javaDocs for setter method.
+     *
+     * @param attribute attribute
+     * @param isList is list attribute
+     * @return javaDocs
+     */
+    private static String generateForManagerSetters(String attribute, boolean isList) {
+
+        String setter = NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_FIRST_LINE + FOUR_SPACE_INDENTATION
+                + JAVA_DOC_MANAGER_SETTERS + attribute + PERIOD + NEW_LINE + FOUR_SPACE_INDENTATION + NEW_LINE_ASTERISK
+                + FOUR_SPACE_INDENTATION + JAVA_DOC_PARAM + attribute + SPACE;
+        if (isList) {
+            String listAttribute = LIST.toLowerCase() + SPACE + OF + SPACE;
+            setter = setter + listAttribute;
+        } else {
+            setter = setter + VALUE + SPACE + OF + SPACE;
+        }
+        setter = setter + attribute
                 + NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_END_LINE;
         return setter;
     }
@@ -364,7 +446,7 @@ public final class JavaDocGen {
         return NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_FIRST_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_OF
                 + attribute + SPACE + FROM_STRING_METHOD_NAME + SPACE + INPUT + SPACE + STRING_DATA_TYPE + PERIOD
                 + NEW_LINE + FOUR_SPACE_INDENTATION + NEW_LINE_ASTERISK + FOUR_SPACE_INDENTATION + JAVA_DOC_PARAM
-                + FROM_STRING_PARAM_NAME + SPACE + INPUT + SPACE + STRING_DATA_TYPE + PERIOD + NEW_LINE
+                + FROM_STRING_PARAM_NAME + SPACE + INPUT + SPACE + STRING_DATA_TYPE + NEW_LINE
                 + FOUR_SPACE_INDENTATION + JAVA_DOC_RETURN + OBJECT + SPACE + OF + SPACE + attribute + NEW_LINE
                 + FOUR_SPACE_INDENTATION + JAVA_DOC_END_LINE;
     }
@@ -440,10 +522,15 @@ public final class JavaDocGen {
      * Generates javaDocs for package-info.
      *
      * @param packageName package name
+     * @param isChildNode is it child node
      * @return javaDocs
      */
-    private static String generateForPackage(String packageName) {
-        return JAVA_DOC_FIRST_LINE + PACKAGE_INFO_JAVADOC + packageName + PERIOD + NEW_LINE + JAVA_DOC_END_LINE;
+    private static String generateForPackage(String packageName, boolean isChildNode) {
+        String javaDoc = JAVA_DOC_FIRST_LINE + PACKAGE_INFO_JAVADOC + packageName;
+        if (isChildNode) {
+            javaDoc = javaDoc + PACKAGE_INFO_JAVADOC_OF_CHILD;
+        }
+        return javaDoc + PERIOD + NEW_LINE + JAVA_DOC_END_LINE;
     }
 
     /**
@@ -464,11 +551,10 @@ public final class JavaDocGen {
      * @return javaDocs
      */
     private static String generateForConstructors(String className) {
-        return NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_FIRST_LINE
-                + FOUR_SPACE_INDENTATION + JAVA_DOC_CONSTRUCTOR + className + IMPL + PERIOD + NEW_LINE
-                + FOUR_SPACE_INDENTATION + NEW_LINE_ASTERISK + FOUR_SPACE_INDENTATION + JAVA_DOC_PARAM
-                + BUILDER.toLowerCase() + OBJECT + SPACE + BUILDER_OBJECT + className + NEW_LINE
-                + FOUR_SPACE_INDENTATION + JAVA_DOC_END_LINE;
+        return NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_FIRST_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_CONSTRUCTOR
+                + className + IMPL + PERIOD + NEW_LINE + FOUR_SPACE_INDENTATION + NEW_LINE_ASTERISK
+                + FOUR_SPACE_INDENTATION + JAVA_DOC_PARAM + BUILDER.toLowerCase() + OBJECT + SPACE + BUILDER_OBJECT
+                + className + NEW_LINE + FOUR_SPACE_INDENTATION + JAVA_DOC_END_LINE;
     }
 
     /**

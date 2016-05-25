@@ -19,7 +19,7 @@
     <parent>
         <artifactId>onos-incubator</artifactId>
         <groupId>org.onosproject</groupId>
-        <version>1.6.0-SNAPSHOT</version>
+        <version>1.7.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>onos-incubator-rpc-grpc</artifactId>
@@ -30,10 +30,11 @@
 
     <properties>
         <onos.app.name>org.onosproject.incubator.rpc.grpc</onos.app.name>
-        <onos.app.requires>org.onosproject.incubator.rpc</onos.app.requires>
+        <onos.app.requires>org.onosproject.incubator.rpc,org.onosproject.incubator.protobuf</onos.app.requires>
+        <protobuf.version>3.0.0-beta-2</protobuf.version>
         <!-- Note: update feature.xml when updating -->
-        <grpc.version>0.13.2</grpc.version>
-        <grpc.netty.version>4.1.0.CR3</grpc.netty.version>
+        <grpc.version>0.14.0</grpc.version>
+        <grpc.netty.version>4.1.0.CR7</grpc.netty.version>
     </properties>
 
     <dependencies>
@@ -51,13 +52,7 @@
             <groupId>org.onosproject</groupId>
             <artifactId>onlab-osgi</artifactId>
         </dependency>
-<!--
-        <dependency>
-            <groupId>io.grpc</groupId>
-            <artifactId>grpc-all</artifactId>
-            <version>${grpc.version}</version>
-        </dependency>
--->
+
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-core</artifactId>
@@ -98,10 +93,17 @@
         </dependency>
 
         <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-incubator-protobuf</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.felix</groupId>
             <artifactId>org.apache.felix.scr.annotations</artifactId>
             <scope>provided</scope>
         </dependency>
+
     </dependencies>
 
     <build>
@@ -206,7 +208,7 @@
                     <!-- The version of protoc must match protobuf-java. If you don't 
                         depend on protobuf-java directly, you will be transitively depending on the 
                         protobuf-java version that grpc depends on. -->
-                    <protocArtifact>com.google.protobuf:protoc:3.0.0-beta-2:exe:${os.detected.classifier}</protocArtifact>
+                    <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
                     <pluginId>grpc-java</pluginId>
                     <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
                     <checkStaleness>true</checkStaleness>

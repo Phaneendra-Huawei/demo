@@ -59,7 +59,8 @@ import static org.onosproject.yangutils.utils.YangConstructType.CHOICE_DATA;
 /**
  * Represents data model node to maintain information defined in YANG choice.
  */
-public class YangChoice extends YangNode implements YangCommonInfo, Parsable, CollisionDetector {
+public class YangChoice extends YangNode
+        implements YangCommonInfo, Parsable, CollisionDetector, YangAugmentationHolder {
 
     /**
      * Name of choice.
@@ -132,6 +133,12 @@ public class YangChoice extends YangNode implements YangCommonInfo, Parsable, Co
      * Status of the node.
      */
     private YangStatusType status;
+
+    /**
+     * Default value in string, needs to be converted to the target object,
+     * based on the type.
+     */
+    private String defaultValueInString;
 
     /**
      * Create a choice node.
@@ -272,6 +279,24 @@ public class YangChoice extends YangNode implements YangCommonInfo, Parsable, Co
     @Override
     public void setStatus(YangStatusType status) {
         this.status = status;
+    }
+
+    /**
+     * Returns the default value.
+     *
+     * @return the default value
+     */
+    public String getDefaultValueInString() {
+        return defaultValueInString;
+    }
+
+    /**
+     * Sets the default value.
+     *
+     * @param defaultValueInString the default value
+     */
+    public void setDefaultValueInString(String defaultValueInString) {
+        this.defaultValueInString = defaultValueInString;
     }
 
     /**

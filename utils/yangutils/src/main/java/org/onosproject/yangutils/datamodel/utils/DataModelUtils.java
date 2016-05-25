@@ -16,18 +16,21 @@
 
 package org.onosproject.yangutils.datamodel.utils;
 
+import java.util.Iterator;
 import java.util.List;
 
 import org.onosproject.yangutils.datamodel.CollisionDetector;
-import org.onosproject.yangutils.datamodel.HasResolutionInfo;
 import org.onosproject.yangutils.datamodel.YangImport;
 import org.onosproject.yangutils.datamodel.YangLeaf;
 import org.onosproject.yangutils.datamodel.YangLeafList;
 import org.onosproject.yangutils.datamodel.YangLeavesHolder;
 import org.onosproject.yangutils.datamodel.YangNode;
+import org.onosproject.yangutils.datamodel.YangReferenceResolver;
 import org.onosproject.yangutils.datamodel.YangResolutionInfo;
+import org.onosproject.yangutils.datamodel.YangRpc;
 import org.onosproject.yangutils.datamodel.exceptions.DataModelException;
 import org.onosproject.yangutils.parser.Parsable;
+import org.onosproject.yangutils.plugin.manager.YangFileInfo;
 import org.onosproject.yangutils.utils.YangConstructType;
 
 /**
@@ -112,9 +115,9 @@ public final class DataModelUtils {
             return;
         }
         for (YangLeaf leaf : listOfLeaf) {
-            if (leaf.getLeafName().equals(identifierName)) {
+            if (leaf.getName().equals(identifierName)) {
                 throw new DataModelException("YANG file error: Duplicate input identifier detected, same as leaf \""
-                        + leaf.getLeafName() + "\"");
+                        + leaf.getName() + "\"");
             }
         }
     }
@@ -133,10 +136,10 @@ public final class DataModelUtils {
         if (listOfLeafList == null) {
             return;
         }
-       for (YangLeafList leafList : listOfLeafList) {
-            if (leafList.getLeafName().equals(identifierName)) {
+        for (YangLeafList leafList : listOfLeafList) {
+            if (leafList.getName().equals(identifierName)) {
                 throw new DataModelException("YANG file error: Duplicate input identifier detected, same as leaf " +
-                        "list \"" + leafList.getLeafName() + "\"");
+                        "list \"" + leafList.getName() + "\"");
             }
         }
     }
@@ -154,13 +157,13 @@ public final class DataModelUtils {
         /* get the module node to add maintain the list of nested reference */
         YangNode curNode = resolutionInfo.getEntityToResolveInfo()
                 .getHolderOfEntityToResolve();
-        while (!(curNode instanceof HasResolutionInfo)) {
+        while (!(curNode instanceof YangReferenceResolver)) {
             curNode = curNode.getParent();
             if (curNode == null) {
                 throw new DataModelException("Internal datamodel error: Datamodel tree is not correct");
             }
         }
-        HasResolutionInfo resolutionNode = (HasResolutionInfo) curNode;
+        YangReferenceResolver resolutionNode = (YangReferenceResolver) curNode;
 
         if (!isPrefixValid(resolutionInfo.getEntityToResolveInfo().getEntityPrefix(),
                 resolutionNode)) {
@@ -176,7 +179,7 @@ public final class DataModelUtils {
      * @param resolutionNode uses/type node which has the prefix with it
      * @return whether prefix is valid or not
      */
-    private static boolean isPrefixValid(String entityPrefix, HasResolutionInfo resolutionNode) {
+    private static boolean isPrefixValid(String entityPrefix, YangReferenceResolver resolutionNode) {
         if (entityPrefix == null) {
             return true;
         }
@@ -215,11 +218,50 @@ public final class DataModelUtils {
      * @throws DataModelException a violation of data model rules
      */
     public static void resolveLinkingForResolutionList(List<YangResolutionInfo> resolutionList,
-            HasResolutionInfo dataModelRootNode)
+            YangReferenceResolver dataModelRootNode)
             throws DataModelException {
 
         for (YangResolutionInfo resolutionInfo : resolutionList) {
             resolutionInfo.resolveLinkingForResolutionInfo(dataModelRootNode.getPrefix());
         }
+    }
+
+    /**
+     * Checks if there is any rpc defined in the module or sub-module.
+     *
+     * @param rootNode root node of the data model
+     * @return status of rpc's existence
+     */
+    public static boolean isRpcChildNodePresent(YangNode rootNode) {
+        YangNode childNode = rootNode.getChild();
+        while (childNode != null) {
+            if (childNode instanceof YangRpc) {
+                return true;
+            }
+            childNode = childNode.getNextSibling();
+        }
+        return false;
+    }
+
+    /**
+     * Returns module's data model node to which sub-module belongs to.
+     *
+     * @param yangFileInfo YANG file information
+     * @param belongsToModuleName name of the module to which sub-module belongs to
+     * @return module node to which sub-module belongs to
+     * @throws DataModelException when belongs to module node is not found
+     */
+    public static YangNode findBelongsToModuleNode(List<YangFileInfo> yangFileInfo,
+                String belongsToModuleName) throws DataModelException {
+        Iterator<YangFileInfo> yangFileIterator = yangFileInfo.iterator();
+        while (yangFileIterator.hasNext()) {
+            YangFileInfo yangFile = yangFileIterator.next();
+            YangNode yangNode = yangFile.getRootNode();
+            if (yangNode.getName().equals(belongsToModuleName)) {
+                return yangNode;
+            }
+        }
+        throw new DataModelException("YANG file error : Module " + belongsToModuleName + " to which sub-module " +
+                "belongs to is not found.");
     }
 }

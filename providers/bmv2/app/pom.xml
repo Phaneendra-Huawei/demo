@@ -21,7 +21,7 @@
     <parent>
         <artifactId>onos-bmv2-providers</artifactId>
         <groupId>org.onosproject</groupId>
-        <version>1.6.0-SNAPSHOT</version>
+        <version>1.7.0-SNAPSHOT</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -36,11 +36,16 @@
         <onos.app.title>BMv2 Provider</onos.app.title>
         <onos.app.category>Provider</onos.app.category>
     </properties>
-    
+
     <dependencies>
         <dependency>
             <groupId>org.onosproject</groupId>
             <artifactId>onos-bmv2-provider-device</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-bmv2-provider-packet</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

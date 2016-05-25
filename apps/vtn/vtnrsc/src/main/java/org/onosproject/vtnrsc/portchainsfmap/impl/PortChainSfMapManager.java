@@ -42,9 +42,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 /**
- * Provides implementation of the PortChainSfMapService. A port pair group is
- * nothing but group of similar service functions. A port pair is nothing but a
- * service function.
+ * Provides implementation of the PortChainSfMapService.
+ * A port pair group is nothing but group of similar service functions.
+ * A port pair is nothing but a service function.
  */
 @Component(immediate = true)
 @Service

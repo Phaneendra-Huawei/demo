@@ -19,20 +19,18 @@ package org.onosproject.yangutils.parser.impl.listeners;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ListIterator;
-
 import org.junit.Rule;
 import org.junit.Test;
-
 import org.junit.rules.ExpectedException;
-import org.onosproject.yangutils.datamodel.YangNode;
-import org.onosproject.yangutils.datamodel.YangModule;
-import org.onosproject.yangutils.datamodel.YangNodeType;
+import org.onosproject.yangutils.datamodel.YangDataTypes;
 import org.onosproject.yangutils.datamodel.YangLeaf;
 import org.onosproject.yangutils.datamodel.YangLeafList;
-import org.onosproject.yangutils.datamodel.YangDataTypes;
-import org.onosproject.yangutils.datamodel.YangStringRestriction;
+import org.onosproject.yangutils.datamodel.YangModule;
+import org.onosproject.yangutils.datamodel.YangNode;
+import org.onosproject.yangutils.datamodel.YangNodeType;
 import org.onosproject.yangutils.datamodel.YangRangeInterval;
 import org.onosproject.yangutils.datamodel.YangRangeRestriction;
+import org.onosproject.yangutils.datamodel.YangStringRestriction;
 import org.onosproject.yangutils.datamodel.YangTypeDef;
 import org.onosproject.yangutils.parser.exceptions.ParserException;
 import org.onosproject.yangutils.parser.impl.YangUtilsParserManager;
@@ -67,15 +65,15 @@ public class LengthRestrictionListenerTest {
         ListIterator<YangLeaf> leafIterator = yangNode.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
         YangStringRestriction stringRestriction = (YangStringRestriction) leafInfo
-                                                    .getDataType().getDataTypeExtendedInfo();
+                .getDataType().getDataTypeExtendedInfo();
         YangRangeRestriction lengthRestriction = stringRestriction.getLengthRestriction();
 
         ListIterator<YangRangeInterval> lengthListIterator = lengthRestriction.getAscendingRangeIntervals()
-                                                    .listIterator();
+                .listIterator();
 
         YangRangeInterval rangeInterval = lengthListIterator.next();
 
@@ -99,7 +97,7 @@ public class LengthRestrictionListenerTest {
         ListIterator<YangLeafList> leafListIterator = yangNode.getListOfLeafList().listIterator();
         YangLeafList leafListInfo = leafListIterator.next();
 
-        assertThat(leafListInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafListInfo.getName(), is("invalid-interval"));
         assertThat(leafListInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafListInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
         YangStringRestriction stringRestriction = (YangStringRestriction) leafListInfo
@@ -167,7 +165,7 @@ public class LengthRestrictionListenerTest {
         ListIterator<YangLeafList> leafListIterator = yangNode.getListOfLeafList().listIterator();
         YangLeafList leafListInfo = leafListIterator.next();
 
-        assertThat(leafListInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafListInfo.getName(), is("invalid-interval"));
         assertThat(leafListInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafListInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
         YangStringRestriction stringRestriction = (YangStringRestriction) leafListInfo
@@ -199,7 +197,7 @@ public class LengthRestrictionListenerTest {
         ListIterator<YangLeafList> leafListIterator = yangNode.getListOfLeafList().listIterator();
         YangLeafList leafListInfo = leafListIterator.next();
 
-        assertThat(leafListInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafListInfo.getName(), is("invalid-interval"));
         assertThat(leafListInfo.getDataType().getDataTypeName(), is("string"));
         assertThat(leafListInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
         YangStringRestriction stringRestriction = (YangStringRestriction) leafListInfo
@@ -220,7 +218,7 @@ public class LengthRestrictionListenerTest {
     @Test
     public void processLengthWithInvalidIntegerPattern() throws IOException, ParserException {
         thrown.expect(ParserException.class);
-        thrown.expectMessage("YANG file error : a is not valid.");
+        thrown.expectMessage("YANG file error : Input value \"a\" is not a valid uint64.");
         YangNode node = manager.getDataModel("src/test/resources/LengthWithInvalidIntegerPattern.yang");
     }
 
@@ -233,5 +231,40 @@ public class LengthRestrictionListenerTest {
         thrown.expectMessage("YANG file error : 18446744073709551617 is greater than maximum value" +
                 " 18446744073709551615.");
         YangNode node = manager.getDataModel("src/test/resources/LengthWithInvalidInterval.yang");
+    }
+
+    /**
+     * Checks valid length substatements.
+     */
+    @Test
+    public void processLengthSubStatements() throws IOException, ParserException {
+
+        YangNode node = manager.getDataModel("src/test/resources/LengthSubStatements.yang");
+
+        assertThat((node instanceof YangModule), is(true));
+        assertThat(node.getNodeType(), is(YangNodeType.MODULE_NODE));
+        YangModule yangNode = (YangModule) node;
+        assertThat(yangNode.getName(), is("Test"));
+
+        ListIterator<YangLeaf> leafIterator = yangNode.getListOfLeaf().listIterator();
+        YangLeaf leafInfo = leafIterator.next();
+
+        assertThat(leafInfo.getName(), is("invalid-interval"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("string"));
+        assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.STRING));
+        YangStringRestriction stringRestriction = (YangStringRestriction) leafInfo
+                .getDataType().getDataTypeExtendedInfo();
+        YangRangeRestriction lengthRestriction = stringRestriction.getLengthRestriction();
+
+        assertThat(lengthRestriction.getDescription(), is("\"length description\""));
+        assertThat(lengthRestriction.getReference(), is("\"length reference\""));
+
+        ListIterator<YangRangeInterval> lengthListIterator = lengthRestriction.getAscendingRangeIntervals()
+                .listIterator();
+
+        YangRangeInterval rangeInterval = lengthListIterator.next();
+
+        assertThat(((YangUint64) rangeInterval.getStartValue()).getValue(), is(BigInteger.valueOf(0)));
+        assertThat(((YangUint64) rangeInterval.getEndValue()).getValue(), is(BigInteger.valueOf(100)));
     }
 }

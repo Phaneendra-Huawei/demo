@@ -78,6 +78,8 @@ import static org.onosproject.yangutils.parser.impl.parserutils.ListenerErrorTyp
 import static org.onosproject.yangutils.parser.impl.parserutils.ListenerErrorType.MISSING_HOLDER;
 import static org.onosproject.yangutils.parser.impl.parserutils.ListenerValidation.checkStackIsNotEmpty;
 import static org.onosproject.yangutils.utils.YangConstructType.ENUM_DATA;
+import static org.onosproject.yangutils.utils.UtilConstants.QUOTES;
+import static org.onosproject.yangutils.utils.UtilConstants.EMPTY_STRING;
 
 /**
  * Represents listener based call back function corresponding to the "enum" rule
@@ -104,8 +106,16 @@ public final class EnumListener {
         checkStackIsNotEmpty(listener, MISSING_HOLDER, ENUM_DATA, ctx.string().getText(), ENTRY);
 
         YangEnum enumNode = new YangEnum();
-        enumNode.setNamedValue(ctx.string().getText());
+        enumNode.setNamedValue(getValidNamedValue(ctx.string().getText()));
         listener.getParsedDataStack().push(enumNode);
+    }
+
+    /*Removes quotes from the enum name if present.*/
+    private static String getValidNamedValue(String name) {
+        if (name.contains(QUOTES)) {
+            name = name.replace(QUOTES, EMPTY_STRING);
+        }
+        return name;
     }
 
     /**
@@ -136,7 +146,14 @@ public final class EnumListener {
                         boolean isValuePresent = false;
 
                         for (YangEnum curEnum : yangEnumeration.getEnumSet()) {
-                            if (maxValue <= curEnum.getValue()) {
+                            if (curEnum.getValue() == Integer.MAX_VALUE) {
+                                ParserException parserException = new ParserException("YANG file error : "
+                                        + "An enum value MUST be specified for enum substatements following the one"
+                                        + "with the current highest value");
+                                parserException.setLine(ctx.getStart().getLine());
+                                parserException.setCharPosition(ctx.getStart().getCharPositionInLine());
+                                throw parserException;
+                            } else if (maxValue <= curEnum.getValue()) {
                                 maxValue = curEnum.getValue();
                                 isValuePresent = true;
                             }
@@ -151,8 +168,8 @@ public final class EnumListener {
                     } catch (DataModelException e) {
                         ParserException parserException = new ParserException(constructExtendedListenerErrorMessage(
                                 DUPLICATE_ENTRY, ENUM_DATA, ctx.string().getText(), EXIT, e.getMessage()));
-                        parserException.setLine(ctx.string().STRING(0).getSymbol().getLine());
-                        parserException.setCharPosition(ctx.string().STRING(0).getSymbol().getCharPositionInLine());
+                        parserException.setLine(ctx.getStart().getLine());
+                        parserException.setCharPosition(ctx.getStart().getCharPositionInLine());
                         throw parserException;
                     }
                     break;

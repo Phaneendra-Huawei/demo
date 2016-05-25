@@ -22,7 +22,7 @@
     <parent>
         <groupId>org.onosproject</groupId>
         <artifactId>onos-apps</artifactId>
-        <version>1.6.0-SNAPSHOT</version>
+        <version>1.7.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -37,6 +37,7 @@
         <onos.app.category>Traffic Steering</onos.app.category>
         <onos.app.url>http://onosproject.org</onos.app.url>
         <onos.app.readme>IGMP implementation.</onos.app.readme>
+        <onos.app.requires>org.onosproject.cord-config</onos.app.requires>
     </properties>
 
     <dependencies>
@@ -61,6 +62,12 @@
         <dependency>
             <groupId>org.onosproject</groupId>
             <artifactId>onlab-osgi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-cord-config</artifactId>
             <version>${project.version}</version>
         </dependency>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Open Networking Laboratory
+ * Copyright 2016-present Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,27 @@
 
 package org.onosproject.yangutils.parser.impl.listeners;
 
-import org.onosproject.yangutils.datamodel.YangDerivedInfo;
-import org.onosproject.yangutils.datamodel.YangType;
-import org.onosproject.yangutils.datamodel.YangStringRestriction;
 import org.onosproject.yangutils.datamodel.YangDataTypes;
+import org.onosproject.yangutils.datamodel.YangDerivedInfo;
+import org.onosproject.yangutils.datamodel.YangPatternRestriction;
+import org.onosproject.yangutils.datamodel.YangStringRestriction;
+import org.onosproject.yangutils.datamodel.YangType;
 import org.onosproject.yangutils.parser.Parsable;
 import org.onosproject.yangutils.parser.antlrgencode.GeneratedYangParser;
 import org.onosproject.yangutils.parser.exceptions.ParserException;
 import org.onosproject.yangutils.parser.impl.TreeWalkListener;
 import org.onosproject.yangutils.utils.YangConstructType;
 
-import static org.onosproject.yangutils.utils.YangConstructType.PATTERN_DATA;
-import static org.onosproject.yangutils.utils.YangConstructType.TYPE_DATA;
+import static org.onosproject.yangutils.datamodel.YangDataTypes.DERIVED;
 import static org.onosproject.yangutils.parser.impl.parserutils.ListenerErrorLocation.ENTRY;
+import static org.onosproject.yangutils.parser.impl.parserutils.ListenerErrorLocation.EXIT;
 import static org.onosproject.yangutils.parser.impl.parserutils.ListenerErrorMessageConstruction.constructListenerErrorMessage;
 import static org.onosproject.yangutils.parser.impl.parserutils.ListenerErrorType.INVALID_HOLDER;
+import static org.onosproject.yangutils.parser.impl.parserutils.ListenerErrorType.MISSING_CURRENT_HOLDER;
 import static org.onosproject.yangutils.parser.impl.parserutils.ListenerErrorType.MISSING_HOLDER;
 import static org.onosproject.yangutils.parser.impl.parserutils.ListenerValidation.checkStackIsNotEmpty;
+import static org.onosproject.yangutils.utils.YangConstructType.PATTERN_DATA;
+import static org.onosproject.yangutils.utils.YangConstructType.TYPE_DATA;
 
 /*
  * Reference: RFC6020 and YANG ANTLR Grammar
@@ -72,10 +76,10 @@ public final class PatternRestrictionListener {
      * tree.
      *
      * @param listener listener's object
-     * @param ctx context object of the grammar rule
+     * @param ctx      context object of the grammar rule
      */
     public static void processPatternRestrictionEntry(TreeWalkListener listener,
-                                        GeneratedYangParser.PatternStatementContext ctx) {
+                                                      GeneratedYangParser.PatternStatementContext ctx) {
 
         // Check for stack to be non empty.
         checkStackIsNotEmpty(listener, MISSING_HOLDER, PATTERN_DATA, ctx.string().getText(), ENTRY);
@@ -83,7 +87,7 @@ public final class PatternRestrictionListener {
         Parsable tmpData = listener.getParsedDataStack().peek();
         if (tmpData.getYangConstructType() == TYPE_DATA) {
             YangType type = (YangType) tmpData;
-            setPatternRestriction(type, ctx);
+            setPatternRestriction(listener, type, ctx);
         } else {
             throw new ParserException(constructListenerErrorMessage(INVALID_HOLDER, PATTERN_DATA,
                     ctx.string().getText(), ENTRY));
@@ -93,13 +97,12 @@ public final class PatternRestrictionListener {
     /**
      * Sets the pattern restriction to type.
      *
+     * @param listener listener's object
      * @param type Yang type for which pattern restriction to be set
-     * @param ctx context object of the grammar rule
+     * @param ctx  context object of the grammar rule
      */
-    private static void setPatternRestriction(YangType type,
+    private static void setPatternRestriction(TreeWalkListener listener, YangType type,
                                               GeneratedYangParser.PatternStatementContext ctx) {
-
-        YangStringRestriction stringRestriction;
 
         if (type.getDataType() != YangDataTypes.STRING && type.getDataType() != YangDataTypes.DERIVED) {
 
@@ -111,24 +114,54 @@ public final class PatternRestrictionListener {
             throw parserException;
         }
 
-        if (type.getDataType() == YangDataTypes.STRING) {
-            stringRestriction = (YangStringRestriction) type.getDataTypeExtendedInfo();
-        } else {
-            stringRestriction = (YangStringRestriction) ((YangDerivedInfo<?>) type
-                    .getDataTypeExtendedInfo()).getExtendedInfo();
-        }
+        String patternArgument = ctx.string().getText().replace("\"", EMPTY_STRING);
 
-        if (stringRestriction == null) {
-            stringRestriction = new YangStringRestriction();
-            if (type.getDataType() == YangDataTypes.STRING) {
+        if (type.getDataType() == YangDataTypes.STRING) {
+            YangStringRestriction stringRestriction = (YangStringRestriction) type.getDataTypeExtendedInfo();
+            if (stringRestriction == null) {
+                stringRestriction = new YangStringRestriction();
                 type.setDataTypeExtendedInfo(stringRestriction);
+                stringRestriction.addPattern(patternArgument);
             } else {
-                ((YangDerivedInfo<YangStringRestriction>) type.getDataTypeExtendedInfo())
-                        .setExtendedInfo(stringRestriction);
+                stringRestriction.addPattern(patternArgument);
+            }
+            listener.getParsedDataStack().push(stringRestriction);
+        } else {
+            YangPatternRestriction patternRestriction = (YangPatternRestriction) ((YangDerivedInfo<?>) type
+                    .getDataTypeExtendedInfo()).getPatternRestriction();
+            if (patternRestriction == null) {
+                patternRestriction = new YangPatternRestriction();
+                ((YangDerivedInfo<?>) type.getDataTypeExtendedInfo()).setPatternRestriction(patternRestriction);
+                patternRestriction.addPattern(patternArgument);
+            } else {
+                ((YangDerivedInfo<?>) type.getDataTypeExtendedInfo()).setPatternRestriction(patternRestriction);
+                patternRestriction.addPattern(patternArgument);
             }
         }
+    }
 
-        String patternArgument = ctx.string().getText().replace("\"", EMPTY_STRING);
-        stringRestriction.addPattern(patternArgument);
+    /**
+     * Performs validation and updates the data model tree.
+     * It is called when parser exits from grammar rule (pattern).
+     *
+     * @param listener listener's object
+     * @param ctx context object of the grammar rule
+     */
+    public static void processPatternRestrictionExit(TreeWalkListener listener,
+                                                    GeneratedYangParser.PatternStatementContext ctx) {
+
+        // Check for stack to be non empty.
+        checkStackIsNotEmpty(listener, MISSING_HOLDER, PATTERN_DATA, ctx.string().getText(), EXIT);
+
+        Parsable tmpData = listener.getParsedDataStack().peek();
+        if (tmpData instanceof YangStringRestriction) {
+            listener.getParsedDataStack().pop();
+        } else if (tmpData instanceof YangType
+                && ((YangType) tmpData).getDataType() == DERIVED) {
+            // TODO : need to handle in linker
+        } else {
+            throw new ParserException(constructListenerErrorMessage(MISSING_CURRENT_HOLDER, PATTERN_DATA,
+                    ctx.string().getText(), EXIT));
+        }
     }
 }

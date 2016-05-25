@@ -27,21 +27,39 @@ public interface VtnServiceApi {
      *
      * @return service list
      */
-    Set<String> services();
+    Set<VtnServiceId> services();
+
+    /**
+     * Returns VTN service.
+     *
+     * @param serviceId service id
+     * @return vtn service
+     */
+    VtnService service(VtnServiceId serviceId);
 
     /**
      * Returns dependent tenant services of a given provider service.
      *
-     * @param pServiceId service id
-     * @return service list
+     * @param pServiceId vtn service id
+     * @return set of service ids
      */
-    Set<String> getTenantServices(String pServiceId);
+    Set<VtnServiceId> tenantServices(VtnServiceId pServiceId);
 
     /**
      * Returns dependent provider services of a given tenant service.
      *
-     * @param tServiceId service id
-     * @return set of services
+     * @param tServiceId vtn service id
+     * @return set of service ids
      */
-    Set<String> getProviderServices(String tServiceId);
+    Set<VtnServiceId> providerServices(VtnServiceId tServiceId);
+
+    /**
+     * Returns VTN service from OpenStack.
+     *
+     * @param serviceId service id
+     * @param osAccess openstack access
+     * @return vtn service
+     */
+    // TODO remove this when XOS provides service information
+    VtnService service(VtnServiceId serviceId, OpenStackAccess osAccess);
 }

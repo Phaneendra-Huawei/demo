@@ -212,9 +212,11 @@ describe('factory: fw/util/fn.js', function() {
     it('should define api functions', function () {
         expect(fs.areFunctions(fs, [
             'isF', 'isA', 'isS', 'isO', 'contains',
-            'areFunctions', 'areFunctionsNonStrict', 'windowSize', 'isMobile',
-            'find', 'inArray', 'removeFromArray', 'isEmptyObject', 'cap',
-            'noPx', 'noPxStyle', 'endsWith', 'parseBitRate'
+            'areFunctions', 'areFunctionsNonStrict', 'windowSize', 
+            'isMobile', 'isChrome', 'isSafari', 'isFirefox',
+            'debugOn', 'debug',
+            'find', 'inArray', 'removeFromArray', 'isEmptyObject', 'sameObjProps', 'containsObj', 'cap',
+            'eecode', 'noPx', 'noPxStyle', 'endsWith', 'parseBitRate', 'addToTrie', 'removeFromTrie', 'trieLookup'
         ])).toBeTruthy();
     });
 

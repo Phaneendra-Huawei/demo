@@ -15,10 +15,27 @@
  */
 package org.onosproject.provider.of.device.impl;
 
-import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static org.onlab.util.Tools.get;
+import static org.onosproject.net.DeviceId.deviceId;
+import static org.onosproject.net.Port.Type.COPPER;
+import static org.onosproject.net.Port.Type.FIBER;
+import static org.onosproject.net.optical.device.OchPortHelper.ochPortDescription;
+import static org.onosproject.net.optical.device.OduCltPortHelper.oduCltPortDescription;
+import static org.onosproject.net.optical.device.OmsPortHelper.omsPortDescription;
+import static org.onosproject.net.optical.device.OtuPortHelper.otuPortDescription;
+import static org.onosproject.openflow.controller.Dpid.dpid;
+import static org.onosproject.openflow.controller.Dpid.uri;
+import static org.slf4j.LoggerFactory.getLogger;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Dictionary;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -52,10 +69,6 @@ import org.onosproject.net.device.DeviceDescription;
 import org.onosproject.net.device.DeviceProvider;
 import org.onosproject.net.device.DeviceProviderRegistry;
 import org.onosproject.net.device.DeviceProviderService;
-import org.onosproject.net.device.OchPortDescription;
-import org.onosproject.net.device.OduCltPortDescription;
-import org.onosproject.net.device.OmsPortDescription;
-import org.onosproject.net.device.OtuPortDescription;
 import org.onosproject.net.device.PortDescription;
 import org.onosproject.net.device.PortStatistics;
 import org.onosproject.net.provider.AbstractProvider;
@@ -101,23 +114,10 @@ import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.PortSpeed;
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Dictionary;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static org.onlab.util.Tools.get;
-import static org.onosproject.net.DeviceId.deviceId;
-import static org.onosproject.net.Port.Type.COPPER;
-import static org.onosproject.net.Port.Type.FIBER;
-import static org.onosproject.openflow.controller.Dpid.dpid;
-import static org.onosproject.openflow.controller.Dpid.uri;
-import static org.slf4j.LoggerFactory.getLogger;
+import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 /**
  * Provider which uses an OpenFlow controller to detect network
@@ -148,7 +148,6 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
 
     private final InternalDeviceProvider listener = new InternalDeviceProvider();
 
-    // TODO: We need to make the poll interval configurable.
     static final int POLL_INTERVAL = 5;
     @Property(name = "PortStatsPollFrequency", intValue = POLL_INTERVAL,
     label = "Frequency (in seconds) for polling switch Port statistics")
@@ -311,10 +310,6 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
     private Collection<PortStatistics> buildPortStatistics(DeviceId deviceId,
                                                            List<OFPortStatsEntry> entries) {
         HashSet<PortStatistics> stats = Sets.newHashSet();
-
-        if (entries == null) {
-            return Collections.unmodifiableSet(stats);
-        }
 
         for (OFPortStatsEntry entry : entries) {
             try {
@@ -528,7 +523,7 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
             }
 
             SparseAnnotations annotations = buildOduCltAnnotation(port);
-            return new OduCltPortDescription(portNo, enabled, sigType, annotations);
+            return oduCltPortDescription(portNo, enabled, sigType, annotations);
         }
 
         private SparseAnnotations buildOduCltAnnotation(OFPortDesc port) {
@@ -584,10 +579,10 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
             OFExpPortDescPropOpticalTransport firstProp = port.getProperties().get(0);
             OFPortOpticalTransportSignalType sigType = firstProp.getPortSignalType();
 
-            DefaultPortDescription portDes = null;
+            PortDescription portDes = null;
             switch (sigType) {
             case OMSN:
-                portDes =  new OmsPortDescription(portNo, enabled,
+                portDes = omsPortDescription(portNo, enabled,
                         FREQ191_7, FREQ191_7.add(FREQ4_4), FREQ50, annotations);
                 break;
             case OCH:
@@ -605,8 +600,9 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
                 //yet not relevant for tunable OCH port, creating with default parameters
                 OchSignal signalId = new OchSignal(GridType.DWDM, ChannelSpacing.CHL_50GHZ, 1, 1);
 
-                portDes = new OchPortDescription(portNo, enabled,
-                        oduSignalType, true, signalId, annotations);
+                portDes = ochPortDescription(portNo, enabled,
+                                             oduSignalType, true,
+                                             signalId, annotations);
 
                 break;
             case OTU2:
@@ -628,7 +624,7 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
                 OtuSignalType otuSignalType =
                         ((sigType == OFPortOpticalTransportSignalType.OTU2) ? OtuSignalType.OTU2 :
                             OtuSignalType.OTU4);
-                portDes = new OtuPortDescription(portNo, enabled, otuSignalType, annotations);
+                portDes = otuPortDescription(portNo, enabled, otuSignalType, annotations);
                 break;
             default:
                 break;
@@ -707,11 +703,11 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
                 case 2:     // OMS port
                     // Assume complete optical spectrum and 50 GHz grid
                     // LINC-OE is only supported optical OF device for now
-                    return new OmsPortDescription(portNo, enabled,
+                    return omsPortDescription(portNo, enabled,
                             Spectrum.U_BAND_MIN, Spectrum.O_BAND_MAX, Frequency.ofGHz(50), annotations);
                 case 5:     // OCH port
                     OchSignal signal = new OchSignal(GridType.DWDM, ChannelSpacing.CHL_50GHZ, 0, 4);
-                    return new OchPortDescription(portNo, enabled, OduSignalType.ODU4,
+                    return ochPortDescription(portNo, enabled, OduSignalType.ODU4,
                             true, signal, annotations);
                 default:
                     break;
@@ -746,7 +742,7 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
 
             // S160 data sheet
             // Wavelength range: 1260 - 1630 nm, grid is irrelevant for this type of switch
-            return new OmsPortDescription(portNo, enabled,
+            return omsPortDescription(portNo, enabled,
                     Spectrum.U_BAND_MIN, Spectrum.O_BAND_MAX, Frequency.ofGHz(100), annotations);
         }
 
@@ -794,8 +790,11 @@ public class OpenFlowDeviceProvider extends AbstractProvider implements DevicePr
                             portStatsReplyList.addAll(portStatsReply.getEntries());
                             portStatsReplies.put(dpid, portStatsReplyList);
                             if (!portStatsReply.getFlags().contains(OFStatsReplyFlags.REPLY_MORE)) {
-                                pushPortMetrics(dpid, portStatsReplies.get(dpid));
-                                portStatsReplies.get(dpid).clear();
+                                List<OFPortStatsEntry> statsEntries = portStatsReplies.get(dpid);
+                                if (statsEntries != null) {
+                                    pushPortMetrics(dpid, statsEntries);
+                                    statsEntries.clear();
+                                }
                             }
                         }
                         break;

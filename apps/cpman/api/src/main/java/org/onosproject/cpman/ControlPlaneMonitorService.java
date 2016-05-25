@@ -15,6 +15,8 @@
  */
 package org.onosproject.cpman;
 
+import com.google.common.collect.ImmutableSet;
+import org.onlab.util.Tools;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.net.DeviceId;
 
@@ -29,6 +31,8 @@ import static org.onosproject.cpman.ControlResource.Type;
  * Control Plane Statistics Service Interface.
  */
 public interface ControlPlaneMonitorService {
+
+    long TIMEOUT_MILLIS = 2000;
 
     /**
      * Adds a new control metric value with a certain update interval.
@@ -69,6 +73,26 @@ public interface ControlPlaneMonitorService {
                                                    Optional<DeviceId> deviceId);
 
     /**
+     * Synchronous version of getLoad.
+     * Obtains snapshot of control plane load of a specific device.
+     * The metrics range from control messages and system metrics
+     * (e.g., CPU and memory info).
+     * If the device id is not specified, it returns system metrics, otherwise,
+     * it returns control message stats of the given device.
+     *
+     * @param nodeId   node identifier
+     * @param type     control metric type
+     * @param deviceId device identifier
+     * @return control load snapshot
+     */
+    default ControlLoadSnapshot getLoadSync(NodeId nodeId,
+                                            ControlMetricType type,
+                                            Optional<DeviceId> deviceId) {
+        return Tools.futureGetOrElse(getLoad(nodeId, type, deviceId),
+                TIMEOUT_MILLIS, TimeUnit.MILLISECONDS, null);
+    }
+
+    /**
      * Obtains snapshot of control plane load of a specific resource.
      * The metrics include I/O device metrics (e.g., disk and network metrics).
      *
@@ -80,6 +104,23 @@ public interface ControlPlaneMonitorService {
     CompletableFuture<ControlLoadSnapshot> getLoad(NodeId nodeId,
                                                    ControlMetricType type,
                                                    String resourceName);
+
+    /**
+     * Synchronous version of getLoad.
+     * Obtains snapshot of control plane load of a specific resource.
+     * The metrics include I/O device metrics (e.g., disk and network metrics).
+     *
+     * @param nodeId       node identifier
+     * @param type         control metric type
+     * @param resourceName resource name
+     * @return control load snapshot
+     */
+    default ControlLoadSnapshot getLoadSync(NodeId nodeId,
+                                            ControlMetricType type,
+                                            String resourceName) {
+        return Tools.futureGetOrElse(getLoad(nodeId, type, resourceName),
+                TIMEOUT_MILLIS, TimeUnit.MILLISECONDS, null);
+    }
 
     /**
      * Obtains snapshot of control plane load of a specific device with the
@@ -98,6 +139,26 @@ public interface ControlPlaneMonitorService {
                                                    Optional<DeviceId> deviceId);
 
     /**
+     * Synchronous version of getLoad.
+     * Obtains snapshot of control plane load of a specific device with the
+     * projected range.
+     *
+     * @param nodeId   node identifier
+     * @param type     control metric type
+     * @param duration projected duration
+     * @param unit     projected time unit
+     * @param deviceId device identifier
+     * @return control load snapshot
+     */
+    default ControlLoadSnapshot getLoadSync(NodeId nodeId,
+                                            ControlMetricType type,
+                                            int duration, TimeUnit unit,
+                                            Optional<DeviceId> deviceId) {
+        return Tools.futureGetOrElse(getLoad(nodeId, type, duration, unit, deviceId),
+                TIMEOUT_MILLIS, TimeUnit.MILLISECONDS, null);
+    }
+
+    /**
      * Obtains snapshot of control plane load of a specific resource with the
      * projected range.
      *
@@ -114,10 +175,44 @@ public interface ControlPlaneMonitorService {
                                                    String resourceName);
 
     /**
+     * Synchronous version of getLoad.
+     * Obtains snapshot of control plane load of a specific resource with the
+     * projected range.
+     *
+     * @param nodeId       node identifier
+     * @param type         control metric type
+     * @param duration     projected duration
+     * @param unit         projected time unit
+     * @param resourceName resource name
+     * @return control load snapshot
+     */
+    default ControlLoadSnapshot getLoadSync(NodeId nodeId,
+                                            ControlMetricType type,
+                                            int duration, TimeUnit unit,
+                                            String resourceName) {
+        return Tools.futureGetOrElse(getLoad(nodeId, type, duration, unit, resourceName),
+                TIMEOUT_MILLIS, TimeUnit.MILLISECONDS, null);
+    }
+
+    /**
      * Obtains a list of names of available resources.
      *
+     * @param nodeId       node identifier
      * @param resourceType resource type
-     * @return a collection of names of available resources
+     * @return completable future object of a collection of available resource names
      */
-    Set<String> availableResources(Type resourceType);
+    CompletableFuture<Set<String>> availableResources(NodeId nodeId, Type resourceType);
+
+    /**
+     * Synchronous version of availableResource.
+     * Obtains a list of names of available resources.
+     *
+     * @param nodeId       node identifier
+     * @param resourceType resource type
+     * @return a collection of available resource names
+     */
+    default Set<String> availableResourcesSync(NodeId nodeId, Type resourceType) {
+        return Tools.futureGetOrElse(availableResources(nodeId, resourceType),
+                TIMEOUT_MILLIS, TimeUnit.MILLISECONDS, ImmutableSet.of());
+    }
 }

@@ -68,7 +68,7 @@ public class StatusListenerTest {
         YangLeaf leafInfo = leafIterator.next();
 
         // Check whether the status is set correctly.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getStatus(), is(YangStatusType.CURRENT));
     }
 
@@ -94,7 +94,7 @@ public class StatusListenerTest {
         YangLeaf leafInfo = leafIterator.next();
 
         // Check whether the status is set correctly.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getStatus(), is(YangStatusType.DEPRECATED));
     }
 
@@ -120,7 +120,7 @@ public class StatusListenerTest {
         YangLeaf leafInfo = leafIterator.next();
 
         // Check whether the status is set correctly.
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getStatus(), is(YangStatusType.OBSOLETE));
     }
 
@@ -150,9 +150,9 @@ public class StatusListenerTest {
     @Test
     public void processModuleSubStatementStatus() throws IOException, ParserException {
         thrown.expect(ParserException.class);
-        thrown.expectMessage("mismatched input 'status' expecting {'augment', 'choice', 'contact', 'container', "
-                + "'description', 'extension', 'deviation', 'feature', 'grouping', 'identity', 'import', 'include',"
-                + " 'leaf', 'leaf-list', 'list', 'notification', 'organization', 'reference', "
+        thrown.expectMessage("mismatched input 'status' expecting {'anyxml', 'augment', 'choice', 'contact', "
+                + "'container', 'description', 'extension', 'deviation', 'feature', 'grouping', 'identity', 'import',"
+                + " 'include', 'leaf', 'leaf-list', 'list', 'notification', 'organization', 'reference', "
                 + "'revision', 'rpc', 'typedef', 'uses', '}'}");
         YangNode node = manager.getDataModel("src/test/resources/ModuleSubStatementStatus.yang");
     }
@@ -185,7 +185,7 @@ public class StatusListenerTest {
         ListIterator<YangLeaf> leafIterator = container.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.UINT16));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
@@ -222,7 +222,7 @@ public class StatusListenerTest {
         ListIterator<YangLeaf> leafIterator = yangList.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafInfo.getName(), is("invalid-interval"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("uint16"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.UINT16));
         assertThat(leafInfo.getUnits(), is("\"seconds\""));
@@ -254,7 +254,7 @@ public class StatusListenerTest {
         YangLeafList leafListInfo = leafListIterator.next();
 
         // Check whether status is set correctly.
-        assertThat(leafListInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafListInfo.getName(), is("invalid-interval"));
         assertThat(leafListInfo.isConfig(), is(true));
         assertThat(leafListInfo.getStatus(), is(YangStatusType.CURRENT));
     }
@@ -281,7 +281,7 @@ public class StatusListenerTest {
         YangLeafList leafListInfo = leafListIterator.next();
 
         // Check whether status is set correctly.
-        assertThat(leafListInfo.getLeafName(), is("invalid-interval"));
+        assertThat(leafListInfo.getName(), is("invalid-interval"));
         assertThat(leafListInfo.isConfig(), is(true));
         assertThat(leafListInfo.getStatus(), is(YangStatusType.CURRENT));
     }

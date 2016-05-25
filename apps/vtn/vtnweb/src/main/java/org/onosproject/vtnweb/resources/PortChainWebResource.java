@@ -62,6 +62,7 @@ public class PortChainWebResource extends AbstractWebResource {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response getPortChains() {
         Iterable<PortChain> portChains = get(PortChainService.class).getPortChains();
         ObjectNode result = mapper().createObjectNode();
@@ -83,6 +84,7 @@ public class PortChainWebResource extends AbstractWebResource {
     @GET
     @Path("{chain_id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response getPortPain(@PathParam("chain_id") String id) {
 
         PortChain portChain = nullIsNotFound(get(PortChainService.class).getPortChain(PortChainId.of(id)),
@@ -97,7 +99,7 @@ public class PortChainWebResource extends AbstractWebResource {
      *
      * @param stream port chain from JSON
      * @return status of the request - CREATED if the JSON is correct,
-     *         BAD_REQUEST if the JSON is invalid
+     * BAD_REQUEST if the JSON is invalid
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -128,7 +130,7 @@ public class PortChainWebResource extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     public Response updatePortPain(@PathParam("chain_id") String id,
-            final InputStream stream) {
+                                   final InputStream stream) {
         try {
             ObjectNode jsonTree = (ObjectNode) mapper().readTree(stream);
             JsonNode port = jsonTree.get("port_chain");
@@ -146,11 +148,13 @@ public class PortChainWebResource extends AbstractWebResource {
      * Delete details of a specified port chain id.
      *
      * @param id port chain id
+     * @return 204 NO CONTENT
      */
     @Path("{chain_id}")
     @DELETE
+    @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public void deletePortPain(@PathParam("chain_id") String id) {
+    public Response deletePortPain(@PathParam("chain_id") String id) {
         log.debug("Deletes port chain by identifier {}.", id);
         PortChainId portChainId = PortChainId.of(id);
 
@@ -159,5 +163,6 @@ public class PortChainWebResource extends AbstractWebResource {
         if (!issuccess) {
             log.debug("Port Chain identifier {} does not exist", id);
         }
+        return Response.noContent().build();
     }
 }

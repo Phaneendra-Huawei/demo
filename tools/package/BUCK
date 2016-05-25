@@ -15,8 +15,9 @@ FEATURES = [
 
 #FIXME this list is currently mirrored from the root Buck file
 APPS = [
-  #Drivers
+  # Drivers
   '//drivers/default:onos-drivers-default-oar',
+  '//drivers/corsa:onos-drivers-corsa-oar',
 
   # Providers
   '//providers/bgp:onos-providers-bgp-oar',
@@ -30,8 +31,11 @@ APPS = [
   '//providers/pcep:onos-providers-pcep-oar',
   '//providers/null:onos-providers-null-oar',
   '//providers/openflow/base:onos-providers-openflow-base-oar',
+  '//providers/openflow/app:onos-providers-openflow-app-oar',
   '//providers/rest:onos-providers-rest-oar',
   '//providers/isis:onos-providers-isis-oar',
+  '//providers/ovsdb/host:onos-providers-ovsdb-host-oar',
+  '//providers/ovsdb/base:onos-providers-ovsdb-base-oar',
 
   # Apps
   '//apps/dhcp:onos-apps-dhcp-oar',
@@ -99,7 +103,16 @@ sources += staged_repos + staged_apps
 
 genrule(
   name = 'onos-package',
-  out = 'onos.zip',
-  bash = 'cp $(location :onos-karaf) $OUT && $(exe //buck-tools:onos-stage) $OUT ' + ' '.join(sources),
+  out = 'onos.tar.gz',
+  bash = '$(exe //buck-tools:onos-stage) $OUT $(location :onos-karaf) ' + ' '.join(sources),
+  visibility = [ 'PUBLIC' ],
+)
+
+genrule(
+  name = 'onos-run',
+  out = 'onos-run',
+  srcs = [ 'onos-run-karaf' ],
+  bash = 'sed "s#ONOS_TAR=#ONOS_TAR=$(location :onos-package)#" $SRCS > $OUT; chmod +x $OUT',
+  executable = True,
   visibility = [ 'PUBLIC' ],
 )

@@ -18,7 +18,6 @@ package org.onosproject.drivers.bmv2.translators;
 
 import com.google.common.annotations.Beta;
 import org.onlab.util.ImmutableByteSequence;
-import org.onosproject.bmv2.api.model.Bmv2Model;
 import org.onosproject.bmv2.api.model.Bmv2ModelField;
 import org.onosproject.bmv2.api.model.Bmv2ModelTable;
 import org.onosproject.bmv2.api.model.Bmv2ModelTableKey;
@@ -66,9 +65,11 @@ import org.onosproject.net.flow.instructions.Instructions.ExtensionInstructionWr
 @Beta
 public class Bmv2DefaultFlowRuleTranslator implements Bmv2FlowRuleTranslator {
 
-    // TODO: config is harcoded now, instead it should be selected based on device model
-    private final TranslatorConfig config = new Bmv2SimplePipelineTranslatorConfig();
-    private final Bmv2Model model = config.model();
+    private final TranslatorConfig config;
+
+    public Bmv2DefaultFlowRuleTranslator(TranslatorConfig config) {
+        this.config = config;
+    }
 
     private static Bmv2TernaryMatchParam buildTernaryParam(Bmv2ModelField field, Criterion criterion, int byteWidth)
             throws Bmv2FlowRuleTranslatorException {
@@ -201,7 +202,7 @@ public class Bmv2DefaultFlowRuleTranslator implements Bmv2FlowRuleTranslator {
 
         int tableId = rule.tableId();
 
-        Bmv2ModelTable table = model.table(tableId);
+        Bmv2ModelTable table = config.model().table(tableId);
 
         if (table == null) {
             throw new Bmv2FlowRuleTranslatorException("Unknown table ID: " + tableId);
@@ -259,9 +260,12 @@ public class Bmv2DefaultFlowRuleTranslator implements Bmv2FlowRuleTranslator {
 
         Bmv2TableEntry.Builder tableEntryBuilder = Bmv2TableEntry.builder();
 
+        // In BMv2 0 is the highest priority, i.e. the opposite than ONOS.
+        int newPriority = Integer.MAX_VALUE - rule.priority();
+
         tableEntryBuilder
                 .withTableName(table.name())
-                .withPriority(rule.priority())
+                .withPriority(newPriority)
                 .withMatchKey(bmv2MatchKey)
                 .withAction(bmv2Action);
 

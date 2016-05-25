@@ -140,8 +140,7 @@ public class SpringOpenTTP extends AbstractHandlerBehaviour
             .register(DefaultGroupKey.class)
             .register(TrafficTreatment.class)
             .register(SpringOpenGroup.class)
-            .register(byte[].class)
-            .build();
+            .build("SpringOpenTTP");
 
     @Override
     public void init(DeviceId deviceId, PipelinerContext context) {
@@ -1093,7 +1092,7 @@ public class SpringOpenTTP extends AbstractHandlerBehaviour
      * case, we refer to this as a dummy group.
      *
      */
-    private class SpringOpenGroup implements NextGroup {
+    protected class SpringOpenGroup implements NextGroup {
         private final boolean dummy;
         private final GroupKey key;
         private final TrafficTreatment treatment;
@@ -1116,9 +1115,16 @@ public class SpringOpenTTP extends AbstractHandlerBehaviour
             }
         }
 
-        @SuppressWarnings("unused")
         public GroupKey key() {
             return key;
+        }
+
+        public boolean dummy() {
+            return dummy;
+        }
+
+        public TrafficTreatment treatment() {
+            return treatment;
         }
 
         @Override

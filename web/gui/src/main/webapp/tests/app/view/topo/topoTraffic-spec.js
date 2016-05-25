@@ -20,7 +20,7 @@
 describe('factory: view/topo/topoTraffic.js', function() {
     var $log, fs, tts;
 
-    beforeEach(module('ovTopo', 'onosUtil', 'onosLayer', 'onosNav', 'ngRoute'));
+    beforeEach(module('ovTopo', 'onosUtil', 'onosLayer', 'onosNav', 'ngRoute', 'onosApp'));
 
     beforeEach(inject(function (_$log_, FnService, TopoTrafficService) {
         $log = _$log_;
@@ -33,13 +33,22 @@ describe('factory: view/topo/topoTraffic.js', function() {
     });
 
     it('should define api functions', function () {
+
         expect(fs.areFunctions(tts, [
-            'initTraffic', 'destroyTraffic', 'showTraffic',
-            'cancelTraffic', 'requestTrafficForMode',
-            'showRelatedIntentsAction', 'addHostIntentAction',
-            'addMultiSourceIntentAction', 'showDeviceLinkFlowsAction',
-            'showNextIntentAction', 'showPrevIntentAction',
-            'showSelectedIntentTrafficAction', 'showAllTrafficAction'
+            'initTraffic',
+            'destroyTraffic',
+            'cancelTraffic',
+            'showAllFlowTraffic',
+            'showAllPortTraffic',
+            'showDeviceLinkFlows',
+            'showRelatedIntents',
+            'showPrevIntent',
+            'showNextIntent',
+            'showSelectedIntentTraffic',
+            'selectIntent',
+            'requestTrafficForMode',
+            'addHostIntent',
+            'addMultiSourceIntent',
         ])).toBeTruthy();
     });
 

@@ -22,6 +22,9 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
 import org.junit.Test;
+import org.onosproject.yangutils.datamodel.YangNode;
+import org.onosproject.yangutils.translator.tojava.JavaFileInfo;
+import org.onosproject.yangutils.translator.tojava.javamodel.YangJavaModule;
 
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNot.not;
@@ -39,11 +42,14 @@ import static org.onosproject.yangutils.utils.io.impl.FileSystemUtil.updateFileH
 public final class FileSystemUtilTest {
 
     private static final String BASE_DIR_PKG = "target.UnitTestCase.";
-    private static final String PKG_INFO_CONTENT = "testGeneration6";
     private static final String BASE_PKG = "target/UnitTestCase";
     private static final String TEST_DATA_1 = "This is to append a text to the file first1\n";
     private static final String TEST_DATA_2 = "This is next second line\n";
     private static final String TEST_DATA_3 = "This is next third line in the file";
+    private static final String TEST_FILE = "testFile";
+    private static final String SOURCE_TEST_FILE = "sourceTestFile";
+    private static final String DIR_PATH = "exist1.exist2.exist3";
+    private static final String PKG_INFO = "package-info.java";
 
     /**
      * A private constructor is tested.
@@ -56,7 +62,8 @@ public final class FileSystemUtilTest {
      * @throws InvocationTargetException when an exception occurs by the method or constructor
      */
     @Test
-    public void callPrivateConstructors() throws SecurityException, NoSuchMethodException, IllegalArgumentException,
+    public void callPrivateConstructors()
+            throws SecurityException, NoSuchMethodException, IllegalArgumentException,
             InstantiationException, IllegalAccessException, InvocationTargetException {
 
         Class<?>[] classesToConstruct = {FileSystemUtil.class };
@@ -75,11 +82,11 @@ public final class FileSystemUtilTest {
     @Test
     public void updateFileHandleTest() throws IOException {
 
-        File dir = new File(BASE_PKG + SLASH + "File1");
+        File dir = new File(BASE_PKG + SLASH + TEST_FILE);
         dir.mkdirs();
-        File createFile = new File(dir + "testFile");
+        File createFile = new File(dir + TEST_FILE);
         createFile.createNewFile();
-        File createSourceFile = new File(dir + "sourceTestFile");
+        File createSourceFile = new File(dir + SOURCE_TEST_FILE);
         createSourceFile.createNewFile();
         updateFileHandle(createFile, TEST_DATA_1, false);
         updateFileHandle(createFile, TEST_DATA_2, false);
@@ -96,15 +103,29 @@ public final class FileSystemUtilTest {
     @Test
     public void packageExistTest() throws IOException {
 
-        String dirPath = "exist1.exist2.exist3";
-        String strPath = BASE_DIR_PKG + dirPath;
+        String strPath = BASE_DIR_PKG + DIR_PATH;
         File createDir = new File(strPath.replace(PERIOD, SLASH));
         createDir.mkdirs();
-        File createFile = new File(createDir + SLASH + "package-info.java");
+        File createFile = new File(createDir + SLASH + PKG_INFO);
         createFile.createNewFile();
         assertThat(true, is(doesPackageExist(strPath)));
-        createPackage(strPath, PKG_INFO_CONTENT);
+        createPackage(getStubNode());
         createDir.delete();
     }
 
+    /**
+     * Returns stub YANG node.
+     *
+     * @return stub node
+     */
+    private YangNode getStubNode() {
+        YangJavaModule module = new YangJavaModule();
+        module.setName(TEST_DATA_1);
+        JavaFileInfo javafileInfo = new JavaFileInfo();
+        javafileInfo.setJavaName(TEST_DATA_1);
+        javafileInfo.setBaseCodeGenPath("");
+        javafileInfo.setPackageFilePath(BASE_PKG);
+        module.setJavaFileInfo(javafileInfo);
+        return module;
+    }
 }

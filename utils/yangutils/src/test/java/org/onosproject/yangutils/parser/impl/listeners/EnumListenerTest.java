@@ -18,7 +18,10 @@ package org.onosproject.yangutils.parser.impl.listeners;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
+
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.onosproject.yangutils.datamodel.YangDataTypes;
 import org.onosproject.yangutils.datamodel.YangEnum;
 import org.onosproject.yangutils.datamodel.YangEnumeration;
@@ -37,6 +40,9 @@ import java.util.Set;
  * Test cases for enum listener.
  */
 public class EnumListenerTest {
+
+    @Rule
+    public ExpectedException thrown = ExpectedException.none();
 
     private final YangUtilsParserManager manager = new YangUtilsParserManager();
 
@@ -61,7 +67,7 @@ public class EnumListenerTest {
         ListIterator<YangLeaf> leafIterator = yangNode.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("speed"));
+        assertThat(leafInfo.getName(), is("speed"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("enumeration"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.ENUMERATION));
         assertThat(((YangEnumeration) leafInfo.getDataType().getDataTypeExtendedInfo()).getName(),
@@ -84,7 +90,28 @@ public class EnumListenerTest {
      */
     @Test(expected = ParserException.class)
     public void processEnumWithDuplicateName() throws IOException, ParserException {
-
         YangNode node = manager.getDataModel("src/test/resources/EnumWithDuplicateName.yang");
+    }
+
+    /**
+     * Checks enum boundary value.
+     */
+    @Test
+    public void processEnumBoundaryValue() throws IOException, ParserException {
+        thrown.expect(ParserException.class);
+        thrown.expectMessage("YANG file error : value value 21474836472147483647 is not valid.");
+        YangNode node = manager.getDataModel("src/test/resources/EnumBoundaryValue.yang");
+    }
+
+    /**
+     * Checks whether exception is thrown if value is not specified following max enum value.
+     */
+    @Test
+    public void processEnumMaxNextValue() throws IOException, ParserException {
+        thrown.expect(ParserException.class);
+        thrown.expectMessage("YANG file error : "
+                + "An enum value MUST be specified for enum substatements following the one"
+                + "with the current highest value");
+        YangNode node = manager.getDataModel("src/test/resources/EnumMaxNextValue.yang");
     }
 }

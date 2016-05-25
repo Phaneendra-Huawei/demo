@@ -61,7 +61,85 @@ public class ValueListenerTest {
         ListIterator<YangLeaf> leafIterator = yangNode.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("speed"));
+        assertThat(leafInfo.getName(), is("speed"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("enumeration"));
+        assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.ENUMERATION));
+        assertThat(((YangEnumeration) leafInfo.getDataType().getDataTypeExtendedInfo()).getName(),
+                is("speed_enum"));
+
+        Set<YangEnum> enumSet = ((YangEnumeration) leafInfo.getDataType().getDataTypeExtendedInfo()).getEnumSet();
+        for (YangEnum tmp : enumSet) {
+            if (tmp.getNamedValue().equals("10m")) {
+                assertThat(tmp.getValue(), is(10));
+            } else if (tmp.getNamedValue().equals("100m")) {
+                assertThat(tmp.getValue(), is(100));
+            } else if (tmp.getNamedValue().equals("auto")) {
+                assertThat(tmp.getValue(), is(1000));
+            }
+        }
+    }
+
+    /**
+     * Checks explicitly configured negative value.
+     */
+    @Test
+    public void processValueStatementWithNegativeValue() throws IOException, ParserException {
+
+        YangNode node = manager.getDataModel("src/test/resources/ValueStatementWithNegativeValue.yang");
+
+        // Check whether the data model tree returned is of type module.
+        assertThat((node instanceof YangModule), is(true));
+
+        // Check whether the node type is set properly to module.
+        assertThat(node.getNodeType(), is(YangNodeType.MODULE_NODE));
+
+        // Check whether the module name is set correctly.
+        YangModule yangNode = (YangModule) node;
+        assertThat(yangNode.getName(), is("Test"));
+
+        ListIterator<YangLeaf> leafIterator = yangNode.getListOfLeaf().listIterator();
+        YangLeaf leafInfo = leafIterator.next();
+
+        assertThat(leafInfo.getName(), is("speed"));
+        assertThat(leafInfo.getDataType().getDataTypeName(), is("enumeration"));
+        assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.ENUMERATION));
+        assertThat(((YangEnumeration) leafInfo.getDataType().getDataTypeExtendedInfo()).getName(),
+                is("speed_enum"));
+
+        Set<YangEnum> enumSet = ((YangEnumeration) leafInfo.getDataType().getDataTypeExtendedInfo()).getEnumSet();
+        for (YangEnum tmp : enumSet) {
+            if (tmp.getNamedValue().equals("10m")) {
+                assertThat(tmp.getValue(), is(-2));
+            } else if (tmp.getNamedValue().equals("100m")) {
+                assertThat(tmp.getValue(), is(-1));
+            } else if (tmp.getNamedValue().equals("auto")) {
+                assertThat(tmp.getValue(), is(0));
+            }
+        }
+    }
+
+    /**
+     * Checks explicitly configured value with double quotes.
+     */
+    @Test
+    public void processValueStatementWithQuotes() throws IOException, ParserException {
+
+        YangNode node = manager.getDataModel("src/test/resources/ValueStatementWithQuotes.yang");
+
+        // Check whether the data model tree returned is of type module.
+        assertThat((node instanceof YangModule), is(true));
+
+        // Check whether the node type is set properly to module.
+        assertThat(node.getNodeType(), is(YangNodeType.MODULE_NODE));
+
+        // Check whether the module name is set correctly.
+        YangModule yangNode = (YangModule) node;
+        assertThat(yangNode.getName(), is("Test"));
+
+        ListIterator<YangLeaf> leafIterator = yangNode.getListOfLeaf().listIterator();
+        YangLeaf leafInfo = leafIterator.next();
+
+        assertThat(leafInfo.getName(), is("speed"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("enumeration"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.ENUMERATION));
         assertThat(((YangEnumeration) leafInfo.getDataType().getDataTypeExtendedInfo()).getName(),
@@ -100,7 +178,7 @@ public class ValueListenerTest {
         ListIterator<YangLeaf> leafIterator = yangNode.getListOfLeaf().listIterator();
         YangLeaf leafInfo = leafIterator.next();
 
-        assertThat(leafInfo.getLeafName(), is("speed"));
+        assertThat(leafInfo.getName(), is("speed"));
         assertThat(leafInfo.getDataType().getDataTypeName(), is("enumeration"));
         assertThat(leafInfo.getDataType().getDataType(), is(YangDataTypes.ENUMERATION));
         assertThat(((YangEnumeration) leafInfo.getDataType().getDataTypeExtendedInfo()).getName(),

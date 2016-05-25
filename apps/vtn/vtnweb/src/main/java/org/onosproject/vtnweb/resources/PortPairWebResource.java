@@ -62,6 +62,7 @@ public class PortPairWebResource extends AbstractWebResource {
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response getPortPairs() {
         Iterable<PortPair> portPairs = get(PortPairService.class).getPortPairs();
         ObjectNode result = mapper().createObjectNode();
@@ -83,6 +84,7 @@ public class PortPairWebResource extends AbstractWebResource {
     @GET
     @Path("{pair_id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response getPortPair(@PathParam("pair_id") String id) {
         PortPair portPair = nullIsNotFound(get(PortPairService.class).getPortPair(PortPairId.of(id)),
                                            PORT_PAIR_NOT_FOUND);
@@ -96,7 +98,7 @@ public class PortPairWebResource extends AbstractWebResource {
      *
      * @param stream port pair from JSON
      * @return status of the request - CREATED if the JSON is correct,
-     *         BAD_REQUEST if the JSON is invalid
+     * BAD_REQUEST if the JSON is invalid
      */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -127,7 +129,7 @@ public class PortPairWebResource extends AbstractWebResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     public Response updatePortPair(@PathParam("pair_id") String id,
-            final InputStream stream) {
+                                   final InputStream stream) {
         try {
             ObjectNode jsonTree = (ObjectNode) mapper().readTree(stream);
             JsonNode port = jsonTree.get("port_pair");
@@ -145,16 +147,19 @@ public class PortPairWebResource extends AbstractWebResource {
      * Delete details of a specified port pair id.
      *
      * @param id port pair id
+     * @return 204 NO CONTENT
      */
     @Path("{pair_id}")
     @DELETE
+    @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public void deletePortPair(@PathParam("pair_id") String id) {
+    public Response deletePortPair(@PathParam("pair_id") String id) {
 
         PortPairId portPairId = PortPairId.of(id);
         Boolean isSuccess = nullIsNotFound(get(PortPairService.class).removePortPair(portPairId), PORT_PAIR_NOT_FOUND);
         if (!isSuccess) {
             log.debug("Port pair identifier {} does not exist", id);
         }
+        return Response.noContent().build();
     }
 }

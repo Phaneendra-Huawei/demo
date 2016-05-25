@@ -16,33 +16,81 @@
 
 package org.onosproject.ui.model.topo;
 
+import org.onlab.packet.IpAddress;
 import org.onosproject.cluster.ControllerNode;
 import org.onosproject.cluster.NodeId;
+import org.onosproject.net.DeviceId;
+
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import static org.onosproject.cluster.ControllerNode.State.INACTIVE;
 
 /**
  * Represents an individual member of the cluster (ONOS instance).
  */
 public class UiClusterMember extends UiElement {
 
+    private final UiTopology topology;
     private final ControllerNode cnode;
 
+    private ControllerNode.State state = INACTIVE;
+    private final Set<DeviceId> mastership = new HashSet<>();
+
     /**
-     * Constructs a cluster member, with a reference to the specified
-     * controller node instance.
+     * Constructs a UI cluster member, with a reference to the parent
+     * topology instance and the specified controller node instance.
      *
-     * @param cnode underlying controller node.
+     * @param topology parent topology containing this cluster member
+     * @param cnode    underlying controller node.
      */
-    public UiClusterMember(ControllerNode cnode) {
+    public UiClusterMember(UiTopology topology, ControllerNode cnode) {
+        this.topology = topology;
         this.cnode = cnode;
     }
 
+    @Override
+    public String toString() {
+        return "UiClusterMember{" + cnode +
+                ", online=" + isOnline() +
+                ", ready=" + isReady() +
+                ", #devices=" + deviceCount() +
+                "}";
+    }
+
+    @Override
+    public String idAsString() {
+        return id().toString();
+    }
+
     /**
-     * Updates the information about this cluster member.
+     * Returns the controller node instance backing this UI cluster member.
      *
-     * @param cnode underlying controller node
+     * @return the backing controller node instance
      */
-    public void update(ControllerNode cnode) {
-        // TODO: update our information cache appropriately
+    public ControllerNode backingNode() {
+        return cnode;
+    }
+
+    /**
+     * Sets the state of this cluster member.
+     *
+     * @param state the state
+     */
+    public void setState(ControllerNode.State state) {
+        this.state = state;
+    }
+
+    /**
+     * Sets the collection of identities of devices for which this
+     * controller node is master.
+     *
+     * @param mastership device IDs
+     */
+    public void setMastership(Set<DeviceId> mastership) {
+        this.mastership.clear();
+        this.mastership.addAll(mastership);
     }
 
     /**
@@ -52,5 +100,61 @@ public class UiClusterMember extends UiElement {
      */
     public NodeId id() {
         return cnode.id();
+    }
+
+    /**
+     * Returns the IP address of the cluster member.
+     *
+     * @return the IP address
+     */
+    public IpAddress ip() {
+        return cnode.ip();
+    }
+
+    /**
+     * Returns true if this cluster member is online (active).
+     *
+     * @return true if online, false otherwise
+     */
+    public boolean isOnline() {
+        return state.isActive();
+    }
+
+    /**
+     * Returns true if this cluster member is considered ready.
+     *
+     * @return true if ready, false otherwise
+     */
+    public boolean isReady() {
+        return state.isReady();
+    }
+
+    /**
+     * Returns the number of devices for which this cluster member is master.
+     *
+     * @return number of devices for which this member is master
+     */
+    public int deviceCount() {
+        return mastership.size();
+    }
+
+    /**
+     * Returns the list of devices for which this cluster member is master.
+     *
+     * @return list of devices for which this member is master
+     */
+    public Set<DeviceId> masterOf() {
+        return Collections.unmodifiableSet(mastership);
+    }
+
+    /**
+     * Returns true if the specified device is one for which this cluster
+     * member is master.
+     *
+     * @param deviceId device ID
+     * @return true if this cluster member is master for the given device
+     */
+    public boolean masterOf(DeviceId deviceId) {
+        return mastership.contains(deviceId);
     }
 }

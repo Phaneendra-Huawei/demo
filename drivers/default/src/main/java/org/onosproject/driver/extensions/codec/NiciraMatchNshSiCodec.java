@@ -52,8 +52,6 @@ public final class NiciraMatchNshSiCodec extends JsonCodec<NiciraMatchNshSi> {
                 NSH_SERVICE_INDEX + MISSING_MEMBER_MESSAGE).asInt();
         NshServiceIndex nshSi = NshServiceIndex.of(nshSiShort);
 
-        NiciraMatchNshSi niciraMatchNshSi = new NiciraMatchNshSi(nshSi);
-
-        return niciraMatchNshSi;
+        return new NiciraMatchNshSi(nshSi);
     }
 }

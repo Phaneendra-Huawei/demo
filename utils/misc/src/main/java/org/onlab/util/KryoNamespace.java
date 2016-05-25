@@ -16,6 +16,7 @@
 package org.onlab.util;
 
 import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.Registration;
 import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
@@ -34,7 +35,9 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -59,9 +62,12 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
     /**
      * Smallest ID free to use for user defined registrations.
      */
-    public static final int INITIAL_ID = 11;
+    public static final int INITIAL_ID = 16;
+
+    private static final String NO_NAME = "(no name)";
 
     private static final Logger log = getLogger(KryoNamespace.class);
+
 
 
     private final KryoPool pool = new KryoPool.Builder(this)
@@ -71,6 +77,7 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
     private final ImmutableList<RegistrationBlock> registeredBlocks;
 
     private final boolean registrationRequired;
+    private final String friendlyName;
 
 
     /**
@@ -90,10 +97,20 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
          * @return KryoNamespace
          */
         public KryoNamespace build() {
+            return build(NO_NAME);
+        }
+
+        /**
+         * Builds a {@link KryoNamespace} instance.
+         *
+         * @param friendlyName friendly name for the namespace
+         * @return KryoNamespace
+         */
+        public KryoNamespace build(String friendlyName) {
             if (!types.isEmpty()) {
                 blocks.add(new RegistrationBlock(this.blockHeadId, types));
             }
-            return new KryoNamespace(blocks, registrationRequired).populate(1);
+            return new KryoNamespace(blocks, registrationRequired, friendlyName).populate(1);
         }
 
         /**
@@ -108,9 +125,11 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
             if (!types.isEmpty()) {
                 if (id != FLOATING_ID && id < blockHeadId + types.size()) {
 
-                    log.warn("requested nextId {} could potentially overlap" +
-                             "with existing registrations {}+{} ",
-                             id, blockHeadId, types.size());
+                    if (log.isWarnEnabled()) {
+                        log.warn("requested nextId {} could potentially overlap " +
+                                 "with existing registrations {}+{} ",
+                                 id, blockHeadId, types.size(), new RuntimeException());
+                    }
                 }
                 blocks.add(new RegistrationBlock(this.blockHeadId, types));
                 types = new ArrayList<>();
@@ -169,6 +188,12 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
          * @return this
          */
         public Builder register(final KryoNamespace ns) {
+
+            if (blocks.containsAll(ns.registeredBlocks)) {
+                // Everything was already registered.
+                log.debug("Ignoring {}, already registered.", ns);
+                return this;
+            }
             for (RegistrationBlock block : ns.registeredBlocks) {
                 this.register(block);
             }
@@ -203,10 +228,14 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
      *
      * @param registeredTypes types to register
      * @param registrationRequired
+     * @param friendlyName friendly name for the namespace
      */
-    private KryoNamespace(final List<RegistrationBlock> registeredTypes, boolean registrationRequired) {
+    private KryoNamespace(final List<RegistrationBlock> registeredTypes,
+                          boolean registrationRequired,
+                          String friendlyName) {
         this.registeredBlocks = ImmutableList.copyOf(registeredTypes);
         this.registrationRequired = registrationRequired;
+        this.friendlyName =  checkNotNull(friendlyName);
     }
 
     /**
@@ -372,6 +401,10 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
         }
     }
 
+    private String friendlyName() {
+        return friendlyName;
+    }
+
     /**
      * Creates a Kryo instance.
      *
@@ -379,6 +412,7 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
      */
     @Override
     public Kryo create() {
+        log.trace("Creating Kryo instance for {}", this);
         Kryo kryo = new Kryo();
         kryo.setRegistrationRequired(registrationRequired);
 
@@ -392,15 +426,46 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
                 id = kryo.getNextRegistrationId();
             }
             for (Pair<Class<?>, Serializer<?>> entry : block.types()) {
-                final Serializer<?> serializer = entry.getRight();
-                if (serializer == null) {
-                    kryo.register(entry.getLeft(), id++);
-                } else {
-                    kryo.register(entry.getLeft(), serializer, id++);
-                }
+                register(kryo, entry.getLeft(), entry.getRight(), id++);
             }
         }
         return kryo;
+    }
+
+    /**
+     * Register {@code type} and {@code serializer} to {@code kryo} instance.
+     *
+     * @param kryo       Kryo instance
+     * @param type       type to register
+     * @param serializer Specific serializer to register or null to use default.
+     * @param id         type registration id to use
+     */
+    private void register(Kryo kryo, Class<?> type, Serializer<?> serializer, int id) {
+        Registration existing = kryo.getRegistration(id);
+        if (existing != null) {
+            if (existing.getType() != type) {
+                log.error("{}: Failed to register {} as {}, {} was already registered.",
+                          friendlyName(), type, id, existing.getType());
+
+                throw new IllegalStateException(String.format(
+                          "Failed to register %s as %s, %s was already registered.",
+                          type, id, existing.getType()));
+            }
+            // falling through to register call for now.
+            // Consider skipping, if there's reasonable
+            // way to compare serializer equivalence.
+        }
+        Registration r;
+        if (serializer == null) {
+            r = kryo.register(type, id);
+        } else {
+            r = kryo.register(type, serializer, id);
+        }
+        if (r.getId() != id) {
+            log.warn("{}: {} already registed as {}. Skipping {}.",
+                     friendlyName(), r.getType(), r.getId(), id);
+        }
+        log.trace("{} registered as {}", r.getType(), r.getId());
     }
 
     @Override
@@ -420,6 +485,13 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
 
     @Override
     public String toString() {
+        if (friendlyName != NO_NAME) {
+            return MoreObjects.toStringHelper(getClass())
+                    .omitNullValues()
+                    .add("friendlyName", friendlyName)
+                    // omit lengthy detail, when there's a name
+                    .toString();
+        }
         return MoreObjects.toStringHelper(getClass())
                     .add("registeredBlocks", registeredBlocks)
                     .toString();
@@ -448,6 +520,25 @@ public final class KryoNamespace implements KryoFactory, KryoPool {
                     .add("begin", begin)
                     .add("types", types)
                     .toString();
+        }
+
+        @Override
+        public int hashCode() {
+            return types.hashCode();
+        }
+
+        // Only the registered types are used for equality.
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+
+            if (obj instanceof RegistrationBlock) {
+                RegistrationBlock that = (RegistrationBlock) obj;
+                return Objects.equals(this.types, that.types);
+            }
+            return false;
         }
     }
 }

@@ -47,7 +47,7 @@ describe('factory: fw/layer/flash.js', function () {
 
     it('should define api functions', function () {
         expect(fs.areFunctions(flash, [
-            'initFlash', 'flash', 'enable'
+            'initFlash', 'flash', 'enable', 'tempDiv'
         ])).toBe(true);
     });
 

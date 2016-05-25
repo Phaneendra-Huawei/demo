@@ -31,6 +31,7 @@ import org.onlab.packet.MacAddress;
 import org.onlab.packet.TpPort;
 import org.onlab.packet.VlanId;
 import org.onlab.util.Bandwidth;
+import org.onlab.util.ClosedOpenRange;
 import org.onlab.util.Frequency;
 import org.onlab.util.KryoNamespace;
 import org.onlab.util.Match;
@@ -191,12 +192,19 @@ import org.onosproject.net.meter.MeterId;
 import org.onosproject.net.resource.ContinuousResource;
 import org.onosproject.net.resource.ContinuousResourceId;
 import org.onosproject.net.resource.DiscreteResource;
+import org.onosproject.net.resource.DiscreteResourceCodec;
 import org.onosproject.net.resource.DiscreteResourceId;
+import org.onosproject.net.resource.DiscreteResourceSet;
+import org.onosproject.net.resource.DiscreteResourceSetSerializer;
+import org.onosproject.net.resource.MplsCodec;
+import org.onosproject.net.resource.NoOpCodec;
 import org.onosproject.net.resource.ResourceAllocation;
+import org.onosproject.net.resource.ResourceConsumerId;
 import org.onosproject.net.packet.DefaultOutboundPacket;
 import org.onosproject.net.packet.DefaultPacketRequest;
 import org.onosproject.net.packet.PacketPriority;
 import org.onosproject.net.provider.ProviderId;
+import org.onosproject.net.resource.VlanCodec;
 import org.onosproject.security.Permission;
 import org.onosproject.store.Timestamp;
 import org.onosproject.store.primitives.MapUpdate;
@@ -261,7 +269,15 @@ public final class KryoNamespaces {
             .register(Optional.class)
             .register(Collections.emptyList().getClass())
             .register(Collections.singleton(Object.class).getClass())
-            .build();
+            .register(int[].class)
+            .register(long[].class)
+            .register(short[].class)
+            .register(double[].class)
+            .register(float[].class)
+            .register(char[].class)
+            .register(String[].class)
+            .register(boolean[].class)
+            .build("BASIC");
 
     /**
      * KryoNamespace which can serialize ON.lab misc classes.
@@ -281,12 +297,12 @@ public final class KryoNamespaces {
             .register(Bandwidth.class)
             .register(Bandwidth.bps(1L).getClass())
             .register(Bandwidth.bps(1.0).getClass())
-            .build();
+            .build("MISC");
 
     /**
      * Kryo registration Id for user custom registration.
      */
-    public static final int BEGIN_USER_CUSTOM_ID = 300;
+    public static final int BEGIN_USER_CUSTOM_ID = 500;
 
     // TODO: Populate other classes
     /**
@@ -295,9 +311,9 @@ public final class KryoNamespaces {
     public static final KryoNamespace API = KryoNamespace.newBuilder()
             .nextId(KryoNamespace.INITIAL_ID)
             .register(BASIC)
-            .nextId(KryoNamespace.INITIAL_ID + 30)
+            .nextId(KryoNamespace.INITIAL_ID + 50)
             .register(MISC)
-            .nextId(KryoNamespace.INITIAL_ID + 30 + 20)
+            .nextId(KryoNamespace.INITIAL_ID + 50 + 30)
             .register(
                     Instructions.MeterInstruction.class,
                     MeterId.class,
@@ -332,7 +348,6 @@ public final class KryoNamespaces {
                     DefaultFlowEntry.class,
                     StoredFlowEntry.class,
                     DefaultFlowRule.class,
-                    DefaultFlowEntry.class,
                     DefaultPacketRequest.class,
                     PacketPriority.class,
                     FlowEntry.FlowEntryState.class,
@@ -440,6 +455,7 @@ public final class KryoNamespaces {
                     DiscreteResourceId.class,
                     ContinuousResourceId.class,
                     ResourceAllocation.class,
+                    ResourceConsumerId.class,
                     // Constraints
                     BandwidthConstraint.class,
                     LinkTypeConstraint.class,
@@ -451,7 +467,6 @@ public final class KryoNamespaces {
                     PartialFailureConstraint.class,
                     IntentOperation.class,
                     FlowRuleExtPayLoad.class,
-                    Frequency.class,
                     DefaultAnnotations.class,
                     PortStatistics.class,
                     DefaultPortStatistics.class,
@@ -521,8 +536,13 @@ public final class KryoNamespaces {
                     org.onlab.packet.MplsLabel.class,
                     org.onlab.packet.MPLS.class
             )
-
-            .build();
+            .register(ClosedOpenRange.class)
+            .register(new DiscreteResourceSetSerializer(), DiscreteResourceSet.class)
+            .register(DiscreteResourceCodec.class)
+            .register(VlanCodec.class)
+            .register(MplsCodec.class)
+            .register(NoOpCodec.class)
+            .build("API");
 
 
     // not to be instantiated

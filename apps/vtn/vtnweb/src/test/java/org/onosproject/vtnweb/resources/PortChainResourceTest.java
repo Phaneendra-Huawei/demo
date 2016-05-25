@@ -15,10 +15,29 @@
  */
 package org.onosproject.vtnweb.resources;
 
-import com.eclipsesource.json.Json;
-import com.eclipsesource.json.JsonObject;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
+
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+import javax.ws.rs.NotFoundException;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -38,28 +57,10 @@ import org.onosproject.vtnrsc.TenantId;
 import org.onosproject.vtnrsc.portchain.PortChainService;
 import org.onosproject.vtnweb.web.SfcCodecContext;
 
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-
-import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.createMock;
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
+import com.eclipsesource.json.Json;
+import com.eclipsesource.json.JsonObject;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 /**
  * Unit tests for port chain REST APIs.
@@ -72,7 +73,6 @@ public class PortChainResourceTest extends VtnResourceTest {
     TenantId tenantId1 = TenantId.tenantId("d382007aa9904763a801f68ecf065cf5");
     private final List<PortPairGroupId> portPairGroupList1 = Lists.newArrayList();
     private final List<FlowClassifierId> flowClassifierList1 = Lists.newArrayList();
-
 
     final MockPortChain portChain1 = new MockPortChain(portChainId1, tenantId1, "portChain1",
                                                        "Mock port chain", portPairGroupList1,
@@ -91,9 +91,9 @@ public class PortChainResourceTest extends VtnResourceTest {
         private final List<FlowClassifierId> flowClassifierList;
 
         public MockPortChain(PortChainId portChainId, TenantId tenantId,
-                             String name, String description,
-                             List<PortPairGroupId> portPairGroupList,
-                             List<FlowClassifierId> flowClassifierList) {
+                String name, String description,
+                List<PortPairGroupId> portPairGroupList,
+                List<FlowClassifierId> flowClassifierList) {
 
             this.portChainId = portChainId;
             this.tenantId = tenantId;
@@ -125,7 +125,7 @@ public class PortChainResourceTest extends VtnResourceTest {
 
         @Override
         public List<PortPairGroupId> portPairGroups() {
-            return  ImmutableList.copyOf(portPairGroupList);
+            return ImmutableList.copyOf(portPairGroupList);
         }
 
         @Override
@@ -165,7 +165,7 @@ public class PortChainResourceTest extends VtnResourceTest {
         }
 
         @Override
-        public Optional<LoadBalanceId> matchPath(List<PortPairId> path) {
+        public LoadBalanceId matchPath(List<PortPairId> path) {
             return null;
         }
 
@@ -213,8 +213,8 @@ public class PortChainResourceTest extends VtnResourceTest {
     public void setUpTest() {
         SfcCodecContext context = new SfcCodecContext();
         ServiceDirectory testDirectory = new TestServiceDirectory()
-        .add(PortChainService.class, portChainService)
-        .add(CodecService.class, context.codecManager());
+                .add(PortChainService.class, portChainService)
+                .add(CodecService.class, context.codecManager());
         BaseResource.setServiceDirectory(testDirectory);
 
     }
@@ -260,17 +260,18 @@ public class PortChainResourceTest extends VtnResourceTest {
     }
 
     /**
-     * Tests that a fetch of a non-existent port chain object throws an exception.
+     * Tests that a fetch of a non-existent port chain object throws an
+     * exception.
      */
     @Test
     public void testBadGet() {
         expect(portChainService.getPortChain(anyObject()))
-        .andReturn(null).anyTimes();
+                .andReturn(null).anyTimes();
         replay(portChainService);
         WebTarget wt = target();
         try {
             wt.path("port_chains/78dcd363-fc23-aeb6-f44b-56dc5aafb3ae")
-                    .request().get(String.class);
+            .request().get(String.class);
             fail("Fetch of non-existent port chain did not throw an exception");
         } catch (NotFoundException ex) {
             assertThat(ex.getMessage(),
@@ -285,7 +286,7 @@ public class PortChainResourceTest extends VtnResourceTest {
     public void testPost() {
 
         expect(portChainService.createPortChain(anyObject()))
-        .andReturn(true).anyTimes();
+                .andReturn(true).anyTimes();
         replay(portChainService);
 
         WebTarget wt = target();
@@ -303,7 +304,7 @@ public class PortChainResourceTest extends VtnResourceTest {
     @Test
     public void testDelete() {
         expect(portChainService.removePortChain(anyObject()))
-        .andReturn(true).anyTimes();
+                .andReturn(true).anyTimes();
         replay(portChainService);
 
         WebTarget wt = target();

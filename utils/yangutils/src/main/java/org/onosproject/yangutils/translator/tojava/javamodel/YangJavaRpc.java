@@ -17,32 +17,46 @@
 package org.onosproject.yangutils.translator.tojava.javamodel;
 
 import java.io.IOException;
-import org.onosproject.yangutils.datamodel.HasRpcNotification;
+
+import org.onosproject.yangutils.datamodel.RpcNotificationContainer;
 import org.onosproject.yangutils.datamodel.YangInput;
 import org.onosproject.yangutils.datamodel.YangNode;
 import org.onosproject.yangutils.datamodel.YangOutput;
 import org.onosproject.yangutils.datamodel.YangRpc;
 import org.onosproject.yangutils.translator.exception.TranslatorException;
-import org.onosproject.yangutils.translator.tojava.HasJavaFileInfo;
-import org.onosproject.yangutils.translator.tojava.HasTempJavaCodeFragmentFiles;
 import org.onosproject.yangutils.translator.tojava.JavaAttributeInfo;
 import org.onosproject.yangutils.translator.tojava.JavaCodeGenerator;
 import org.onosproject.yangutils.translator.tojava.JavaFileInfo;
+import org.onosproject.yangutils.translator.tojava.JavaFileInfoContainer;
+import org.onosproject.yangutils.translator.tojava.JavaImportData;
+import org.onosproject.yangutils.translator.tojava.JavaQualifiedTypeInfo;
+import org.onosproject.yangutils.translator.tojava.TempJavaCodeFragmentFiles;
+import org.onosproject.yangutils.translator.tojava.TempJavaCodeFragmentFilesContainer;
+import org.onosproject.yangutils.translator.tojava.TempJavaFragmentFiles;
 import org.onosproject.yangutils.translator.tojava.utils.YangPluginConfig;
 
-import static org.onosproject.yangutils.translator.tojava.JavaAttributeInfo.getCurNodeAsAttributeInParent;
+import static org.onosproject.yangutils.translator.tojava.JavaAttributeInfo.getAttributeInfoForTheData;
+import static org.onosproject.yangutils.translator.tojava.JavaQualifiedTypeInfo.getQualifiedTypeInfoOfCurNode;
+import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getCapitalCase;
 import static org.onosproject.yangutils.translator.tojava.utils.JavaIdentifierSyntax.getParentNodeInGenCode;
 import static org.onosproject.yangutils.translator.tojava.utils.YangJavaModelUtils.updatePackageInfo;
 
 /**
  * Represents rpc information extended to support java code generation.
  */
-public class YangJavaRpc extends YangRpc implements JavaCodeGenerator, HasJavaFileInfo {
+public class YangJavaRpc
+        extends YangRpc
+        implements JavaCodeGenerator, JavaCodeGeneratorInfo {
 
     /**
      * Contains the information of the java file being generated.
      */
     private JavaFileInfo javaFileInfo;
+
+    /**
+     * Temproary file for code generation.
+     */
+    private TempJavaCodeFragmentFiles tempJavaCodeFragmentFiles;
 
     /**
      * Creates an instance of YANG java rpc.
@@ -54,26 +68,38 @@ public class YangJavaRpc extends YangRpc implements JavaCodeGenerator, HasJavaFi
 
     /**
      * Prepares the information for java code generation corresponding to YANG
-     * rpc info.
+     * RPC info.
      *
      * @param yangPlugin YANG plugin config
-     * @throws IOException IO operations fails
+     * @throws TranslatorException translator operations fails
      */
     @Override
-    public void generateCodeEntry(YangPluginConfig yangPlugin) throws IOException {
+    public void generateCodeEntry(YangPluginConfig yangPlugin) throws TranslatorException {
 
-        if (!(this instanceof YangNode)) {
+        if (!(this instanceof JavaCodeGeneratorInfo)) {
             // TODO:throw exception
         }
 
         // Add package information for rpc and create corresponding folder.
-        updatePackageInfo(this, yangPlugin);
+        try {
+            updatePackageInfo(this, yangPlugin);
+        } catch (IOException e) {
+            throw new TranslatorException("Failed to prepare generate code entry for RPC node " + this.getName());
+        }
+    }
 
+    /**
+     * Creates a java file using the YANG RPC info.
+     *
+     * @throws TranslatorException translator operations fails
+     */
+    @Override
+    public void generateCodeExit() throws TranslatorException {
         // Get the parent module/sub-module.
-        YangNode parent = getParentNodeInGenCode((YangNode) this);
+        YangNode parent = getParentNodeInGenCode(this);
 
         // Parent should be holder of rpc or notification.
-        if (!(parent instanceof HasRpcNotification)) {
+        if (!(parent instanceof RpcNotificationContainer)) {
             throw new TranslatorException("parent node of rpc can only be module or sub-module");
         }
 
@@ -85,40 +111,75 @@ public class YangJavaRpc extends YangRpc implements JavaCodeGenerator, HasJavaFi
         JavaAttributeInfo javaAttributeInfoOfInput = null;
         JavaAttributeInfo javaAttributeInfoOfOutput = null;
 
-        // Get the child input and output node and obtain create java attribute info.
+        // Get the child input and output node and obtain create java attribute
+        // info.
         YangNode yangNode = this.getChild();
         while (yangNode != null) {
             if (yangNode instanceof YangInput) {
-                javaAttributeInfoOfInput = getCurNodeAsAttributeInParent(parent, false, yangNode.getName());
+                javaAttributeInfoOfInput = getChildNodeAsAttributeInParentService(yangNode, this);
             } else if (yangNode instanceof YangOutput) {
-                javaAttributeInfoOfOutput = getCurNodeAsAttributeInParent(parent, false, yangNode.getName());
+                javaAttributeInfoOfOutput = getChildNodeAsAttributeInParentService(yangNode, this);
             } else {
                 // TODO throw exception
             }
             yangNode = yangNode.getNextSibling();
         }
 
-        if (!(parent instanceof HasTempJavaCodeFragmentFiles)) {
+        if (!(parent instanceof TempJavaCodeFragmentFilesContainer)) {
             throw new TranslatorException("missing parent temp file handle");
         }
 
         /*
          * Add the rpc information to the parent's service temp file.
          */
-        ((HasTempJavaCodeFragmentFiles) parent)
-                .getTempJavaCodeFragmentFiles()
-                .addJavaSnippetInfoToApplicableTempFiles(javaAttributeInfoOfInput, javaAttributeInfoOfOutput,
-                        ((YangNode) this).getName());
+        try {
+            ((TempJavaCodeFragmentFilesContainer) parent).getTempJavaCodeFragmentFiles().getServiceTempFiles()
+                    .addJavaSnippetInfoToApplicableTempFiles(javaAttributeInfoOfInput, javaAttributeInfoOfOutput,
+                            ((YangNode) this).getName());
+        } catch (IOException e) {
+            throw new TranslatorException("Failed to generate code for RPC node " + this.getName());
+        }
+        // No file will be generated during RPC exit.
     }
 
     /**
-     * Creates a java file using the YANG rpc info.
+     * Creates an attribute info object corresponding to a data model node and
+     * return it.
      *
-     * @throws IOException IO operations fails
+     * @param childNode child data model node(input / output) for which the java code generation
+     * is being handled
+     * @param currentNode parent node (module / sub-module) in which the child node is an attribute
+     * @return AttributeInfo attribute details required to add in temporary
+     * files
      */
-    @Override
-    public void generateCodeExit() throws IOException {
-        // No file will be generated during RPC exit.
+    public static JavaAttributeInfo getChildNodeAsAttributeInParentService(
+            YangNode childNode, YangNode currentNode) {
+
+        YangNode parentNode = getParentNodeInGenCode(currentNode);
+
+        String childNodeName = ((JavaFileInfoContainer) childNode).getJavaFileInfo().getJavaName();
+        /*
+         * Get the import info corresponding to the attribute for import in
+         * generated java files or qualified access
+         */
+        JavaQualifiedTypeInfo qualifiedTypeInfo = getQualifiedTypeInfoOfCurNode(currentNode,
+                getCapitalCase(childNodeName));
+        if (!(parentNode instanceof TempJavaCodeFragmentFilesContainer)) {
+            throw new TranslatorException("Parent node does not have file info");
+        }
+
+        TempJavaFragmentFiles tempJavaFragmentFiles;
+        tempJavaFragmentFiles = ((TempJavaCodeFragmentFilesContainer) parentNode)
+                .getTempJavaCodeFragmentFiles()
+                .getServiceTempFiles();
+
+        if (tempJavaFragmentFiles == null) {
+            throw new TranslatorException("Parent node does not have service file info");
+        }
+
+        JavaImportData parentImportData = tempJavaFragmentFiles.getJavaImportData();
+        boolean isQualified = parentImportData.addImportInfo(qualifiedTypeInfo);
+        return getAttributeInfoForTheData(qualifiedTypeInfo, childNodeName, null, isQualified, false);
     }
 
     /**
@@ -144,5 +205,15 @@ public class YangJavaRpc extends YangRpc implements JavaCodeGenerator, HasJavaFi
     public void setJavaFileInfo(JavaFileInfo javaInfo) {
         javaFileInfo = javaInfo;
     }
-}
 
+    @Override
+    public TempJavaCodeFragmentFiles getTempJavaCodeFragmentFiles() {
+        return tempJavaCodeFragmentFiles;
+    }
+
+    @Override
+    public void setTempJavaCodeFragmentFiles(TempJavaCodeFragmentFiles fileHandle) {
+        tempJavaCodeFragmentFiles = fileHandle;
+    }
+
+}

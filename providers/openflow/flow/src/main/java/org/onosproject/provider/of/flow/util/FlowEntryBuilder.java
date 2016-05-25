@@ -15,19 +15,7 @@
  */
 package org.onosproject.provider.of.flow.util;
 
-import static org.onosproject.net.flow.criteria.Criteria.matchLambda;
-import static org.onosproject.net.flow.criteria.Criteria.matchOchSignalType;
-import static org.onosproject.net.flow.criteria.Criteria.matchOduSignalId;
-import static org.onosproject.net.flow.criteria.Criteria.matchOduSignalType;
-import static org.onosproject.net.flow.instructions.Instructions.modL0Lambda;
-import static org.onosproject.net.flow.instructions.Instructions.modL1OduSignalId;
-import static org.onosproject.provider.of.flow.util.OpenFlowValueMapper.lookupChannelSpacing;
-import static org.onosproject.provider.of.flow.util.OpenFlowValueMapper.lookupGridType;
-import static org.onosproject.provider.of.flow.util.OpenFlowValueMapper.lookupOchSignalType;
-import static org.onosproject.provider.of.flow.util.OpenFlowValueMapper.lookupOduSignalType;
-
-import java.util.List;
-
+import com.google.common.collect.Lists;
 import org.onlab.packet.EthType;
 import org.onlab.packet.Ip4Address;
 import org.onlab.packet.Ip4Prefix;
@@ -104,7 +92,12 @@ import org.projectfloodlight.openflow.types.VlanPcp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
+import java.util.List;
+
+import static org.onosproject.net.flow.criteria.Criteria.*;
+import static org.onosproject.net.flow.instructions.Instructions.modL0Lambda;
+import static org.onosproject.net.flow.instructions.Instructions.modL1OduSignalId;
+import static org.onosproject.provider.of.flow.util.OpenFlowValueMapper.*;
 
 public class FlowEntryBuilder {
     private static final Logger log = LoggerFactory.getLogger(FlowEntryBuilder.class);
@@ -121,9 +114,7 @@ public class FlowEntryBuilder {
 
     private final DeviceId deviceId;
 
-    public enum FlowType {
-        STAT, REMOVED, MOD
-    }
+    public enum FlowType { STAT, REMOVED, MOD }
 
     private final FlowType type;
 
@@ -166,54 +157,54 @@ public class FlowEntryBuilder {
         FlowRule.Builder builder;
         try {
             switch (this.type) {
-            case STAT:
-                builder = DefaultFlowRule.builder()
-                        .forDevice(deviceId)
-                        .withSelector(buildSelector())
-                        .withTreatment(buildTreatment())
-                        .withPriority(stat.getPriority())
-                        .makeTemporary(stat.getIdleTimeout())
-                        .withCookie(stat.getCookie().getValue());
-                if (stat.getVersion() != OFVersion.OF_10) {
-                    builder.forTable(stat.getTableId().getValue());
-                }
+                case STAT:
+                    builder = DefaultFlowRule.builder()
+                            .forDevice(deviceId)
+                            .withSelector(buildSelector())
+                            .withTreatment(buildTreatment())
+                            .withPriority(stat.getPriority())
+                            .makeTemporary(stat.getIdleTimeout())
+                            .withCookie(stat.getCookie().getValue());
+                    if (stat.getVersion() != OFVersion.OF_10) {
+                        builder.forTable(stat.getTableId().getValue());
+                    }
 
-                return new DefaultFlowEntry(builder.build(), FlowEntryState.ADDED,
-                                            stat.getDurationSec(),
-                                            stat.getPacketCount().getValue(),
-                                            stat.getByteCount().getValue());
-            case REMOVED:
-                builder = DefaultFlowRule.builder()
-                        .forDevice(deviceId)
-                        .withSelector(buildSelector())
-                        .withPriority(removed.getPriority())
-                        .makeTemporary(removed.getIdleTimeout())
-                        .withCookie(removed.getCookie().getValue());
-                if (removed.getVersion() != OFVersion.OF_10) {
-                    builder.forTable(removed.getTableId().getValue());
-                }
+                    return new DefaultFlowEntry(builder.build(), FlowEntryState.ADDED,
+                                                stat.getDurationSec(),
+                                                stat.getPacketCount().getValue(),
+                                                stat.getByteCount().getValue());
+                case REMOVED:
+                    builder = DefaultFlowRule.builder()
+                            .forDevice(deviceId)
+                            .withSelector(buildSelector())
+                            .withPriority(removed.getPriority())
+                            .makeTemporary(removed.getIdleTimeout())
+                            .withCookie(removed.getCookie().getValue());
+                    if (removed.getVersion() != OFVersion.OF_10) {
+                        builder.forTable(removed.getTableId().getValue());
+                    }
 
-                return new DefaultFlowEntry(builder.build(), FlowEntryState.REMOVED,
-                                            removed.getDurationSec(),
-                                            removed.getPacketCount().getValue(),
-                                            removed.getByteCount().getValue());
-            case MOD:
-                FlowEntryState flowState = state.length > 0 ? state[0] : FlowEntryState.FAILED;
-                builder = DefaultFlowRule.builder()
-                        .forDevice(deviceId)
-                        .withSelector(buildSelector())
-                        .withTreatment(buildTreatment())
-                        .withPriority(flowMod.getPriority())
-                        .makeTemporary(flowMod.getIdleTimeout())
-                        .withCookie(flowMod.getCookie().getValue());
-                if (flowMod.getVersion() != OFVersion.OF_10) {
-                    builder.forTable(flowMod.getTableId().getValue());
-                }
+                    return new DefaultFlowEntry(builder.build(), FlowEntryState.REMOVED,
+                                                removed.getDurationSec(),
+                                                removed.getPacketCount().getValue(),
+                                                removed.getByteCount().getValue());
+                case MOD:
+                    FlowEntryState flowState = state.length > 0 ? state[0] : FlowEntryState.FAILED;
+                    builder = DefaultFlowRule.builder()
+                            .forDevice(deviceId)
+                            .withSelector(buildSelector())
+                            .withTreatment(buildTreatment())
+                            .withPriority(flowMod.getPriority())
+                            .makeTemporary(flowMod.getIdleTimeout())
+                            .withCookie(flowMod.getCookie().getValue());
+                    if (flowMod.getVersion() != OFVersion.OF_10) {
+                        builder.forTable(flowMod.getTableId().getValue());
+                    }
 
-                return new DefaultFlowEntry(builder.build(), flowState, 0, 0, 0);
-            default:
-                log.error("Unknown flow type : {}", this.type);
-                return null;
+                    return new DefaultFlowEntry(builder.build(), flowState, 0, 0, 0);
+                default:
+                    log.error("Unknown flow type : {}", this.type);
+                    return null;
             }
         } catch (UnsupportedOperationException e) {
             log.warn("Error building flow entry", e);
@@ -224,31 +215,31 @@ public class FlowEntryBuilder {
 
     private List<OFInstruction> getInstructions(OFFlowMod entry) {
         switch (entry.getVersion()) {
-        case OF_10:
-            return Lists.newArrayList(OFFactoryVer13.INSTANCE.instructions()
-                    .applyActions(
-                                  entry.getActions()));
-        case OF_11:
-        case OF_12:
-        case OF_13:
-            return entry.getInstructions();
-        default:
-            log.warn("Unknown OF version {}", entry.getVersion());
+            case OF_10:
+                return Lists.newArrayList(OFFactoryVer13.INSTANCE.instructions()
+                                                  .applyActions(
+                                                          entry.getActions()));
+            case OF_11:
+            case OF_12:
+            case OF_13:
+                return entry.getInstructions();
+            default:
+                log.warn("Unknown OF version {}", entry.getVersion());
         }
         return Lists.newLinkedList();
     }
 
     private List<OFInstruction> getInstructions(OFFlowStatsEntry entry) {
         switch (entry.getVersion()) {
-        case OF_10:
-            return Lists.newArrayList(
-                    OFFactoryVer13.INSTANCE.instructions().applyActions(entry.getActions()));
-        case OF_11:
-        case OF_12:
-        case OF_13:
-            return entry.getInstructions();
-        default:
-            log.warn("Unknown OF version {}", entry.getVersion());
+            case OF_10:
+                return Lists.newArrayList(
+                        OFFactoryVer13.INSTANCE.instructions().applyActions(entry.getActions()));
+            case OF_11:
+            case OF_12:
+            case OF_13:
+                return entry.getInstructions();
+            default:
+                log.warn("Unknown OF version {}", entry.getVersion());
         }
         return Lists.newLinkedList();
     }
@@ -257,34 +248,34 @@ public class FlowEntryBuilder {
         TrafficTreatment.Builder builder = DefaultTrafficTreatment.builder();
         for (OFInstruction in : instructions) {
             switch (in.getType()) {
-            case GOTO_TABLE:
-                builder.transition(((int) ((OFInstructionGotoTable) in)
-                        .getTableId().getValue()));
-                break;
-            case WRITE_METADATA:
-                OFInstructionWriteMetadata m = (OFInstructionWriteMetadata) in;
-                builder.writeMetadata(m.getMetadata().getValue(),
-                                      m.getMetadataMask().getValue());
-                break;
-            case WRITE_ACTIONS:
-                builder.deferred();
-                buildActions(((OFInstructionWriteActions) in).getActions(),
-                             builder);
-                break;
-            case APPLY_ACTIONS:
-                builder.immediate();
-                buildActions(((OFInstructionApplyActions) in).getActions(),
-                             builder);
-                break;
-            case CLEAR_ACTIONS:
-                builder.wipeDeferred();
-                break;
-            case EXPERIMENTER:
-                break;
-            case METER:
-                break;
-            default:
-                log.warn("Unknown instructions type {}", in.getType());
+                case GOTO_TABLE:
+                    builder.transition(((int) ((OFInstructionGotoTable) in)
+                            .getTableId().getValue()));
+                    break;
+                case WRITE_METADATA:
+                    OFInstructionWriteMetadata m = (OFInstructionWriteMetadata) in;
+                    builder.writeMetadata(m.getMetadata().getValue(),
+                                          m.getMetadataMask().getValue());
+                    break;
+                case WRITE_ACTIONS:
+                    builder.deferred();
+                    buildActions(((OFInstructionWriteActions) in).getActions(),
+                                 builder);
+                    break;
+                case APPLY_ACTIONS:
+                    builder.immediate();
+                    buildActions(((OFInstructionApplyActions) in).getActions(),
+                                 builder);
+                    break;
+                case CLEAR_ACTIONS:
+                    builder.wipeDeferred();
+                    break;
+                case EXPERIMENTER:
+                    break;
+                case METER:
+                    break;
+                default:
+                    log.warn("Unknown instructions type {}", in.getType());
             }
         }
 
@@ -301,9 +292,9 @@ public class FlowEntryBuilder {
      * @return configured traffic treatment builder
      */
     public static TrafficTreatment.Builder configureTreatmentBuilder(List<OFAction> actions,
-            TrafficTreatment.Builder builder,
-            DriverHandler driverHandler,
-            DeviceId deviceId) {
+                                                                     TrafficTreatment.Builder builder,
+                                                                     DriverHandler driverHandler,
+                                                                     DeviceId deviceId) {
         ExtensionTreatmentInterpreter interpreter;
         if (driverHandler.hasBehaviour(ExtensionTreatmentInterpreter.class)) {
             interpreter = driverHandler.behaviour(ExtensionTreatmentInterpreter.class);
@@ -313,128 +304,128 @@ public class FlowEntryBuilder {
 
         for (OFAction act : actions) {
             switch (act.getType()) {
-            case OUTPUT:
-                OFActionOutput out = (OFActionOutput) act;
-                builder.setOutput(
-                        PortNumber.portNumber(out.getPort().getPortNumber()));
-                break;
-            case SET_VLAN_VID:
-                OFActionSetVlanVid vlan = (OFActionSetVlanVid) act;
-                builder.setVlanId(VlanId.vlanId(vlan.getVlanVid().getVlan()));
-                break;
-            case SET_VLAN_PCP:
-                OFActionSetVlanPcp pcp = (OFActionSetVlanPcp) act;
-                builder.setVlanPcp(pcp.getVlanPcp().getValue());
-                break;
-            case SET_DL_DST:
-                OFActionSetDlDst dldst = (OFActionSetDlDst) act;
-                builder.setEthDst(
-                        MacAddress.valueOf(dldst.getDlAddr().getLong()));
-                break;
-            case SET_DL_SRC:
-                OFActionSetDlSrc dlsrc = (OFActionSetDlSrc) act;
-                builder.setEthSrc(
-                        MacAddress.valueOf(dlsrc.getDlAddr().getLong()));
-                break;
-            case SET_NW_DST:
-                OFActionSetNwDst nwdst = (OFActionSetNwDst) act;
-                IPv4Address di = nwdst.getNwAddr();
-                builder.setIpDst(Ip4Address.valueOf(di.getInt()));
-                break;
-            case SET_NW_SRC:
-                OFActionSetNwSrc nwsrc = (OFActionSetNwSrc) act;
-                IPv4Address si = nwsrc.getNwAddr();
-                builder.setIpSrc(Ip4Address.valueOf(si.getInt()));
-                break;
-            case EXPERIMENTER:
-                OFActionExperimenter exp = (OFActionExperimenter) act;
-                if (exp.getExperimenter() == 0x80005A06 ||
-                        exp.getExperimenter() == 0x748771) {
-                    OFActionCircuit ct = (OFActionCircuit) exp;
-                    CircuitSignalID circuitSignalID = ((OFOxmOchSigid) ct.getField()).getValue();
-                    builder.add(Instructions.modL0Lambda(Lambda.ochSignal(lookupGridType(circuitSignalID.getGridType()),
-                                                                          lookupChannelSpacing(circuitSignalID
-                                                                                  .getChannelSpacing()),
-                                                                          circuitSignalID.getChannelNumber(),
-                                                                          circuitSignalID.getSpectralWidth())));
-                } else if (interpreter != null) {
-                    builder.extension(interpreter.mapAction(exp), deviceId);
-                } else {
-                    log.warn("Unsupported OFActionExperimenter {}", exp.getExperimenter());
-                }
-                break;
-            case SET_FIELD:
-                OFActionSetField setField = (OFActionSetField) act;
-                handleSetField(builder, setField, driverHandler, deviceId);
-                break;
-            case POP_MPLS:
-                OFActionPopMpls popMpls = (OFActionPopMpls) act;
-                builder.popMpls(new EthType(popMpls.getEthertype().getValue()));
-                break;
-            case PUSH_MPLS:
-                builder.pushMpls();
-                break;
-            case COPY_TTL_IN:
-                builder.copyTtlIn();
-                break;
-            case COPY_TTL_OUT:
-                builder.copyTtlOut();
-                break;
-            case DEC_MPLS_TTL:
-                builder.decMplsTtl();
-                break;
-            case DEC_NW_TTL:
-                builder.decNwTtl();
-                break;
-            case GROUP:
-                OFActionGroup group = (OFActionGroup) act;
-                builder.group(new DefaultGroupId(group.getGroup().getGroupNumber()));
-                break;
-            case SET_QUEUE:
-                OFActionSetQueue setQueue = (OFActionSetQueue) act;
-                builder.setQueue(setQueue.getQueueId());
-                break;
-            case ENQUEUE:
-                OFActionEnqueue enqueue = (OFActionEnqueue) act;
-                builder.setQueue(enqueue.getQueueId(),
-                                 PortNumber.portNumber(enqueue.getPort().getPortNumber()));
-                break;
-            case STRIP_VLAN:
-            case POP_VLAN:
-                builder.popVlan();
-                break;
-            case PUSH_VLAN:
-                builder.pushVlan();
-                break;
-            case SET_TP_DST:
-            case SET_TP_SRC:
-            case POP_PBB:
-            case PUSH_PBB:
-            case SET_MPLS_LABEL:
-            case SET_MPLS_TC:
-            case SET_MPLS_TTL:
-            case SET_NW_ECN:
-            case SET_NW_TOS:
-            case SET_NW_TTL:
+                case OUTPUT:
+                    OFActionOutput out = (OFActionOutput) act;
+                    builder.setOutput(
+                            PortNumber.portNumber(out.getPort().getPortNumber()));
+                    break;
+                case SET_VLAN_VID:
+                    OFActionSetVlanVid vlan = (OFActionSetVlanVid) act;
+                    builder.setVlanId(VlanId.vlanId(vlan.getVlanVid().getVlan()));
+                    break;
+                case SET_VLAN_PCP:
+                    OFActionSetVlanPcp pcp = (OFActionSetVlanPcp) act;
+                    builder.setVlanPcp(pcp.getVlanPcp().getValue());
+                    break;
+                case SET_DL_DST:
+                    OFActionSetDlDst dldst = (OFActionSetDlDst) act;
+                    builder.setEthDst(
+                            MacAddress.valueOf(dldst.getDlAddr().getLong()));
+                    break;
+                case SET_DL_SRC:
+                    OFActionSetDlSrc dlsrc = (OFActionSetDlSrc) act;
+                    builder.setEthSrc(
+                            MacAddress.valueOf(dlsrc.getDlAddr().getLong()));
+                    break;
+                case SET_NW_DST:
+                    OFActionSetNwDst nwdst = (OFActionSetNwDst) act;
+                    IPv4Address di = nwdst.getNwAddr();
+                    builder.setIpDst(Ip4Address.valueOf(di.getInt()));
+                    break;
+                case SET_NW_SRC:
+                    OFActionSetNwSrc nwsrc = (OFActionSetNwSrc) act;
+                    IPv4Address si = nwsrc.getNwAddr();
+                    builder.setIpSrc(Ip4Address.valueOf(si.getInt()));
+                    break;
+                case EXPERIMENTER:
+                    OFActionExperimenter exp = (OFActionExperimenter) act;
+                    if (exp.getExperimenter() == 0x80005A06 ||
+                            exp.getExperimenter() == 0x748771) {
+                        OFActionCircuit ct = (OFActionCircuit) exp;
+                        CircuitSignalID circuitSignalID = ((OFOxmOchSigid) ct.getField()).getValue();
+                        builder.add(Instructions.modL0Lambda(Lambda.ochSignal(
+                                lookupGridType(circuitSignalID.getGridType()),
+                                lookupChannelSpacing(circuitSignalID.getChannelSpacing()),
+                                circuitSignalID.getChannelNumber(), circuitSignalID.getSpectralWidth())));
+                    } else if (interpreter != null) {
+                        builder.extension(interpreter.mapAction(exp), deviceId);
+                    } else {
+                        log.warn("Unsupported OFActionExperimenter {}", exp.getExperimenter());
+                    }
+                    break;
+                case SET_FIELD:
+                    OFActionSetField setField = (OFActionSetField) act;
+                    handleSetField(builder, setField, driverHandler, deviceId);
+                    break;
+                case POP_MPLS:
+                    OFActionPopMpls popMpls = (OFActionPopMpls) act;
+                    builder.popMpls(new EthType(popMpls.getEthertype().getValue()));
+                    break;
+                case PUSH_MPLS:
+                    builder.pushMpls();
+                    break;
+                case COPY_TTL_IN:
+                    builder.copyTtlIn();
+                    break;
+                case COPY_TTL_OUT:
+                    builder.copyTtlOut();
+                    break;
+                case DEC_MPLS_TTL:
+                    builder.decMplsTtl();
+                    break;
+                case DEC_NW_TTL:
+                    builder.decNwTtl();
+                    break;
+                case GROUP:
+                    OFActionGroup group = (OFActionGroup) act;
+                    builder.group(new DefaultGroupId(group.getGroup().getGroupNumber()));
+                    break;
+                case SET_QUEUE:
+                    OFActionSetQueue setQueue = (OFActionSetQueue) act;
+                    builder.setQueue(setQueue.getQueueId());
+                    break;
+                case ENQUEUE:
+                    OFActionEnqueue enqueue = (OFActionEnqueue) act;
+                    builder.setQueue(enqueue.getQueueId(),
+                            PortNumber.portNumber(enqueue.getPort().getPortNumber()));
+                    break;
+                case STRIP_VLAN:
+                case POP_VLAN:
+                    builder.popVlan();
+                    break;
+                case PUSH_VLAN:
+                    builder.pushVlan();
+                    break;
+                case SET_TP_DST:
+                case SET_TP_SRC:
+                case POP_PBB:
+                case PUSH_PBB:
+                case SET_MPLS_LABEL:
+                case SET_MPLS_TC:
+                case SET_MPLS_TTL:
+                case SET_NW_ECN:
+                case SET_NW_TOS:
+                case SET_NW_TTL:
 
-            default:
-                log.warn("Action type {} not yet implemented.", act.getType());
+                default:
+                    log.warn("Action type {} not yet implemented.", act.getType());
             }
         }
         return builder;
     }
 
     private TrafficTreatment.Builder buildActions(List<OFAction> actions,
-            TrafficTreatment.Builder builder) {
+                                                  TrafficTreatment.Builder builder) {
         DriverHandler driverHandler = getDriver(deviceId);
 
         return configureTreatmentBuilder(actions, builder, driverHandler, deviceId);
     }
 
+
     private static void handleSetField(TrafficTreatment.Builder builder,
-            OFActionSetField action,
-            DriverHandler driverHandler,
-            DeviceId deviceId) {
+                                       OFActionSetField action,
+                                       DriverHandler driverHandler,
+                                       DeviceId deviceId) {
         ExtensionTreatmentInterpreter treatmentInterpreter;
         if (driverHandler.hasBehaviour(ExtensionTreatmentInterpreter.class)) {
             treatmentInterpreter = driverHandler.behaviour(ExtensionTreatmentInterpreter.class);
@@ -465,13 +456,13 @@ public class FlowEntryBuilder {
         case ETH_DST:
             @SuppressWarnings("unchecked")
             OFOxm<org.projectfloodlight.openflow.types.MacAddress> ethdst =
-            (OFOxm<org.projectfloodlight.openflow.types.MacAddress>) oxm;
+                    (OFOxm<org.projectfloodlight.openflow.types.MacAddress>) oxm;
             builder.setEthDst(MacAddress.valueOf(ethdst.getValue().getLong()));
             break;
         case ETH_SRC:
             @SuppressWarnings("unchecked")
             OFOxm<org.projectfloodlight.openflow.types.MacAddress> ethsrc =
-            (OFOxm<org.projectfloodlight.openflow.types.MacAddress>) oxm;
+                    (OFOxm<org.projectfloodlight.openflow.types.MacAddress>) oxm;
             builder.setEthSrc(MacAddress.valueOf(ethsrc.getValue().getLong()));
             break;
         case IPV4_DST:
@@ -540,13 +531,13 @@ public class FlowEntryBuilder {
                 }
             }
             break;
-        case EXP_ODU_SIG_ID:
+       case EXP_ODU_SIG_ID:
             @SuppressWarnings("unchecked")
             OFOxm<OduSignalID> oduID = (OFOxm<OduSignalID>) oxm;
             OduSignalID oduSignalID = oduID.getValue();
             OduSignalId oduSignalId = OduSignalId.oduSignalId(oduSignalID.getTpn(),
-                                                              oduSignalID.getTslen(),
-                                                              oduSignalID.getTsmap());
+                    oduSignalID.getTslen(),
+                    oduSignalID.getTsmap());
             builder.add(modL1OduSignalId(oduSignalId));
             break;
         case EXP_OCH_SIG_ID:
@@ -555,18 +546,31 @@ public class FlowEntryBuilder {
                 OFOxm<CircuitSignalID> ochId = (OFOxm<CircuitSignalID>) oxm;
                 CircuitSignalID circuitSignalID = ochId.getValue();
                 builder.add(modL0Lambda(Lambda.ochSignal(
-                                                         lookupGridType(circuitSignalID.getGridType()),
-                                                         lookupChannelSpacing(circuitSignalID.getChannelSpacing()),
-                                                         circuitSignalID.getChannelNumber(),
-                                                         circuitSignalID.getSpectralWidth())));
+                        lookupGridType(circuitSignalID.getGridType()),
+                        lookupChannelSpacing(circuitSignalID.getChannelSpacing()),
+                        circuitSignalID.getChannelNumber(), circuitSignalID.getSpectralWidth())));
             } catch (NoMappingFoundException e) {
                 log.warn(e.getMessage());
                 break;
             }
             break;
         case ARP_OP:
+            @SuppressWarnings("unchecked")
+            OFOxm<org.projectfloodlight.openflow.types.ArpOpcode> arpop =
+                    (OFOxm<org.projectfloodlight.openflow.types.ArpOpcode>) oxm;
+            builder.setArpOp((short) arpop.getValue().getOpcode());
+            break;
         case ARP_SHA:
+            @SuppressWarnings("unchecked")
+            OFOxm<org.projectfloodlight.openflow.types.MacAddress> arpsha =
+                    (OFOxm<org.projectfloodlight.openflow.types.MacAddress>) oxm;
+            builder.setArpSha(MacAddress.valueOf(arpsha.getValue().getLong()));
+            break;
         case ARP_SPA:
+            @SuppressWarnings("unchecked")
+            OFOxm<IPv4Address> arpspa = (OFOxm<IPv4Address>) oxm;
+            builder.setArpSpa(Ip4Address.valueOf(arpspa.getValue().getInt()));
+            break;
         case ARP_THA:
         case ARP_TPA:
         case BSN_EGR_PORT_GROUP_ID:
@@ -613,10 +617,6 @@ public class FlowEntryBuilder {
         case SCTP_SRC:
         case EXP_ODU_SIGTYPE:
         case EXP_OCH_SIGTYPE:
-        case TUN_FLAGS:
-        case TUN_GBP_ID:
-        case TUN_GBP_FLAGS:
-        case TUN_GPE_FLAGS:
         default:
             log.warn("Set field type {} not yet implemented.", oxm.getMatchField().id);
             break;
@@ -644,15 +644,15 @@ public class FlowEntryBuilder {
             switch (field.id) {
             case IN_PORT:
                 builder.matchInPort(PortNumber
-                                    .portNumber(match.get(MatchField.IN_PORT).getPortNumber()));
+                        .portNumber(match.get(MatchField.IN_PORT).getPortNumber()));
                 break;
             case IN_PHY_PORT:
                 builder.matchInPhyPort(PortNumber
-                                       .portNumber(match.get(MatchField.IN_PHY_PORT).getPortNumber()));
+                        .portNumber(match.get(MatchField.IN_PHY_PORT).getPortNumber()));
                 break;
             case METADATA:
                 long metadata =
-                        match.get(MatchField.METADATA).getValue().getValue();
+                    match.get(MatchField.METADATA).getValue().getValue();
                 builder.matchMetadata(metadata);
                 break;
             case ETH_DST:
@@ -683,11 +683,11 @@ public class FlowEntryBuilder {
                 break;
             case VLAN_VID:
                 if (selectorInterpreter != null &&
-                selectorInterpreter.supported(ExtensionSelectorTypes.OFDPA_MATCH_VLAN_VID.type())) {
+                        selectorInterpreter.supported(ExtensionSelectorTypes.OFDPA_MATCH_VLAN_VID.type())) {
                     if (match.getVersion().equals(OFVersion.OF_13)) {
                         OFOxm oxm = ((OFMatchV3) match).getOxmList().get(MatchField.VLAN_VID);
                         builder.extension(selectorInterpreter.mapOxm(oxm),
-                                          deviceId);
+                                deviceId);
                     } else {
                         break;
                     }
@@ -731,12 +731,12 @@ public class FlowEntryBuilder {
                 if (match.isPartiallyMasked(MatchField.IPV4_SRC)) {
                     Masked<IPv4Address> maskedIp = match.getMasked(MatchField.IPV4_SRC);
                     ip4Prefix = Ip4Prefix.valueOf(
-                                                  maskedIp.getValue().getInt(),
-                                                  maskedIp.getMask().asCidrMaskLength());
+                            maskedIp.getValue().getInt(),
+                            maskedIp.getMask().asCidrMaskLength());
                 } else {
                     ip4Prefix = Ip4Prefix.valueOf(
-                                                  match.get(MatchField.IPV4_SRC).getInt(),
-                                                  Ip4Prefix.MAX_MASK_LENGTH);
+                            match.get(MatchField.IPV4_SRC).getInt(),
+                            Ip4Prefix.MAX_MASK_LENGTH);
                 }
                 builder.matchIPSrc(ip4Prefix);
                 break;
@@ -744,12 +744,12 @@ public class FlowEntryBuilder {
                 if (match.isPartiallyMasked(MatchField.IPV4_DST)) {
                     Masked<IPv4Address> maskedIp = match.getMasked(MatchField.IPV4_DST);
                     ip4Prefix = Ip4Prefix.valueOf(
-                                                  maskedIp.getValue().getInt(),
-                                                  maskedIp.getMask().asCidrMaskLength());
+                            maskedIp.getValue().getInt(),
+                            maskedIp.getMask().asCidrMaskLength());
                 } else {
                     ip4Prefix = Ip4Prefix.valueOf(
-                                                  match.get(MatchField.IPV4_DST).getInt(),
-                                                  Ip4Prefix.MAX_MASK_LENGTH);
+                            match.get(MatchField.IPV4_DST).getInt(),
+                            Ip4Prefix.MAX_MASK_LENGTH);
                 }
                 builder.matchIPDst(ip4Prefix);
                 break;
@@ -767,7 +767,7 @@ public class FlowEntryBuilder {
                 break;
             case MPLS_LABEL:
                 builder.matchMplsLabel(MplsLabel.mplsLabel((int) match.get(MatchField.MPLS_LABEL)
-                        .getValue()));
+                                            .getValue()));
                 break;
             case MPLS_BOS:
                 builder.matchMplsBos(match.get(MatchField.MPLS_BOS).getValue());
@@ -790,12 +790,12 @@ public class FlowEntryBuilder {
                 if (match.isPartiallyMasked(MatchField.IPV6_SRC)) {
                     Masked<IPv6Address> maskedIp = match.getMasked(MatchField.IPV6_SRC);
                     ip6Prefix = Ip6Prefix.valueOf(
-                                                  maskedIp.getValue().getBytes(),
-                                                  maskedIp.getMask().asCidrMaskLength());
+                            maskedIp.getValue().getBytes(),
+                            maskedIp.getMask().asCidrMaskLength());
                 } else {
                     ip6Prefix = Ip6Prefix.valueOf(
-                                                  match.get(MatchField.IPV6_SRC).getBytes(),
-                                                  Ip6Prefix.MAX_MASK_LENGTH);
+                            match.get(MatchField.IPV6_SRC).getBytes(),
+                            Ip6Prefix.MAX_MASK_LENGTH);
                 }
                 builder.matchIPv6Src(ip6Prefix);
                 break;
@@ -803,18 +803,18 @@ public class FlowEntryBuilder {
                 if (match.isPartiallyMasked(MatchField.IPV6_DST)) {
                     Masked<IPv6Address> maskedIp = match.getMasked(MatchField.IPV6_DST);
                     ip6Prefix = Ip6Prefix.valueOf(
-                                                  maskedIp.getValue().getBytes(),
-                                                  maskedIp.getMask().asCidrMaskLength());
+                            maskedIp.getValue().getBytes(),
+                            maskedIp.getMask().asCidrMaskLength());
                 } else {
                     ip6Prefix = Ip6Prefix.valueOf(
-                                                  match.get(MatchField.IPV6_DST).getBytes(),
-                                                  Ip6Prefix.MAX_MASK_LENGTH);
+                            match.get(MatchField.IPV6_DST).getBytes(),
+                            Ip6Prefix.MAX_MASK_LENGTH);
                 }
                 builder.matchIPv6Dst(ip6Prefix);
                 break;
             case IPV6_FLABEL:
                 int flowLabel =
-                        match.get(MatchField.IPV6_FLABEL).getIPv6FlowLabelValue();
+                    match.get(MatchField.IPV6_FLABEL).getIPv6FlowLabelValue();
                 builder.matchIPv6FlowLabel(flowLabel);
                 break;
             case ICMPV6_TYPE:
@@ -827,7 +827,7 @@ public class FlowEntryBuilder {
                 break;
             case IPV6_ND_TARGET:
                 ip6Address =
-                        Ip6Address.valueOf(match.get(MatchField.IPV6_ND_TARGET).getBytes());
+                    Ip6Address.valueOf(match.get(MatchField.IPV6_ND_TARGET).getBytes());
                 builder.matchIPv6NDTargetAddress(ip6Address);
                 break;
             case IPV6_ND_SLL:
@@ -840,15 +840,14 @@ public class FlowEntryBuilder {
                 break;
             case IPV6_EXTHDR:
                 builder.matchIPv6ExthdrFlags((short) match.get(MatchField.IPV6_EXTHDR)
-                                             .getValue());
+                        .getValue());
                 break;
             case OCH_SIGID:
                 CircuitSignalID sigId = match.get(MatchField.OCH_SIGID);
                 builder.add(matchLambda(Lambda.ochSignal(
-                                                         lookupGridType(sigId.getGridType()),
-                                                         lookupChannelSpacing(sigId.getChannelSpacing()),
-                                                         sigId.getChannelNumber(), sigId.getSpectralWidth())
-                        ));
+                                lookupGridType(sigId.getGridType()), lookupChannelSpacing(sigId.getChannelSpacing()),
+                                sigId.getChannelNumber(), sigId.getSpectralWidth())
+                ));
                 break;
             case OCH_SIGTYPE:
                 U8 sigType = match.get(MatchField.OCH_SIGTYPE);
@@ -858,10 +857,8 @@ public class FlowEntryBuilder {
                 try {
                     CircuitSignalID expSigId = match.get(MatchField.EXP_OCH_SIG_ID);
                     builder.add(matchLambda(Lambda.ochSignal(
-                                                             lookupGridType(expSigId.getGridType()),
-                                                             lookupChannelSpacing(expSigId.getChannelSpacing()),
-                                                             expSigId.getChannelNumber(),
-                                                             expSigId.getSpectralWidth())));
+                            lookupGridType(expSigId.getGridType()), lookupChannelSpacing(expSigId.getChannelSpacing()),
+                            expSigId.getChannelNumber(), expSigId.getSpectralWidth())));
                 } catch (NoMappingFoundException e) {
                     log.warn(e.getMessage());
                     break;
@@ -878,10 +875,10 @@ public class FlowEntryBuilder {
                 break;
             case EXP_ODU_SIG_ID:
                 OduSignalId oduSignalId = OduSignalId.oduSignalId(match.get(MatchField.EXP_ODU_SIG_ID).getTpn(),
-                                                                  match.get(MatchField.EXP_ODU_SIG_ID).getTslen(),
-                                                                  match.get(MatchField.EXP_ODU_SIG_ID).getTsmap());
+                        match.get(MatchField.EXP_ODU_SIG_ID).getTslen(),
+                        match.get(MatchField.EXP_ODU_SIG_ID).getTsmap());
                 builder.add(matchOduSignalId(oduSignalId));
-                break;
+            break;
             case EXP_ODU_SIGTYPE:
                 try {
                     U8 oduSigType = match.get(MatchField.EXP_ODU_SIGTYPE);

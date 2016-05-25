@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.onlab.packet.Ethernet;
+import org.onlab.packet.Ip4Prefix;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
@@ -42,25 +43,34 @@ import org.onosproject.net.flow.instructions.Instructions.OutputInstruction;
 import org.onosproject.net.flowobjective.DefaultFilteringObjective;
 import org.onosproject.net.flowobjective.DefaultForwardingObjective;
 import org.onosproject.net.flowobjective.DefaultNextObjective;
+import org.onosproject.net.flowobjective.DefaultObjectiveContext;
 import org.onosproject.net.flowobjective.FilteringObjective;
 import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.flowobjective.NextObjective;
+import org.onosproject.net.flowobjective.ObjectiveContext;
 import org.onosproject.net.mcast.McastEvent;
 import org.onosproject.net.mcast.McastRouteInfo;
 import org.onosproject.net.topology.TopologyService;
-import org.onosproject.segmentrouting.storekey.McastNextObjectiveStoreKey;
+import org.onosproject.segmentrouting.config.SegmentRoutingAppConfig;
+import org.onosproject.segmentrouting.storekey.McastStoreKey;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.ConsistentMap;
 import org.onosproject.store.service.Serializer;
 import org.onosproject.store.service.StorageService;
+import org.onosproject.store.service.Versioned;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Handles multicast-related events.
@@ -71,8 +81,27 @@ public class McastHandler {
     private final ApplicationId coreAppId;
     private StorageService storageService;
     private TopologyService topologyService;
-    private final KryoNamespace.Builder kryoBuilder;
-    private final ConsistentMap<McastNextObjectiveStoreKey, NextObjective> mcastNextObjStore;
+    private final ConsistentMap<McastStoreKey, NextObjective> mcastNextObjStore;
+    private final KryoNamespace.Builder mcastKryo;
+    private final ConsistentMap<McastStoreKey, McastRole> mcastRoleStore;
+
+    /**
+     * Role in the multicast tree.
+     */
+    public enum McastRole {
+        /**
+         * The device is the ingress device of this group.
+         */
+        INGRESS,
+        /**
+         * The device is the transit device of this group.
+         */
+        TRANSIT,
+        /**
+         * The device is the egress device of this group.
+         */
+        EGRESS
+    }
 
     /**
      * Constructs the McastEventHandler.
@@ -81,19 +110,36 @@ public class McastHandler {
      */
     public McastHandler(SegmentRoutingManager srManager) {
         coreAppId = srManager.coreService.getAppId(CoreService.CORE_APP_NAME);
-
         this.srManager = srManager;
         this.storageService = srManager.storageService;
         this.topologyService = srManager.topologyService;
-
-        kryoBuilder = new KryoNamespace.Builder()
+        mcastKryo = new KryoNamespace.Builder()
                 .register(KryoNamespaces.API)
-                .register(McastNextObjectiveStoreKey.class);
+                .register(McastStoreKey.class)
+                .register(McastRole.class);
         mcastNextObjStore = storageService
-                .<McastNextObjectiveStoreKey, NextObjective>consistentMapBuilder()
+                .<McastStoreKey, NextObjective>consistentMapBuilder()
                 .withName("onos-mcast-nextobj-store")
-                .withSerializer(Serializer.using(kryoBuilder.build()))
+                .withSerializer(Serializer.using(mcastKryo.build("McastHandler-NextObj")))
                 .build();
+        mcastRoleStore = storageService
+                .<McastStoreKey, McastRole>consistentMapBuilder()
+                .withName("onos-mcast-role-store")
+                .withSerializer(Serializer.using(mcastKryo.build("McastHandler-Role")))
+                .build();
+    }
+
+    /**
+     * Read initial multicast from mcast store.
+     */
+    public void init() {
+        srManager.multicastRouteService.getRoutes().forEach(mcastRoute -> {
+            ConnectPoint source = srManager.multicastRouteService.fetchSource(mcastRoute);
+            Set<ConnectPoint> sinks = srManager.multicastRouteService.fetchSinks(mcastRoute);
+            sinks.forEach(sink -> {
+                processSinkAddedInternal(source, sink, mcastRoute.group());
+            });
+        });
     }
 
     /**
@@ -151,7 +197,6 @@ public class McastHandler {
         ConnectPoint source = mcastRouteInfo.source().orElse(null);
         ConnectPoint sink = mcastRouteInfo.sink().orElse(null);
         IpAddress mcastIp = mcastRouteInfo.route().group();
-        VlanId assignedVlan = assignedVlan();
 
         // When source and sink are on the same device
         if (source.deviceId().equals(sink.deviceId())) {
@@ -160,12 +205,15 @@ public class McastHandler {
                 log.warn("Sink is on the same port of source. Abort");
                 return;
             }
-            removePortFromDevice(sink.deviceId(), sink.port(), mcastIp, assignedVlan);
+            removePortFromDevice(sink.deviceId(), sink.port(), mcastIp, assignedVlan(source));
             return;
         }
 
         // Process the egress device
-        boolean isLast = removePortFromDevice(sink.deviceId(), sink.port(), mcastIp, assignedVlan);
+        boolean isLast = removePortFromDevice(sink.deviceId(), sink.port(), mcastIp, assignedVlan(null));
+        if (isLast) {
+            mcastRoleStore.remove(new McastStoreKey(mcastIp, sink.deviceId()));
+        }
 
         // If this is the last sink on the device, also update upstream
         Optional<Path> mcastPath = getPath(source.deviceId(), sink.deviceId(), mcastIp);
@@ -175,7 +223,9 @@ public class McastHandler {
             for (Link link : links) {
                 if (isLast) {
                     isLast = removePortFromDevice(link.src().deviceId(), link.src().port(),
-                            mcastIp, assignedVlan);
+                            mcastIp,
+                            assignedVlan(link.src().deviceId().equals(source.deviceId()) ? source : null));
+                    mcastRoleStore.remove(new McastStoreKey(mcastIp, link.src().deviceId()));
                 }
             }
         }
@@ -190,7 +240,8 @@ public class McastHandler {
      */
     private void processSinkAddedInternal(ConnectPoint source, ConnectPoint sink,
             IpAddress mcastIp) {
-        VlanId assignedVlan = assignedVlan();
+        // Process the ingress device
+        addFilterToDevice(source.deviceId(), source.port(), assignedVlan(source));
 
         // When source and sink are on the same device
         if (source.deviceId().equals(sink.deviceId())) {
@@ -199,23 +250,93 @@ public class McastHandler {
                 log.warn("Sink is on the same port of source. Abort");
                 return;
             }
-            addPortToDevice(sink.deviceId(), sink.port(), mcastIp, assignedVlan);
+            addPortToDevice(sink.deviceId(), sink.port(), mcastIp, assignedVlan(source));
+            mcastRoleStore.put(new McastStoreKey(mcastIp, sink.deviceId()), McastRole.INGRESS);
             return;
         }
-
-        // Process the ingress device
-        addFilterToDevice(source.deviceId(), source.port(), assignedVlan);
 
         // Find a path. If present, create/update groups and flows for each hop
         Optional<Path> mcastPath = getPath(source.deviceId(), sink.deviceId(), mcastIp);
         if (mcastPath.isPresent()) {
-            mcastPath.get().links().forEach(link -> {
-                addFilterToDevice(link.dst().deviceId(), link.dst().port(), assignedVlan);
-                addPortToDevice(link.src().deviceId(), link.src().port(), mcastIp, assignedVlan);
+            List<Link> links = mcastPath.get().links();
+            checkState(links.size() == 2,
+                    "Path in leaf-spine topology should always be two hops: ", links);
+
+            links.forEach(link -> {
+                addPortToDevice(link.src().deviceId(), link.src().port(), mcastIp,
+                        assignedVlan(link.src().deviceId().equals(source.deviceId()) ? source : null));
+                addFilterToDevice(link.dst().deviceId(), link.dst().port(), assignedVlan(null));
             });
+
             // Process the egress device
-            addPortToDevice(sink.deviceId(), sink.port(), mcastIp, assignedVlan);
+            addPortToDevice(sink.deviceId(), sink.port(), mcastIp, assignedVlan(null));
+
+            // Setup mcast roles
+            mcastRoleStore.put(new McastStoreKey(mcastIp, source.deviceId()),
+                    McastRole.INGRESS);
+            mcastRoleStore.put(new McastStoreKey(mcastIp, links.get(0).dst().deviceId()),
+                    McastRole.TRANSIT);
+            mcastRoleStore.put(new McastStoreKey(mcastIp, sink.deviceId()),
+                    McastRole.EGRESS);
+        } else {
+            log.warn("Unable to find a path from {} to {}. Abort sinkAdded",
+                    source.deviceId(), sink.deviceId());
         }
+    }
+
+    /**
+     * Processes the LINK_DOWN event.
+     *
+     * @param affectedLink Link that is going down
+     */
+    protected void processLinkDown(Link affectedLink) {
+        getAffectedGroups(affectedLink).forEach(mcastIp -> {
+            // Find out the ingress, transit and egress device of affected group
+            DeviceId ingressDevice = getDevice(mcastIp, McastRole.INGRESS)
+                    .stream().findAny().orElse(null);
+            DeviceId transitDevice = getDevice(mcastIp, McastRole.TRANSIT)
+                    .stream().findAny().orElse(null);
+            Set<DeviceId> egressDevices = getDevice(mcastIp, McastRole.EGRESS);
+            ConnectPoint source = getSource(mcastIp);
+
+            // Do not proceed if any of these info is missing
+            if (ingressDevice == null || transitDevice == null
+                    || egressDevices == null || source == null) {
+                log.warn("Missing ingress {}, transit {}, egress {} devices or source {}",
+                        ingressDevice, transitDevice, egressDevices, source);
+                return;
+            }
+
+            // Remove entire transit
+            removeGroupFromDevice(transitDevice, mcastIp, assignedVlan(null));
+
+            // Remove transit-facing port on ingress device
+            PortNumber ingressTransitPort = ingressTransitPort(mcastIp);
+            if (ingressTransitPort != null) {
+                removePortFromDevice(ingressDevice, ingressTransitPort, mcastIp, assignedVlan(source));
+                mcastRoleStore.remove(new McastStoreKey(mcastIp, transitDevice));
+            }
+
+            // Construct a new path for each egress device
+            egressDevices.forEach(egressDevice -> {
+                Optional<Path> mcastPath = getPath(ingressDevice, egressDevice, mcastIp);
+                if (mcastPath.isPresent()) {
+                    List<Link> links = mcastPath.get().links();
+                    links.forEach(link -> {
+                        addPortToDevice(link.src().deviceId(), link.src().port(), mcastIp,
+                                assignedVlan(link.src().deviceId().equals(source.deviceId()) ? source : null));
+                        addFilterToDevice(link.dst().deviceId(), link.dst().port(), assignedVlan(null));
+                    });
+                    // Setup new transit mcast role
+                    mcastRoleStore.put(new McastStoreKey(mcastIp,
+                            links.get(0).dst().deviceId()), McastRole.TRANSIT);
+                } else {
+                    log.warn("Fail to recover egress device {} from link failure {}",
+                            egressDevice, affectedLink);
+                    removeGroupFromDevice(egressDevice, mcastIp, assignedVlan(null));
+                }
+            });
+        });
     }
 
     /**
@@ -227,17 +348,28 @@ public class McastHandler {
      */
     private void addFilterToDevice(DeviceId deviceId, PortNumber port, VlanId assignedVlan) {
         // Do nothing if the port is configured as suppressed
-        ConnectPoint connectPt = new ConnectPoint(deviceId, port);
-        if (srManager.deviceConfiguration.suppressSubnet().contains(connectPt) ||
-                srManager.deviceConfiguration.suppressHost().contains(connectPt)) {
-            log.info("Ignore suppressed port {}", connectPt);
+        ConnectPoint connectPoint = new ConnectPoint(deviceId, port);
+        SegmentRoutingAppConfig appConfig = srManager.cfgService
+                .getConfig(srManager.appId, SegmentRoutingAppConfig.class);
+        if (appConfig != null && appConfig.suppressSubnet().contains(connectPoint)) {
+            log.info("Ignore suppressed port {}", connectPoint);
             return;
         }
 
+        // Reuse unicast VLAN if the port has subnet configured
+        Ip4Prefix portSubnet = srManager.deviceConfiguration.getPortSubnet(deviceId, port);
+        VlanId unicastVlan = srManager.getSubnetAssignedVlanId(deviceId, portSubnet);
+        final VlanId finalVlanId = (unicastVlan != null) ? unicastVlan : assignedVlan;
+
         FilteringObjective.Builder filtObjBuilder =
-                filterObjBuilder(deviceId, port, assignedVlan);
-        srManager.flowObjectiveService.filter(deviceId, filtObjBuilder.add());
-        // TODO add objective context
+                filterObjBuilder(deviceId, port, finalVlanId);
+        ObjectiveContext context = new DefaultObjectiveContext(
+                (objective) -> log.debug("Successfully add filter on {}/{}, vlan {}",
+                        deviceId, port.toLong(), finalVlanId),
+                (objective, error) ->
+                        log.warn("Failed to add filter on {}/{}, vlan {}: {}",
+                                deviceId, port.toLong(), finalVlanId, error));
+        srManager.flowObjectiveService.filter(deviceId, filtObjBuilder.add(context));
     }
 
     /**
@@ -251,17 +383,14 @@ public class McastHandler {
      */
     private void addPortToDevice(DeviceId deviceId, PortNumber port,
             IpAddress mcastIp, VlanId assignedVlan) {
-        log.info("Add port {} to {}. mcastIp={}, assignedVlan={}",
-                port, deviceId, mcastIp, assignedVlan);
-        McastNextObjectiveStoreKey mcastNextObjectiveStoreKey =
-                new McastNextObjectiveStoreKey(mcastIp, deviceId);
+        McastStoreKey mcastStoreKey = new McastStoreKey(mcastIp, deviceId);
         ImmutableSet.Builder<PortNumber> portBuilder = ImmutableSet.builder();
-        if (!mcastNextObjStore.containsKey(mcastNextObjectiveStoreKey)) {
+        if (!mcastNextObjStore.containsKey(mcastStoreKey)) {
             // First time someone request this mcast group via this device
             portBuilder.add(port);
         } else {
             // This device already serves some subscribers of this mcast group
-            NextObjective nextObj = mcastNextObjStore.get(mcastNextObjectiveStoreKey).value();
+            NextObjective nextObj = mcastNextObjStore.get(mcastStoreKey).value();
             // Stop if the port is already in the nextobj
             Set<PortNumber> existingPorts = getPorts(nextObj.next());
             if (existingPorts.contains(port)) {
@@ -271,14 +400,19 @@ public class McastHandler {
             portBuilder.addAll(existingPorts).add(port).build();
         }
         // Create, store and apply the new nextObj and fwdObj
+        ObjectiveContext context = new DefaultObjectiveContext(
+                (objective) -> log.debug("Successfully add {} on {}/{}, vlan {}",
+                        mcastIp, deviceId, port.toLong(), assignedVlan),
+                (objective, error) ->
+                        log.warn("Failed to add {} on {}/{}, vlan {}: {}",
+                                mcastIp, deviceId, port.toLong(), assignedVlan, error));
         NextObjective newNextObj =
                 nextObjBuilder(mcastIp, assignedVlan, portBuilder.build()).add();
         ForwardingObjective fwdObj =
-                fwdObjBuilder(mcastIp, assignedVlan, newNextObj.id()).add();
-        mcastNextObjStore.put(mcastNextObjectiveStoreKey, newNextObj);
+                fwdObjBuilder(mcastIp, assignedVlan, newNextObj.id()).add(context);
+        mcastNextObjStore.put(mcastStoreKey, newNextObj);
         srManager.flowObjectiveService.next(deviceId, newNextObj);
         srManager.flowObjectiveService.forward(deviceId, fwdObj);
-        // TODO add objective callback
     }
 
     /**
@@ -294,19 +428,17 @@ public class McastHandler {
      */
     private boolean removePortFromDevice(DeviceId deviceId, PortNumber port,
             IpAddress mcastIp, VlanId assignedVlan) {
-        log.info("Remove port {} from {}. mcastIp={}, assignedVlan={}",
-                port, deviceId, mcastIp, assignedVlan);
-        McastNextObjectiveStoreKey mcastNextObjectiveStoreKey =
-                new McastNextObjectiveStoreKey(mcastIp, deviceId);
+        McastStoreKey mcastStoreKey =
+                new McastStoreKey(mcastIp, deviceId);
         // This device is not serving this multicast group
-        if (!mcastNextObjStore.containsKey(mcastNextObjectiveStoreKey)) {
+        if (!mcastNextObjStore.containsKey(mcastStoreKey)) {
             log.warn("{} is not serving {} on port {}. Abort.", deviceId, mcastIp, port);
             return false;
         }
-        NextObjective nextObj = mcastNextObjStore.get(mcastNextObjectiveStoreKey).value();
+        NextObjective nextObj = mcastNextObjStore.get(mcastStoreKey).value();
 
         Set<PortNumber> existingPorts = getPorts(nextObj.next());
-        // This device does not serve this multicast group
+        // This port does not serve this multicast group
         if (!existingPorts.contains(port)) {
             log.warn("{} is not serving {} on port {}. Abort.", deviceId, mcastIp, port);
             return false;
@@ -322,20 +454,91 @@ public class McastHandler {
             // NOTE: Rely on GroupStore garbage collection rather than explicitly
             //       remove L3MG since there might be other flows/groups refer to
             //       the same L2IG
-            fwdObj = fwdObjBuilder(mcastIp, assignedVlan, nextObj.id()).remove();
-            mcastNextObjStore.remove(mcastNextObjectiveStoreKey);
+            ObjectiveContext context = new DefaultObjectiveContext(
+                    (objective) -> log.debug("Successfully remove {} on {}/{}, vlan {}",
+                            mcastIp, deviceId, port.toLong(), assignedVlan),
+                    (objective, error) ->
+                            log.warn("Failed to remove {} on {}/{}, vlan {}: {}",
+                                    mcastIp, deviceId, port.toLong(), assignedVlan, error));
+            fwdObj = fwdObjBuilder(mcastIp, assignedVlan, nextObj.id()).remove(context);
+            mcastNextObjStore.remove(mcastStoreKey);
             srManager.flowObjectiveService.forward(deviceId, fwdObj);
         } else {
             // If this is not the last sink, update flows and groups
+            ObjectiveContext context = new DefaultObjectiveContext(
+                    (objective) -> log.debug("Successfully update {} on {}/{}, vlan {}",
+                            mcastIp, deviceId, port.toLong(), assignedVlan),
+                    (objective, error) ->
+                            log.warn("Failed to update {} on {}/{}, vlan {}: {}",
+                                    mcastIp, deviceId, port.toLong(), assignedVlan, error));
             newNextObj = nextObjBuilder(mcastIp, assignedVlan, existingPorts).add();
             fwdObj = fwdObjBuilder(mcastIp, assignedVlan, newNextObj.id()).add();
-            mcastNextObjStore.put(mcastNextObjectiveStoreKey, newNextObj);
+            mcastNextObjStore.put(mcastStoreKey, newNextObj);
             srManager.flowObjectiveService.next(deviceId, newNextObj);
             srManager.flowObjectiveService.forward(deviceId, fwdObj);
         }
-        // TODO add objective callback
-
         return existingPorts.isEmpty();
+    }
+
+
+    /**
+     * Removes entire group on given device.
+     *
+     * @param deviceId device ID
+     * @param mcastIp multicast group to be removed
+     * @param assignedVlan assigned VLAN ID
+     */
+    private void removeGroupFromDevice(DeviceId deviceId, IpAddress mcastIp,
+            VlanId assignedVlan) {
+        McastStoreKey mcastStoreKey = new McastStoreKey(mcastIp, deviceId);
+        // This device is not serving this multicast group
+        if (!mcastNextObjStore.containsKey(mcastStoreKey)) {
+            log.warn("{} is not serving {}. Abort.", deviceId, mcastIp);
+            return;
+        }
+        NextObjective nextObj = mcastNextObjStore.get(mcastStoreKey).value();
+        // NOTE: Rely on GroupStore garbage collection rather than explicitly
+        //       remove L3MG since there might be other flows/groups refer to
+        //       the same L2IG
+        ObjectiveContext context = new DefaultObjectiveContext(
+                (objective) -> log.debug("Successfully remove {} on {}, vlan {}",
+                        mcastIp, deviceId, assignedVlan),
+                (objective, error) ->
+                        log.warn("Failed to remove {} on {}, vlan {}: {}",
+                                mcastIp, deviceId, assignedVlan, error));
+        ForwardingObjective fwdObj = fwdObjBuilder(mcastIp, assignedVlan, nextObj.id()).remove(context);
+        srManager.flowObjectiveService.forward(deviceId, fwdObj);
+        mcastNextObjStore.remove(mcastStoreKey);
+        mcastRoleStore.remove(mcastStoreKey);
+    }
+
+    /**
+     * Remove all groups on given device.
+     *
+     * @param deviceId device ID
+     */
+    public void removeDevice(DeviceId deviceId) {
+        Iterator<Map.Entry<McastStoreKey, Versioned<NextObjective>>> itNextObj =
+                mcastNextObjStore.entrySet().iterator();
+        while (itNextObj.hasNext()) {
+            Map.Entry<McastStoreKey, Versioned<NextObjective>> entry = itNextObj.next();
+            if (entry.getKey().deviceId().equals(deviceId)) {
+                ConnectPoint source = getSource(entry.getKey().mcastIp());
+                removeGroupFromDevice(entry.getKey().deviceId(), entry.getKey().mcastIp(),
+                        assignedVlan(deviceId.equals(source.deviceId()) ? source : null));
+                itNextObj.remove();
+            }
+        }
+
+        Iterator<Map.Entry<McastStoreKey, Versioned<McastRole>>> itRole =
+                mcastRoleStore.entrySet().iterator();
+        while (itRole.hasNext()) {
+            Map.Entry<McastStoreKey, Versioned<McastRole>> entry = itRole.next();
+            if (entry.getKey().deviceId().equals(deviceId)) {
+                itRole.remove();
+            }
+        }
+
     }
 
     /**
@@ -456,16 +659,15 @@ public class McastHandler {
     private Optional<Path> getPath(DeviceId src, DeviceId dst, IpAddress mcastIp) {
         List<Path> allPaths = Lists.newArrayList(
                 topologyService.getPaths(topologyService.currentTopology(), src, dst));
+        log.debug("{} path(s) found from {} to {}", allPaths.size(), src, dst);
         if (allPaths.isEmpty()) {
-            log.warn("Fail to find a path from {} to {}. Abort.", src, dst);
             return Optional.empty();
         }
 
         // If one of the available path is used before, use the same path
-        McastNextObjectiveStoreKey mcastNextObjectiveStoreKey =
-                new McastNextObjectiveStoreKey(mcastIp, src);
-        if (mcastNextObjStore.containsKey(mcastNextObjectiveStoreKey)) {
-            NextObjective nextObj = mcastNextObjStore.get(mcastNextObjectiveStoreKey).value();
+        McastStoreKey mcastStoreKey = new McastStoreKey(mcastIp, src);
+        if (mcastNextObjStore.containsKey(mcastStoreKey)) {
+            NextObjective nextObj = mcastNextObjStore.get(mcastStoreKey).value();
             Set<PortNumber> existingPorts = getPorts(nextObj.next());
             for (Path path : allPaths) {
                 PortNumber srcPort = path.links().get(0).src().port();
@@ -477,6 +679,50 @@ public class McastHandler {
         // Otherwise, randomly pick a path
         Collections.shuffle(allPaths);
         return allPaths.stream().findFirst();
+    }
+
+    /**
+     * Gets device(s) of given role in given multicast group.
+     *
+     * @param mcastIp multicast IP
+     * @param role multicast role
+     * @return set of device ID or empty set if not found
+     */
+    private Set<DeviceId> getDevice(IpAddress mcastIp, McastRole role) {
+        return mcastRoleStore.entrySet().stream()
+                .filter(entry -> entry.getKey().mcastIp().equals(mcastIp) &&
+                        entry.getValue().value() == role)
+                .map(Map.Entry::getKey).map(McastStoreKey::deviceId)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Gets source connect point of given multicast group.
+     *
+     * @param mcastIp multicast IP
+     * @return source connect point or null if not found
+     */
+    private ConnectPoint getSource(IpAddress mcastIp) {
+        return srManager.multicastRouteService.getRoutes().stream()
+                .filter(mcastRoute -> mcastRoute.group().equals(mcastIp))
+                .map(mcastRoute -> srManager.multicastRouteService.fetchSource(mcastRoute))
+                .findAny().orElse(null);
+    }
+
+    /**
+     * Gets groups which is affected by the link down event.
+     *
+     * @param link link going down
+     * @return a set of multicast IpAddress
+     */
+    private Set<IpAddress> getAffectedGroups(Link link) {
+        DeviceId deviceId = link.src().deviceId();
+        PortNumber port = link.src().port();
+        return mcastNextObjStore.entrySet().stream()
+                .filter(entry -> entry.getKey().deviceId().equals(deviceId) &&
+                        getPorts(entry.getValue().value().next()).contains(port))
+                .map(Map.Entry::getKey).map(McastStoreKey::mcastIp)
+                .collect(Collectors.toSet());
     }
 
     /**
@@ -492,12 +738,56 @@ public class McastHandler {
 
     /**
      * Gets assigned VLAN according to the value of egress VLAN.
+     * If connect point is specified, try to reuse the assigned VLAN on the connect point.
      *
-     * @return assigned VLAN
+     * @param cp connect point; Can be null if not specified
+     * @return assigned VLAN ID
      */
-    private VlanId assignedVlan() {
-        return (egressVlan().equals(VlanId.NONE)) ?
-                VlanId.vlanId(SegmentRoutingManager.ASSIGNED_VLAN_NO_SUBNET) :
-                egressVlan();
+    private VlanId assignedVlan(ConnectPoint cp) {
+        // Use the egressVlan if it is tagged
+        if (!egressVlan().equals(VlanId.NONE)) {
+            return egressVlan();
+        }
+        // Reuse unicast VLAN if the port has subnet configured
+        if (cp != null) {
+            Ip4Prefix portSubnet = srManager.deviceConfiguration
+                    .getPortSubnet(cp.deviceId(), cp.port());
+            VlanId unicastVlan = srManager.getSubnetAssignedVlanId(cp.deviceId(), portSubnet);
+            if (unicastVlan != null) {
+                return unicastVlan;
+            }
+        }
+        // By default, use VLAN_NO_SUBNET
+        return VlanId.vlanId(SegmentRoutingManager.ASSIGNED_VLAN_NO_SUBNET);
+    }
+
+    /**
+     * Gets the spine-facing port on ingress device of given multicast group.
+     *
+     * @param mcastIp multicast IP
+     * @return spine-facing port on ingress device
+     */
+    private PortNumber ingressTransitPort(IpAddress mcastIp) {
+        DeviceId ingressDevice = getDevice(mcastIp, McastRole.INGRESS)
+                .stream().findAny().orElse(null);
+        if (ingressDevice != null) {
+            NextObjective nextObj = mcastNextObjStore
+                    .get(new McastStoreKey(mcastIp, ingressDevice)).value();
+            Set<PortNumber> ports = getPorts(nextObj.next());
+
+            for (PortNumber port : ports) {
+                // Spine-facing port should have no subnet and no xconnect
+                if (srManager.deviceConfiguration != null &&
+                        srManager.deviceConfiguration.getPortSubnet(ingressDevice, port) == null &&
+                        srManager.deviceConfiguration.getXConnects().values().stream()
+                                .allMatch(connectPoints ->
+                                        connectPoints.stream().noneMatch(connectPoint ->
+                                                connectPoint.port().equals(port))
+                                )) {
+                    return port;
+                }
+            }
+        }
+        return null;
     }
 }
