@@ -15,11 +15,30 @@
  */
 package org.onosproject.vtnweb.resources;
 
-import com.eclipsesource.json.Json;
-import com.eclipsesource.json.JsonObject;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.replay;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
+
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+import javax.ws.rs.NotFoundException;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,27 +53,11 @@ import org.onosproject.vtnrsc.TenantId;
 import org.onosproject.vtnrsc.portpairgroup.PortPairGroupService;
 import org.onosproject.vtnweb.web.SfcCodecContext;
 
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.client.WebTarget;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import com.eclipsesource.json.Json;
+import com.eclipsesource.json.JsonObject;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
-import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.createMock;
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
 /**
  * Unit tests for port pair group REST APIs.
  */
@@ -136,6 +139,10 @@ public class PortPairGroupResourceTest extends VtnResourceTest {
                     Objects.equals(this.portPairGroupId, portPairGroup.portPairGroupId()) &&
                     Objects.equals(this.tenantId, portPairGroup.tenantId());
         }
+
+        @Override
+        public void resetLoad() {
+        }
     }
 
     /**
@@ -192,7 +199,8 @@ public class PortPairGroupResourceTest extends VtnResourceTest {
     }
 
     /**
-     * Tests that a fetch of a non-existent port pair group object throws an exception.
+     * Tests that a fetch of a non-existent port pair group object throws an
+     * exception.
      */
     @Test
     public void testBadGet() {

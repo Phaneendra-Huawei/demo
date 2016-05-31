@@ -19,6 +19,7 @@ import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.replay;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
@@ -45,7 +46,7 @@ import com.eclipsesource.json.JsonObject;
 import com.google.common.collect.Lists;
 
 /**
- * Unit tests for port chain REST APIs.
+ * Unit tests for port chain sf map REST APIs.
  */
 public class PortChainSfMapResourceTest extends VtnResourceTest {
 
@@ -94,5 +95,6 @@ public class PortChainSfMapResourceTest extends VtnResourceTest {
                 .get(String.class);
         final JsonObject result = Json.parse(response).asObject();
         assertThat(result, notNullValue());
+        assertThat(result.names().get(0), is("portChainSfMap"));
     }
 }

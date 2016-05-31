@@ -20,6 +20,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Set;
 import java.util.UUID;
 
@@ -126,7 +127,6 @@ public class SfcManager implements SfcService {
     protected SfcPacketProcessor processor = new SfcPacketProcessor();
 
     protected ApplicationId appId;
-    protected SfcFlowRuleInstallerImpl flowRuleInstaller;
     protected IdGenerator nshSpiIdGenerator;
     protected EventuallyConsistentMap<PortChainId, Integer> nshSpiPortChainMap;
     protected EventuallyConsistentMap<PortChainId, List<FiveTuple>> portChainFiveTupleMap;
@@ -137,7 +137,6 @@ public class SfcManager implements SfcService {
     @Activate
     public void activate() {
         appId = coreService.registerApplication(APP_ID);
-        flowRuleInstaller = new SfcFlowRuleInstallerImpl(appId);
         nshSpiIdGenerator = coreService.getIdGenerator(nshSpiIdTopic);
 
         vtnRscService.addListener(vtnRscListener);
@@ -223,37 +222,37 @@ public class SfcManager implements SfcService {
     @Override
     public void onPortPairCreated(PortPair portPair) {
         log.debug("onPortPairCreated");
-        // TODO: Modify forwarding rule on port-pair creation.
+        // Do nothing
     }
 
     @Override
     public void onPortPairDeleted(PortPair portPair) {
         log.debug("onPortPairDeleted");
-        // TODO: Modify forwarding rule on port-pair deletion.
+        // Do nothing
     }
 
     @Override
     public void onPortPairGroupCreated(PortPairGroup portPairGroup) {
         log.debug("onPortPairGroupCreated");
-        // TODO: Modify forwarding rule on port-pair-group creation.
+        // Do nothing
     }
 
     @Override
     public void onPortPairGroupDeleted(PortPairGroup portPairGroup) {
         log.debug("onPortPairGroupDeleted");
-        // TODO: Modify forwarding rule on port-pair-group deletion.
+        // Do nothing
     }
 
     @Override
     public void onFlowClassifierCreated(FlowClassifier flowClassifier) {
         log.debug("onFlowClassifierCreated");
-        // TODO: Modify forwarding rule on flow-classifier creation.
+        // Do nothing
     }
 
     @Override
     public void onFlowClassifierDeleted(FlowClassifier flowClassifier) {
         log.debug("onFlowClassifierDeleted");
-        // TODO: Modify forwarding rule on flow-classifier deletion.
+        // Do nothing
     }
 
     @Override
@@ -273,6 +272,7 @@ public class SfcManager implements SfcService {
             portChainFiveTupleMap.put(portChain.portChainId(), Lists.newArrayList());
         }
         // Install classifier rule to send the packet to controller
+        SfcFlowRuleInstallerImpl flowRuleInstaller = new SfcFlowRuleInstallerImpl(appId);
         flowRuleInstaller.installFlowClassifier(portChain, nshSpi);
 
         // Install rules for already identified five tuples.
@@ -283,7 +283,7 @@ public class SfcManager implements SfcService {
             nshSpi = NshServicePathId.of(getNshServicePathId(id, spi));
             // download the required flow rules for classifier and
             // forwarding
-            flowRuleInstaller.installLoadBalancedFlowClassifier(portChain, fiveTuple, nshSpi);
+            flowRuleInstaller.installLoadBalancedFlowRules(portChain, fiveTuple, nshSpi);
         }
     }
 
@@ -296,6 +296,7 @@ public class SfcManager implements SfcService {
 
         int nshSpiId = nshSpiPortChainMap.get(portChain.portChainId());
         // Uninstall classifier rules
+        SfcFlowRuleInstallerImpl flowRuleInstaller = new SfcFlowRuleInstallerImpl(appId);
         flowRuleInstaller.unInstallFlowClassifier(portChain, NshServicePathId.of(nshSpiId));
         // remove from nshSpiPortChainMap and add to nshSpiIdFreeList
         nshSpiPortChainMap.remove(portChain.portChainId());
@@ -315,8 +316,16 @@ public class SfcManager implements SfcService {
                 processedIdList.add(id);
             }
             nshSpi = NshServicePathId.of(getNshServicePathId(id, nshSpiId));
-            flowRuleInstaller.unInstallLoadBalancedFlowClassifier(portChain, fiveTuple, nshSpi);
+            flowRuleInstaller.unInstallLoadBalancedFlowRules(portChain, fiveTuple, nshSpi);
+        }
 
+        // Reset load for all the port pairs
+        List<PortPairGroupId> ppgIdlist = portChain.portPairGroups();
+        ListIterator<PortPairGroupId> ppgIdListIterator = ppgIdlist.listIterator();
+        while (ppgIdListIterator.hasNext()) {
+            PortPairGroupId portPairGroupId = ppgIdListIterator.next();
+            PortPairGroup ppg = portPairGroupService.getPortPairGroup(portPairGroupId);
+            ppg.resetLoad();
         }
     }
 
@@ -392,7 +401,9 @@ public class SfcManager implements SfcService {
                         if ((flowClassifier.protocol().equalsIgnoreCase("TCP")
                                 && fiveTuple.protocol() == IPv4.PROTOCOL_TCP)
                                 || (flowClassifier.protocol().equalsIgnoreCase("UDP")
-                                && fiveTuple.protocol() == IPv4.PROTOCOL_UDP)) {
+                                && fiveTuple.protocol() == IPv4.PROTOCOL_UDP)
+                                || (flowClassifier.protocol().equalsIgnoreCase("ICMP")
+                                && fiveTuple.protocol() == IPv4.PROTOCOL_ICMP)) {
                             match = true;
                         } else {
                             continue;
@@ -514,18 +525,22 @@ public class SfcManager implements SfcService {
                     // No need to process other packets received by controller.
                     return;
                 }
-            } else if (ethType == Ethernet.TYPE_IPV6) {
+            } else {
                 return;
             }
 
-            FiveTuple fiveTuple = DefaultFiveTuple.builder().setIpSrc(ipSrc).setIpDst(ipDst)
-                    .setPortSrc(PortNumber.portNumber(portSrc)).setPortDst(PortNumber.portNumber(portDst))
-                    .setProtocol(protocol).setTenantId(tenantId).build();
+            FiveTuple fiveTuple = DefaultFiveTuple.builder()
+                    .setIpSrc(ipSrc)
+                    .setIpDst(ipDst)
+                    .setPortSrc(PortNumber.portNumber(portSrc))
+                    .setPortDst(PortNumber.portNumber(portDst))
+                    .setProtocol(protocol)
+                    .setTenantId(tenantId)
+                    .build();
 
             PortChainId portChainId = findPortChainFromFiveTuple(fiveTuple);
 
             if (portChainId == null) {
-                log.error("Packet does not match with any classifier");
                 return;
             }
 
@@ -551,9 +566,9 @@ public class SfcManager implements SfcService {
             }
             // download the required flow rules for classifier and forwarding
             // install in OVS.
-            ConnectPoint connectPoint = flowRuleInstaller.installLoadBalancedFlowClassifier(portChain, fiveTuple,
-                                                                                            nshSpi);
-            sendPacket(context, connectPoint);
+            SfcFlowRuleInstallerImpl flowRuleInstaller = new SfcFlowRuleInstallerImpl(appId);
+            flowRuleInstaller.installLoadBalancedFlowRules(portChain, fiveTuple, nshSpi);
+            sendPacket(context);
         }
 
         /**
@@ -562,7 +577,7 @@ public class SfcManager implements SfcService {
          * @param context packet context
          * @param connectPoint connect point of first service function
          */
-        private void sendPacket(PacketContext context, ConnectPoint connectPoint) {
+        private void sendPacket(PacketContext context) {
 
             ConnectPoint sourcePoint = context.inPacket().receivedFrom();
 

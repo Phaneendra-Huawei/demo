@@ -17,6 +17,7 @@ package org.onosproject.vtnweb.resources;
 
 import static org.onlab.util.Tools.nullIsNotFound;
 
+import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -52,10 +53,11 @@ public class PortChainSfMapWebResource extends AbstractWebResource {
     @GET
     @Path("{chainId}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response getPortChainSfMap(@PathParam("chainId") String id) {
 
         Iterable<ServiceFunctionGroup> serviceFunctionGroups = nullIsNotFound(get(PortChainSfMapService.class)
-                                                                              .getServiceFunctions(PortChainId.of(id)),
+                .getServiceFunctions(PortChainId.of(id)),
                                                                               PORT_CHAIN_NOT_FOUND);
         ObjectNode result = mapper().createObjectNode();
         ArrayNode portChainSfMap = result.putArray("portChainSfMap");

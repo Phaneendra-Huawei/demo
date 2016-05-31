@@ -134,7 +134,7 @@ public class PortChainManager extends AbstractListenerManager<PortChainEvent, Po
 
         portChainStore.put(portChain.portChainId(), portChain);
         if (!portChainStore.containsKey(portChain.portChainId())) {
-            log.error("The portChain is created failed which identifier was {}", portChain.portChainId()
+            log.error("The portChain created is failed which identifier was {}", portChain.portChainId()
                       .toString());
             return false;
         }
@@ -148,7 +148,8 @@ public class PortChainManager extends AbstractListenerManager<PortChainEvent, Po
         if (!portChainStore.containsKey(portChain.portChainId())) {
             log.debug("The portChain is not exist whose identifier was {} ",
                       portChain.portChainId().toString());
-            return false;
+        } else {
+            portChainStore.remove(portChain.portChainId());
         }
         portChainStore.put(portChain.portChainId(), portChain);
 

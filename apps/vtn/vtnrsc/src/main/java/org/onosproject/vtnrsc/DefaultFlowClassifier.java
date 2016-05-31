@@ -48,32 +48,32 @@ public final class DefaultFlowClassifier implements FlowClassifier {
     private static final String TENANT_ID_NOT_NULL = "Tenant id can not be null.";
     private static final String NAME_NOT_NULL = "Name can not be null.";
     private static final String ETHER_TYPE_NOT_NULL = "Ether Type can not be null.";
-    private static final int DEFAULT_CLASSIFIER_PRIORITY = 0xFFFF;
+    private static final int DEFAULT_CLASSIFIER_PRIORITY = 0xCB20;
 
     /**
      * Constructor to create default flow classifier.
      *
-     * @param flowClassifierId      flow classifier Id
-     * @param tenantId              Tenant ID
-     * @param name                  flow classifier name
-     * @param description           flow classifier description
-     * @param etherType             etherType
-     * @param protocol              IP protocol
-     * @param priority              priority for classification
-     * @param minSrcPortRange       Minimum Source port range
-     * @param maxSrcPortRange       Maximum Source port range
-     * @param minDstPortRange       Minimum destination port range
-     * @param maxDstPortRange       Maximum destination port range
-     * @param srcIpPrefix           Source IP prefix
-     * @param dstIpPrefix           destination IP prefix
-     * @param srcPort               Source VirtualPort
-     * @param dstPort               destination VirtualPort
+     * @param flowClassifierId flow classifier Id
+     * @param tenantId Tenant ID
+     * @param name flow classifier name
+     * @param description flow classifier description
+     * @param etherType etherType
+     * @param protocol IP protocol
+     * @param priority priority for classification
+     * @param minSrcPortRange Minimum Source port range
+     * @param maxSrcPortRange Maximum Source port range
+     * @param minDstPortRange Minimum destination port range
+     * @param maxDstPortRange Maximum destination port range
+     * @param srcIpPrefix Source IP prefix
+     * @param dstIpPrefix destination IP prefix
+     * @param srcPort Source VirtualPort
+     * @param dstPort destination VirtualPort
      */
     private DefaultFlowClassifier(FlowClassifierId flowClassifierId, TenantId tenantId, String name,
-                                  String description, String etherType, String protocol, int priority,
-                                  int minSrcPortRange, int maxSrcPortRange, int minDstPortRange, int maxDstPortRange,
-                                  IpPrefix srcIpPrefix, IpPrefix dstIpPrefix, VirtualPortId srcPort,
-                                  VirtualPortId dstPort) {
+            String description, String etherType, String protocol, int priority,
+            int minSrcPortRange, int maxSrcPortRange, int minDstPortRange, int maxDstPortRange,
+            IpPrefix srcIpPrefix, IpPrefix dstIpPrefix, VirtualPortId srcPort,
+            VirtualPortId dstPort) {
         this.flowClassifierId = flowClassifierId;
         this.tenantId = tenantId;
         this.name = name;
@@ -361,7 +361,8 @@ public final class DefaultFlowClassifier implements FlowClassifier {
     @Override
     public int hashCode() {
         return Objects.hash(flowClassifierId, tenantId, name, description, etherType, protocol, minSrcPortRange,
-                maxSrcPortRange, minDstPortRange, maxDstPortRange, srcIpPrefix, dstIpPrefix, srcPort, dstPort);
+                            maxSrcPortRange, minDstPortRange, maxDstPortRange, srcIpPrefix, dstIpPrefix, srcPort,
+                            dstPort);
     }
 
     @Override

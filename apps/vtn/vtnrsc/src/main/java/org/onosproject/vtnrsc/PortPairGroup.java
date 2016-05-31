@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Abstraction of an entity providing Port Pair Group information.
- * A port pair group consists of one or more port pairs.
+ * Abstraction of an entity providing Port Pair Group information. A port pair
+ * group consists of one or more port pairs.
  */
 public interface PortPairGroup {
 
@@ -67,6 +67,11 @@ public interface PortPairGroup {
     void addLoad(PortPairId portPairId);
 
     /**
+     * Reset the load for all the port pairs in the group.
+     */
+    void resetLoad();
+
+    /**
      * Get the load on the given port pair id.
      *
      * @param portPairId port pair id
@@ -82,12 +87,13 @@ public interface PortPairGroup {
     Map<PortPairId, Integer> portPairLoadMap();
 
     /**
-     * Returns whether this port pair group is an exact match to the
-     * port pair group given in the argument.
+     * Returns whether this port pair group is an exact match to the port pair
+     * group given in the argument.
      * <p>
-     * Exact match means the Port pairs match with the given port pair group.
-     * It does not consider the port pair group id, name and description.
+     * Exact match means the Port pairs match with the given port pair group. It
+     * does not consider the port pair group id, name and description.
      * </p>
+     *
      * @param portPairGroup other port pair group to match against
      * @return true if the port pairs are an exact match, otherwise false
      */
@@ -131,8 +137,8 @@ public interface PortPairGroup {
         Builder setDescription(String description);
 
         /**
-         * Assigns the port pairs associated with the port pair group
-         * to this object.
+         * Assigns the port pairs associated with the port pair group to this
+         * object.
          *
          * @param portPairs list of port pairs
          * @return this the builder object

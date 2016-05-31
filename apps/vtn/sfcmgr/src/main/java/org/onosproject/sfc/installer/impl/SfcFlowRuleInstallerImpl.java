@@ -50,6 +50,7 @@ import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.TpPort;
 import org.onosproject.core.ApplicationId;
+import org.onosproject.net.AnnotationKeys;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
@@ -58,6 +59,7 @@ import org.onosproject.net.HostId;
 import org.onosproject.net.NshContextHeader;
 import org.onosproject.net.NshServiceIndex;
 import org.onosproject.net.NshServicePathId;
+import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.behaviour.BridgeConfig;
 import org.onosproject.net.behaviour.ExtensionSelectorResolver;
@@ -101,6 +103,7 @@ import org.onosproject.vtnrsc.virtualport.VirtualPortService;
 import org.slf4j.Logger;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**
  * Provides flow classifier installer implementation.
@@ -120,13 +123,9 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
     protected FlowObjectiveService flowObjectiveService;
     protected ApplicationId appId;
 
-    private static final String DRIVER_NAME = "onosfw";
-    private static final String FLOW_CLASSIFIER_NOT_NULL = "Flow-Classifier cannot be null";
-    private static final String FLOW_CLASSIFIER_ID_NOT_NULL = "Flow-Classifier-Id cannot be null";
     private static final String PORT_CHAIN_NOT_NULL = "Port-Chain cannot be null";
-    private static final int NULL = 0;
-    private static final int FLOW_CLASSIFIER_PRIORITY = 0x7fff;
-    private static final int DEFAULT_CLASSIFIER_PRIORITY = 0xD6D8;
+    private static final int FLOW_CLASSIFIER_PRIORITY = 0xC738;
+    private static final int DEFAULT_FORWARDER_PRIORITY = 0xD6D8;
     private static final int ENCAP_OUTPUT_PRIORITY = 0x64;
     private static final int TUNNEL_SEND_PRIORITY = 0xC8;
     private static final String SWITCH_CHANNEL_ID = "channelId";
@@ -134,6 +133,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
     private static final int TUNNEL_SEND_TABLE = 7;
     private static final short ENCAP_ETH_TYPE = (short) 0x894f;
     private static final String DEFAULT_IP = "0.0.0.0";
+    private static final String VXLANPORT_HEAD = "vxlan-0.0.0.0";
 
     /* Port chain params */
     private short nshSi;
@@ -164,6 +164,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         this.portPairGroupService = serviceDirectory.get(PortPairGroupService.class);
         this.flowClassifierService = serviceDirectory.get(FlowClassifierService.class);
         this.tenantNetworkService = serviceDirectory.get(TenantNetworkService.class);
+        nshSi = 0xff;
     }
 
     @Override
@@ -203,18 +204,17 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
     }
 
     @Override
-    public ConnectPoint installLoadBalancedFlowClassifier(PortChain portChain, FiveTuple fiveTuple,
+    public ConnectPoint installLoadBalancedFlowRules(PortChain portChain, FiveTuple fiveTuple,
             NshServicePathId nshSpiId) {
         checkNotNull(portChain, PORT_CHAIN_NOT_NULL);
-        nshSi = 0xff;
+
         return installSfcFlowRules(portChain, fiveTuple, nshSpiId, Objective.Operation.ADD);
     }
 
     @Override
-    public ConnectPoint unInstallLoadBalancedFlowClassifier(PortChain portChain, FiveTuple fiveTuple,
+    public ConnectPoint unInstallLoadBalancedFlowRules(PortChain portChain, FiveTuple fiveTuple,
             NshServicePathId nshSpiId) {
         checkNotNull(portChain, PORT_CHAIN_NOT_NULL);
-        nshSi = 0xff;
         return installSfcFlowRules(portChain, fiveTuple, nshSpiId, Objective.Operation.REMOVE);
     }
 
@@ -236,7 +236,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         ConnectPoint connectPoint = installSfcClassifierRules(portChain, currentPortPair, nshSpiId, fiveTuple, type);
 
         log.info("Installing encap and output for first port pair");
-        // TODO: this can be optimized.
+
         installSfcEncapOutputRule(currentPortPair, nshSpiId, type);
 
         PortPair nextPortPair;
@@ -284,7 +284,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
         treatment.transition(ENCAP_OUTPUT_TABLE);
 
-        sendSfcRule(selector, treatment, deviceId, type, DEFAULT_CLASSIFIER_PRIORITY);
+        sendSfcRule(selector, treatment, deviceId, type, DEFAULT_FORWARDER_PRIORITY);
     }
 
     public void installSfcTunnelSendRule(DeviceId deviceId, NshServicePathId nshSpiId, Objective.Operation type) {
@@ -423,8 +423,11 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
 
         ExtensionTreatment resubmitTableTreatment = treatmentResolver.getExtensionInstruction(NICIRA_RESUBMIT_TABLE
                                                                                               .type());
+
+        PortNumber vxlanPortNumber = getVxlanPortNumber(deviceId);
+
         try {
-            resubmitTableTreatment.setPropertyValue("inPort", PortNumber.portNumber(1));
+            resubmitTableTreatment.setPropertyValue("inPort", vxlanPortNumber);
         } catch (Exception e) {
             log.error("Failed to set extension treatment for resubmit table in port {}", deviceId);
         }
@@ -435,7 +438,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
         }
         treatment.extension(resubmitTableTreatment, deviceId);
 
-        sendSfcRule(selector, treatment, deviceId, type, DEFAULT_CLASSIFIER_PRIORITY);
+        sendSfcRule(selector, treatment, deviceId, type, DEFAULT_FORWARDER_PRIORITY);
     }
 
     public void installSfcForwardRule(PortPair portPair, PortPair nextPortPair, NshServicePathId nshSpiId,
@@ -475,7 +478,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
             TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
             treatment.transition(ENCAP_OUTPUT_TABLE);
 
-            sendSfcRule(selector, treatment, deviceId, type, DEFAULT_CLASSIFIER_PRIORITY);
+            sendSfcRule(selector, treatment, deviceId, type, DEFAULT_FORWARDER_PRIORITY);
         } else {
             // Treatment with with transition to send on tunnel
             ExtensionTreatmentResolver treatmentResolver = handler.behaviour(ExtensionTreatmentResolver.class);
@@ -504,7 +507,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
             treatment.extension(tunnelDsttreatment, deviceId);
             treatment.transition(TUNNEL_SEND_TABLE);
 
-            sendSfcRule(selector, treatment, deviceId, type, DEFAULT_CLASSIFIER_PRIORITY);
+            sendSfcRule(selector, treatment, deviceId, type, DEFAULT_FORWARDER_PRIORITY);
 
             installSfcTunnelSendRule(deviceId, nshSpiId, type);
             installSfcTunnelReceiveRule(nextDeviceId, nshSpiId, type);
@@ -542,7 +545,6 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
             log.error("Failed to set extension selector to match Nsh Si Id {}", deviceId);
         }
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
-        // selector.extension(nshEncapEthTypeSelector, deviceId);
         selector.extension(nshSpiSelector, deviceId);
         selector.extension(nshSiSelector, deviceId);
 
@@ -604,7 +606,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
                 log.info("Downloading rule to send packet to controller");
                 TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder();
                 treatment.setOutput(PortNumber.CONTROLLER);
-                sendSfcRule(selector, treatment, deviceId, type, 52000);
+                sendSfcRule(selector, treatment, deviceId, type, FLOW_CLASSIFIER_PRIORITY);
                 continue;
             }
 
@@ -644,7 +646,7 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
                 TrafficTreatment.Builder treatment = packClassifierTreatment(deviceIdfromPortPair, virtualPort, port,
                                                                              nshSpiId, flowClassifier);
                 treatment.transition(ENCAP_OUTPUT_TABLE);
-                sendSfcRule(selector, treatment, deviceIdfromPortPair, type, 52000);
+                sendSfcRule(selector, treatment, deviceIdfromPortPair, type, flowClassifier.priority());
                 classifierList.add(deviceIdfromPortPair);
             }
         }
@@ -680,9 +682,11 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
                 selector.add(Criteria.matchIPProtocol(IPv4.PROTOCOL_TCP));
             } else if (flowClassifier.protocol().equalsIgnoreCase("UDP")) {
                 selector.add(Criteria.matchIPProtocol(IPv4.PROTOCOL_UDP));
+            } else if (flowClassifier.protocol().equalsIgnoreCase("ICMP")) {
+                selector.add(Criteria.matchIPProtocol(IPv4.PROTOCOL_ICMP));
             }
         } else if (fiveTuple != null && fiveTuple.protocol() != 0) {
-            // selector.add(Criteria.matchIPProtocol(fiveTuple.protocol()));
+            selector.add(Criteria.matchIPProtocol(fiveTuple.protocol()));
         }
 
         if (((flowClassifier.etherType() != null) && (!flowClassifier.etherType().isEmpty()))
@@ -735,11 +739,10 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
      * Pack traffic treatment.
      *
      * @param deviceId device id
+     * @param virtualPort virtual port
      * @param port port number
-     * @param nshDstPort vxlan tunnel port for nsh header
      * @param nshSpi nsh spi
      * @param flowClassifier flow-classifier
-     * @param isSameOvs whether the next service function is in same ovs
      * @return traffic treatment
      */
     public TrafficTreatment.Builder packClassifierTreatment(DeviceId deviceId, VirtualPort virtualPort,
@@ -872,5 +875,15 @@ public class SfcFlowRuleInstallerImpl implements SfcFlowRuleInstallerService {
             log.debug("flowClassifierRules-->REMOVE");
             flowObjectiveService.forward(deviceId, objective.remove());
         }
+    }
+
+    private PortNumber getVxlanPortNumber(DeviceId deviceId) {
+        Iterable<Port> ports = deviceService.getPorts(deviceId);
+        Port vxlanPort = Sets.newHashSet(ports).stream()
+                .filter(p ->!p.number().equals(PortNumber.LOCAL))
+                .filter(p ->p.annotations().value(AnnotationKeys.PORT_NAME)
+                        .startsWith(VXLANPORT_HEAD))
+                        .findFirst().get();
+        return vxlanPort.number();
     }
 }

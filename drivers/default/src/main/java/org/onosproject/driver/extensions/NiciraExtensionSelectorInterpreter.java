@@ -16,7 +16,6 @@
 
 package org.onosproject.driver.extensions;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.onosproject.codec.CodecContext;
 import org.onosproject.net.NshServiceIndex;
 import org.onosproject.net.NshServicePathId;
@@ -35,12 +34,14 @@ import org.projectfloodlight.openflow.types.U16;
 import org.projectfloodlight.openflow.types.U32;
 import org.projectfloodlight.openflow.types.U8;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 /**
  * Interpreter for Nicira OpenFlow selector extensions.
  */
 public class NiciraExtensionSelectorInterpreter
-        extends AbstractHandlerBehaviour
-        implements ExtensionSelectorInterpreter, ExtensionSelectorResolver {
+extends AbstractHandlerBehaviour
+implements ExtensionSelectorInterpreter, ExtensionSelectorResolver {
 
     @Override
     public boolean supported(ExtensionSelectorType extensionSelectorType) {
@@ -63,7 +64,7 @@ public class NiciraExtensionSelectorInterpreter
             return true;
         }
         if (extensionSelectorType.equals(ExtensionSelectorType.ExtensionSelectorTypes.NICIRA_MATCH_ENCAP_ETH_TYPE
-                                         .type())) {
+                .type())) {
             return true;
         }
         return false;
@@ -72,6 +73,7 @@ public class NiciraExtensionSelectorInterpreter
     @Override
     public OFOxm<?> mapSelector(OFFactory factory, ExtensionSelector extensionSelector) {
         ExtensionSelectorType type = extensionSelector.type();
+
         if (type.equals(ExtensionSelectorType.ExtensionSelectorTypes.NICIRA_MATCH_NSH_SPI.type())) {
             NiciraMatchNshSpi niciraNshSpi = (NiciraMatchNshSpi) extensionSelector;
             return factory.oxms().nsp(U32.of(niciraNshSpi.nshSpi().servicePathId()));

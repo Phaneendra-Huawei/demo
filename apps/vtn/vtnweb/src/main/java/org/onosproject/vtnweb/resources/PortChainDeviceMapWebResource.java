@@ -20,6 +20,7 @@ import static org.onlab.util.Tools.nullIsNotFound;
 
 import java.util.Set;
 
+import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -62,6 +63,7 @@ public class PortChainDeviceMapWebResource extends AbstractWebResource {
     @GET
     @Path("{chain_id}")
     @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(MediaType.APPLICATION_JSON)
     public Response getPortChainDeviceMap(@PathParam("chain_id") String id) {
 
         PortChain portChain = nullIsNotFound(get(PortChainService.class).getPortChain(PortChainId.of(id)),
