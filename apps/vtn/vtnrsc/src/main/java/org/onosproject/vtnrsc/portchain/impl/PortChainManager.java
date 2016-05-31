@@ -128,10 +128,6 @@ public class PortChainManager extends AbstractListenerManager<PortChainEvent, Po
     public boolean createPortChain(PortChain portChain) {
         checkNotNull(portChain, PORT_CHAIN_NULL);
 
-        if (portChainStore.containsKey(portChain.portChainId())) {
-            portChainStore.remove(portChain.portChainId());
-        }
-
         portChainStore.put(portChain.portChainId(), portChain);
         if (!portChainStore.containsKey(portChain.portChainId())) {
             log.error("The portChain created is failed which identifier was {}", portChain.portChainId()
@@ -144,18 +140,20 @@ public class PortChainManager extends AbstractListenerManager<PortChainEvent, Po
     @Override
     public boolean updatePortChain(PortChain portChain) {
         checkNotNull(portChain, PORT_CHAIN_NULL);
-
+        PortChain oldPortChain = null;
         if (!portChainStore.containsKey(portChain.portChainId())) {
-            log.debug("The portChain is not exist whose identifier was {} ",
-                      portChain.portChainId().toString());
+            log.warn("The portChain is not exist whose identifier was {} ",
+                     portChain.portChainId().toString());
+            return false;
         } else {
-            portChainStore.remove(portChain.portChainId());
+            oldPortChain = portChainStore.get(portChain.portChainId());
         }
-        portChainStore.put(portChain.portChainId(), portChain);
+        PortChain newPortChain = DefaultPortChain.create(portChain, oldPortChain);
+        portChainStore.put(newPortChain.portChainId(), newPortChain);
 
-        if (!portChain.equals(portChainStore.get(portChain.portChainId()))) {
+        if (!newPortChain.equals(portChainStore.get(newPortChain.portChainId()))) {
             log.debug("The portChain is updated failed whose identifier was {} ",
-                      portChain.portChainId().toString());
+                      newPortChain.portChainId().toString());
             return false;
         }
         return true;

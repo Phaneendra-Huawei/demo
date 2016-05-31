@@ -207,10 +207,14 @@ public class SfcManager implements SfcService {
                 onFlowClassifierCreated(flowClassifier);
             } else if (VtnRscEvent.Type.PORT_CHAIN_PUT == event.type()) {
                 PortChain portChain = event.subject().portChain();
+                if (portChain.oldPortChain() != null) {
+                    onPortChainDeleted(portChain.oldPortChain());
+                }
                 onPortChainCreated(portChain);
             } else if (VtnRscEvent.Type.PORT_CHAIN_DELETE == event.type()) {
                 PortChain portChain = event.subject().portChain();
                 onPortChainDeleted(portChain);
+                portChainFiveTupleMap.remove(portChain.portChainId());
             } else if (VtnRscEvent.Type.PORT_CHAIN_UPDATE == event.type()) {
                 PortChain portChain = event.subject().portChain();
                 onPortChainDeleted(portChain);

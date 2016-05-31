@@ -71,6 +71,13 @@ public interface PortChain {
     List<FlowClassifierId> flowClassifiers();
 
     /**
+     * Returns the old port chain.
+     *
+     * @return old port chain
+     */
+    PortChain oldPortChain();
+
+    /**
      * Adds a new load balanced path.
      *
      * @param fiveTuple five tuple from the packet

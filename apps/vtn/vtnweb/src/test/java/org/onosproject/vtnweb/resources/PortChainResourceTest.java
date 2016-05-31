@@ -204,6 +204,11 @@ public class PortChainResourceTest extends VtnResourceTest {
         public Set<LoadBalanceId> getLoadBalancePathMapKeys() {
             return null;
         }
+
+        @Override
+        public PortChain oldPortChain() {
+            return null;
+        }
     }
 
     /**

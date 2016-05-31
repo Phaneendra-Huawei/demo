@@ -207,6 +207,11 @@ public class PortChainDeviceMapResourceTest extends VtnResourceTest {
             set.add(id);
             return set;
         }
+
+        @Override
+        public PortChain oldPortChain() {
+            return null;
+        }
     }
 
     /**
